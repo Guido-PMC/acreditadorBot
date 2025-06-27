@@ -45,6 +45,22 @@ class Database {
     const client = await this.pool.connect();
     
     try {
+      // Tabla de clientes
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS clientes (
+          id SERIAL PRIMARY KEY,
+          nombre VARCHAR(200) NOT NULL,
+          apellido VARCHAR(200),
+          email VARCHAR(200),
+          telefono VARCHAR(20),
+          cuit VARCHAR(20) UNIQUE,
+          direccion TEXT,
+          fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          estado VARCHAR(20) DEFAULT 'activo',
+          observaciones TEXT
+        )
+      `);
+
       // Tabla de acreditaciones bancarias
       await client.query(`
         CREATE TABLE IF NOT EXISTS acreditaciones (
@@ -73,7 +89,8 @@ class Database {
           cotejado BOOLEAN DEFAULT FALSE,
           id_comprobante_whatsapp VARCHAR(50),
           fecha_cotejo TIMESTAMP,
-          observaciones TEXT
+          observaciones TEXT,
+          id_cliente INTEGER REFERENCES clientes(id)
         )
       `);
 
@@ -94,7 +111,8 @@ class Database {
           cotejado BOOLEAN DEFAULT FALSE,
           id_acreditacion VARCHAR(50),
           fecha_cotejo TIMESTAMP,
-          observaciones TEXT
+          observaciones TEXT,
+          id_cliente INTEGER REFERENCES clientes(id)
         )
       `);
 
@@ -118,8 +136,12 @@ class Database {
         CREATE INDEX IF NOT EXISTS idx_acreditaciones_importe ON acreditaciones(importe);
         CREATE INDEX IF NOT EXISTS idx_acreditaciones_estado ON acreditaciones(estado);
         CREATE INDEX IF NOT EXISTS idx_acreditaciones_fuente ON acreditaciones(fuente);
+        CREATE INDEX IF NOT EXISTS idx_acreditaciones_cliente ON acreditaciones(id_cliente);
         CREATE INDEX IF NOT EXISTS idx_comprobantes_fecha ON comprobantes_whatsapp(fecha_envio);
         CREATE INDEX IF NOT EXISTS idx_comprobantes_telefono ON comprobantes_whatsapp(numero_telefono);
+        CREATE INDEX IF NOT EXISTS idx_comprobantes_cliente ON comprobantes_whatsapp(id_cliente);
+        CREATE INDEX IF NOT EXISTS idx_clientes_cuit ON clientes(cuit);
+        CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes(nombre);
         CREATE INDEX IF NOT EXISTS idx_logs_fecha ON logs_procesamiento(fecha);
       `);
 
