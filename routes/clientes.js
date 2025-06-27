@@ -3,8 +3,11 @@ const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
 const router = express.Router();
 
+console.log('Cargando rutas de clientes...');
+
 // GET /api/clientes - Obtener clientes
 router.get('/clientes', async (req, res) => {
+  console.log('GET /api/clientes - Iniciando...');
   const client = await db.getClient();
   
   try {
@@ -14,6 +17,8 @@ router.get('/clientes', async (req, res) => {
       search,
       estado = 'activo'
     } = req.query;
+
+    console.log('Parámetros recibidos:', { page, limit, search, estado });
 
     let whereConditions = ['c.estado = $1'];
     let params = [estado];
@@ -34,11 +39,13 @@ router.get('/clientes', async (req, res) => {
     const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
     const offset = (page - 1) * limit;
 
+    console.log('Ejecutando query de conteo...');
     // Query para contar total
     const countQuery = `SELECT COUNT(*) FROM clientes c ${whereClause}`;
     const countResult = await client.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
 
+    console.log('Ejecutando query de datos...');
     // Query para obtener datos
     const dataQuery = `
       SELECT 
@@ -57,6 +64,7 @@ router.get('/clientes', async (req, res) => {
     params.push(parseInt(limit), offset);
     const dataResult = await client.query(dataQuery, params);
 
+    console.log(`Respuesta exitosa: ${dataResult.rows.length} clientes encontrados`);
     res.json({
       success: true,
       data: dataResult.rows,

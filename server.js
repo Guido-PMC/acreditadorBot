@@ -14,6 +14,12 @@ const clientesRoutes = require('./routes/clientes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Middleware de logging para debug
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 // Configuración de seguridad con CSP personalizado
 app.use(helmet({
   contentSecurityPolicy: {
@@ -48,10 +54,15 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas
+console.log('Configurando rutas...');
 app.use('/api', apiRoutes);
+console.log('Rutas API configuradas');
 app.use('/api', clientesRoutes);
+console.log('Rutas de clientes configuradas');
 app.use('/upload', uploadRoutes);
+console.log('Rutas de upload configuradas');
 app.use('/', webRoutes);
+console.log('Rutas web configuradas');
 
 // Ruta de health check para Railway
 app.get('/health', (req, res) => {
