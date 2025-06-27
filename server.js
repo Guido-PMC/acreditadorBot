@@ -15,7 +15,8 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware de logging para debug
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log(`📨 ${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log(`🌐 IP: ${req.ip}, User-Agent: ${req.get('User-Agent')}`);
   next();
 });
 
@@ -63,7 +64,11 @@ console.log('Rutas web configuradas');
 
 // Ruta de health check para Railway
 app.get('/health', (req, res) => {
-  console.log('Healthcheck solicitado');
+  console.log('🏥 Healthcheck solicitado');
+  console.log('📊 Timestamp del request:', new Date().toISOString());
+  console.log('🌐 IP del cliente:', req.ip);
+  console.log('👤 User-Agent:', req.get('User-Agent'));
+  
   try {
     const healthData = {
       status: 'OK',
@@ -72,10 +77,10 @@ app.get('/health', (req, res) => {
       uptime: process.uptime(),
       memory: process.memoryUsage()
     };
-    console.log('Healthcheck exitoso:', healthData);
+    console.log('✅ Healthcheck exitoso:', healthData);
     res.status(200).json(healthData);
   } catch (error) {
-    console.error('Error en healthcheck:', error);
+    console.error('❌ Error en healthcheck:', error);
     res.status(500).json({
       status: 'ERROR',
       timestamp: new Date().toISOString(),
@@ -101,6 +106,8 @@ app.use('*', (req, res) => {
 // Inicializar base de datos y servidor
 async function startServer() {
   try {
+    console.log('=== INICIO DEL DEPLOY ===');
+    console.log('Timestamp:', new Date().toISOString());
     console.log('Iniciando servidor...');
     console.log(`Puerto configurado: ${PORT}`);
     console.log(`Variables de entorno:`, {
@@ -109,26 +116,37 @@ async function startServer() {
       DATABASE_URL: process.env.DATABASE_URL ? 'Configurado' : 'No configurado'
     });
     
+    console.log('Conectando a la base de datos...');
     await db.connect();
-    console.log('Base de datos conectada');
+    console.log('✅ Base de datos conectada exitosamente');
     
+    console.log('Iniciando servidor HTTP...');
     const server = app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Servidor corriendo en puerto ${PORT}`);
-      console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
-      console.log('Servidor listo para recibir requests');
+      console.log('✅ Servidor HTTP iniciado exitosamente');
+      console.log(`📡 Servidor corriendo en puerto ${PORT}`);
+      console.log(`🌍 Escuchando en 0.0.0.0:${PORT}`);
+      console.log(`🔧 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+      console.log('🚀 Servidor listo para recibir requests');
+      console.log('=== DEPLOY COMPLETADO ===');
     });
 
     // Agregar manejo de errores del servidor
     server.on('error', (error) => {
-      console.error('Error en el servidor:', error);
+      console.error('❌ Error en el servidor:', error);
       if (error.code === 'EADDRINUSE') {
-        console.error(`Puerto ${PORT} ya está en uso`);
+        console.error(`❌ Puerto ${PORT} ya está en uso`);
       }
       process.exit(1);
     });
 
+    // Log cuando el servidor se cierra
+    server.on('close', () => {
+      console.log('🔌 Servidor cerrado');
+    });
+
   } catch (error) {
-    console.error('Error al iniciar el servidor:', error);
+    console.error('❌ Error al iniciar el servidor:', error);
+    console.error('Stack trace:', error.stack);
     process.exit(1);
   }
 }
