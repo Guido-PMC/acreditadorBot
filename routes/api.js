@@ -3,6 +3,76 @@ const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
 const router = express.Router();
 
+// Funciones de normalización y matching inteligente
+function normalizeName(name) {
+  if (!name) return '';
+  
+  // Convertir a minúsculas y remover caracteres especiales
+  let normalized = name.toLowerCase()
+    .replace(/[áäâà]/g, 'a')
+    .replace(/[éëêè]/g, 'e')
+    .replace(/[íïîì]/g, 'i')
+    .replace(/[óöôò]/g, 'o')
+    .replace(/[úüûù]/g, 'u')
+    .replace(/[ñ]/g, 'n')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // Ordenar palabras alfabéticamente para manejar diferentes órdenes
+  const words = normalized.split(' ').filter(word => word.length > 0);
+  return words.sort().join(' ');
+}
+
+function normalizeCUIT(cuit) {
+  if (!cuit) return '';
+  
+  // Remover todos los caracteres no numéricos
+  let normalized = cuit.replace(/[^0-9]/g, '');
+  
+  // Si tiene 8 dígitos, agregar el prefijo 20
+  if (normalized.length === 8) {
+    normalized = '20' + normalized;
+  }
+  
+  // Si tiene 9 dígitos, agregar el prefijo 2
+  if (normalized.length === 9) {
+    normalized = '2' + normalized;
+  }
+  
+  return normalized;
+}
+
+function namesMatch(name1, name2, threshold = 0.8) {
+  if (!name1 || !name2) return false;
+  
+  const normalized1 = normalizeName(name1);
+  const normalized2 = normalizeName(name2);
+  
+  // Coincidencia exacta después de normalización
+  if (normalized1 === normalized2) return true;
+  
+  // Coincidencia parcial (al menos 80% de las palabras coinciden)
+  const words1 = normalized1.split(' ');
+  const words2 = normalized2.split(' ');
+  
+  if (words1.length === 0 || words2.length === 0) return false;
+  
+  const commonWords = words1.filter(word => words2.includes(word));
+  const similarity = commonWords.length / Math.max(words1.length, words2.length);
+  
+  return similarity >= threshold;
+}
+
+function cuitsMatch(cuit1, cuit2) {
+  if (!cuit1 || !cuit2) return false;
+  
+  const normalized1 = normalizeCUIT(cuit1);
+  const normalized2 = normalizeCUIT(cuit2);
+  
+  return normalized1 === normalized2;
+}
+
 // Middleware para validar errores de validación
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
@@ -2097,55 +2167,101 @@ router.post('/comprobantes/whatsapp', [
     const fecha_desde = new Date(fecha_envio_obj.getTime() - 24 * 60 * 60 * 1000); // 1 día antes
     const fecha_hasta = new Date(fecha_envio_obj.getTime() + 24 * 60 * 60 * 1000); // 1 día después
 
-    console.log('🔍 Buscando acreditación coincidente...');
+    console.log('🔍 Buscando acreditación coincidente con matching inteligente...');
 
-    // Construir condiciones de búsqueda dinámicamente
-    let whereConditions = [
-      'importe = $1',
-      'fecha_hora BETWEEN $2 AND $3',
-      'cotejado = false',
-      'id_comprobante_whatsapp IS NULL'
-    ];
-    
-    let params = [
-      parseFloat(monto),
-      fecha_desde,
-      fecha_hasta
-    ];
-    
-    let paramIndex = 4;
-    
-    // Agregar condición de búsqueda por nombre o CUIT
-    if (cuit_limpio && cuit_limpio.trim()) {
-      whereConditions.push(`(titular ILIKE $${paramIndex} OR cuit = $${paramIndex + 1})`);
-      params.push(`%${nombre_remitente}%`, cuit_limpio.trim());
-      paramIndex += 2;
-    } else {
-      whereConditions.push(`(titular ILIKE $${paramIndex} OR cuit = $${paramIndex + 1})`);
-      params.push(`%${nombre_remitente}%`, nombre_remitente);
-      paramIndex += 2;
-    }
-    
-    params.push(fecha_envio_obj);
-
-    const acreditacionCoincidente = await client.query(`
+    // Buscar acreditaciones por importe y fecha primero
+    const acreditacionesCandidatas = await client.query(`
       SELECT id, titular, cuit, importe, fecha_hora, cotejado
       FROM acreditaciones 
-      WHERE ${whereConditions.join(' AND ')}
-      ORDER BY ABS(EXTRACT(EPOCH FROM (fecha_hora - $${paramIndex}))) ASC
-      LIMIT 1
-    `, params);
+      WHERE importe = $1 
+        AND fecha_hora BETWEEN $2 AND $3
+        AND cotejado = false
+        AND id_comprobante_whatsapp IS NULL
+      ORDER BY ABS(EXTRACT(EPOCH FROM (fecha_hora - $4))) ASC
+      LIMIT 10
+    `, [
+      parseFloat(monto),
+      fecha_desde,
+      fecha_hasta,
+      fecha_envio_obj
+    ]);
 
     let acreditacion_id = null;
     let acreditacion_encontrada = false;
+    let mejor_coincidencia = null;
+    let mejor_score = 0;
 
-    if (acreditacionCoincidente.rows.length > 0) {
-      acreditacion_id = acreditacionCoincidente.rows[0].id;
-      acreditacion_encontrada = true;
-      
-      console.log('💰 Acreditación coincidente encontrada:', acreditacionCoincidente.rows[0]);
+    // Evaluar cada acreditación candidata con matching inteligente
+    for (const acreditacion of acreditacionesCandidatas.rows) {
+      let score = 0;
+      let coincidencias = [];
+
+      // Coincidencia de importe (ya filtrado, score base)
+      score += 30;
+      coincidencias.push('importe');
+
+      // Coincidencia de fecha (más cercana = mejor score)
+      const diffHoras = Math.abs(acreditacion.fecha_hora - fecha_envio_obj) / (1000 * 60 * 60);
+      if (diffHoras <= 1) {
+        score += 25;
+        coincidencias.push('fecha_exacta');
+      } else if (diffHoras <= 6) {
+        score += 20;
+        coincidencias.push('fecha_cercana');
+      } else if (diffHoras <= 12) {
+        score += 15;
+        coincidencias.push('fecha_media');
+      } else {
+        score += 10;
+        coincidencias.push('fecha_lejana');
+      }
+
+      // Coincidencia de nombre
+      if (namesMatch(nombre_remitente, acreditacion.titular)) {
+        score += 25;
+        coincidencias.push('nombre_exacto');
+      } else if (namesMatch(nombre_remitente, acreditacion.titular, 0.6)) {
+        score += 15;
+        coincidencias.push('nombre_parcial');
+      }
+
+      // Coincidencia de CUIT
+      if (cuit_limpio && acreditacion.cuit && cuitsMatch(cuit_limpio, acreditacion.cuit)) {
+        score += 20;
+        coincidencias.push('cuit_exacto');
+      }
+
+      console.log(`📊 Evaluando acreditación ${acreditacion.id}:`, {
+        titular: acreditacion.titular,
+        cuit: acreditacion.cuit,
+        score,
+        coincidencias,
+        diffHoras: Math.round(diffHoras * 100) / 100
+      });
+
+      // Actualizar mejor coincidencia si el score es mayor
+      if (score > mejor_score) {
+        mejor_score = score;
+        mejor_coincidencia = acreditacion;
+        acreditacion_id = acreditacion.id;
+        acreditacion_encontrada = true;
+      }
+    }
+
+    // Solo considerar como coincidencia si el score es suficientemente alto
+    if (mejor_score >= 50) { // Mínimo 50 puntos para considerar coincidencia
+      console.log('💰 Acreditación coincidente encontrada con matching inteligente:', {
+        acreditacion: mejor_coincidencia,
+        score: mejor_score,
+        coincidencias: mejor_coincidencia ? ['importe', 'fecha_cercana', 'nombre_exacto'] : []
+      });
     } else {
-      console.log('❌ No se encontró acreditación coincidente');
+      console.log('❌ No se encontró acreditación con score suficiente:', {
+        mejor_score,
+        umbral: 50
+      });
+      acreditacion_id = null;
+      acreditacion_encontrada = false;
     }
 
     // Insertar comprobante
