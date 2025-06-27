@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asignación Manual - AcreditadorBot</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .assignment-container {
+      height: 70vh;
+      overflow-y: auto;
+    }
+    .card-header {
+      background-color: #f8f9fa;
+      font-weight: bold;
+    }
+    .match-highlight {
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+    }
+    .no-match {
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">AcreditadorBot</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item"><a class="nav-link" href="/dashboard.html">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="/clientes.html">Clientes</a></li>
+          <li class="nav-item"><a class="nav-link active" href="/asignacion.html">Asignación</a></li>
+          <li class="nav-item"><a class="nav-link" href="/upload.html">Subir CSV</a></li>
+          <li class="nav-item"><a class="nav-link" href="/logs.html">Logs</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1>Asignación Manual de Comprobantes</h1>
+      <div>
+        <button class="btn btn-outline-primary me-2" onclick="loadComprobantes()">Comprobantes Sin Asignar</button>
+        <button class="btn btn-outline-success" onclick="loadAcreditaciones()">Acreditaciones Sin Comprobante</button>
+      </div>
+    </div>
+
+    <div id="alertContainer"></div>
+
+    <!-- Filtros -->
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <input type="text" id="searchInput" class="form-control" placeholder="Buscar..." oninput="applyFilters()">
+      </div>
+      <div class="col-md-2">
+        <input type="number" id="importeMin" class="form-control" placeholder="Importe mínimo" oninput="applyFilters()">
+      </div>
+      <div class="col-md-2">
+        <input type="number" id="importeMax" class="form-control" placeholder="Importe máximo" oninput="applyFilters()">
+      </div>
+      <div class="col-md-2">
+        <input type="date" id="fechaDesde" class="form-control" oninput="applyFilters()">
+      </div>
+      <div class="col-md-2">
+        <input type="date" id="fechaHasta" class="form-control" oninput="applyFilters()">
+      </div>
+      <div class="col-md-1">
+        <button class="btn btn-secondary" onclick="clearFilters()">Limpiar</button>
+      </div>
+    </div>
+
+    <!-- Vista lado a lado -->
+    <div class="row">
+      <!-- Comprobantes -->
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Comprobantes de WhatsApp</span>
+            <span class="badge bg-primary" id="comprobantesCount">0</span>
+          </div>
+          <div class="card-body assignment-container" id="comprobantesContainer">
+            <div class="text-center text-muted">Selecciona "Comprobantes Sin Asignar" para cargar</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Acreditaciones -->
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Acreditaciones Bancarias</span>
+            <span class="badge bg-success" id="acreditacionesCount">0</span>
+          </div>
+          <div class="card-body assignment-container" id="acreditacionesContainer">
+            <div class="text-center text-muted">Selecciona "Acreditaciones Sin Comprobante" para cargar</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paginación -->
+    <div class="row mt-3">
+      <div class="col-md-6">
+        <nav>
+          <ul class="pagination" id="comprobantesPagination"></ul>
+        </nav>
+      </div>
+      <div class="col-md-6">
+        <nav>
+          <ul class="pagination" id="acreditacionesPagination"></ul>
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmación -->
+  <div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Confirmar Asignación</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="confirmModalBody">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="confirmAssignBtn">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let currentComprobante = null;
+    let currentAcreditacion = null;
+    let comprobantesPage = 1;
+    let acreditacionesPage = 1;
+
+    function showAlert(type, message) {
+      document.getElementById('alertContainer').innerHTML = 
+        `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>`;
+    }
+
+    async function loadComprobantes(page = 1) {
+      comprobantesPage = page;
+      const filters = getFilters();
+      const url = `/api/comprobantes/sin-acreditacion?page=${page}&limit=10${filters}`;
+      
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (!data.success) {
+          showAlert('danger', data.error || 'Error al cargar comprobantes');
+          return;
+        }
+        
+        renderComprobantes(data.data);
+        renderComprobantesPagination(data.pagination);
+        document.getElementById('comprobantesCount').textContent = data.pagination.total;
+      } catch (error) {
+        showAlert('danger', 'Error al cargar comprobantes');
+      }
+    }
+
+    async function loadAcreditaciones(page = 1) {
+      acreditacionesPage = page;
+      const filters = getFilters();
+      const url = `/api/acreditaciones/sin-comprobante?page=${page}&limit=10${filters}`;
+      
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (!data.success) {
+          showAlert('danger', data.error || 'Error al cargar acreditaciones');
+          return;
+        }
+        
+        renderAcreditaciones(data.data);
+        renderAcreditacionesPagination(data.pagination);
+        document.getElementById('acreditacionesCount').textContent = data.pagination.total;
+      } catch (error) {
+        showAlert('danger', 'Error al cargar acreditaciones');
+      }
+    }
+
+    function renderComprobantes(comprobantes) {
+      const container = document.getElementById('comprobantesContainer');
+      container.innerHTML = '';
+      
+      comprobantes.forEach(comprobante => {
+        const card = document.createElement('div');
+        card.className = 'card mb-2 comprobante-card';
+        card.onclick = () => selectComprobante(comprobante);
+        card.innerHTML = `
+          <div class="card-body p-2">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <strong>${comprobante.nombre_remitente || 'Sin nombre'}</strong>
+                <br>
+                <small class="text-muted">${comprobante.numero_telefono || 'Sin teléfono'}</small>
+              </div>
+              <span class="badge bg-primary">$${comprobante.importe?.toLocaleString() || '0'}</span>
+            </div>
+            <div class="mt-1">
+              <small class="text-muted">${new Date(comprobante.fecha_envio).toLocaleDateString()}</small>
+            </div>
+            <div class="mt-1">
+              <small class="text-truncate d-block">${comprobante.texto_mensaje || 'Sin mensaje'}</small>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderAcreditaciones(acreditaciones) {
+      const container = document.getElementById('acreditacionesContainer');
+      container.innerHTML = '';
+      
+      acreditaciones.forEach(acreditacion => {
+        const card = document.createElement('div');
+        card.className = 'card mb-2 acreditacion-card';
+        card.onclick = () => selectAcreditacion(acreditacion);
+        card.innerHTML = `
+          <div class="card-body p-2">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <strong>${acreditacion.titular || 'Sin titular'}</strong>
+                <br>
+                <small class="text-muted">${acreditacion.cuit || 'Sin CUIT'}</small>
+              </div>
+              <span class="badge bg-success">$${acreditacion.importe?.toLocaleString() || '0'}</span>
+            </div>
+            <div class="mt-1">
+              <small class="text-muted">${new Date(acreditacion.fecha_hora).toLocaleDateString()}</small>
+            </div>
+            <div class="mt-1">
+              <small class="text-truncate d-block">${acreditacion.concepto || 'Sin concepto'}</small>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function selectComprobante(comprobante) {
+      // Remover selección anterior
+      document.querySelectorAll('.comprobante-card').forEach(card => {
+        card.classList.remove('border-primary');
+      });
+      
+      // Seleccionar actual
+      event.currentTarget.classList.add('border-primary');
+      currentComprobante = comprobante;
+      
+      // Verificar si hay acreditación seleccionada
+      if (currentAcreditacion) {
+        checkMatch();
+      }
+    }
+
+    function selectAcreditacion(acreditacion) {
+      // Remover selección anterior
+      document.querySelectorAll('.acreditacion-card').forEach(card => {
+        card.classList.remove('border-success');
+      });
+      
+      // Seleccionar actual
+      event.currentTarget.classList.add('border-success');
+      currentAcreditacion = acreditacion;
+      
+      // Verificar si hay comprobante seleccionado
+      if (currentComprobante) {
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      if (!currentComprobante || !currentAcreditacion) return;
+      
+      const importeMatch = Math.abs(currentComprobante.importe - currentAcreditacion.importe) < 0.01;
+      const fechaMatch = Math.abs(new Date(currentComprobante.fecha_envio) - new Date(currentAcreditacion.fecha_hora)) < 24 * 60 * 60 * 1000; // 1 día
+      
+      if (importeMatch && fechaMatch) {
+        showAlert('success', '¡Coincidencia encontrada! Los importes y fechas coinciden.');
+        showAssignButton();
+      } else if (importeMatch) {
+        showAlert('warning', 'Importes coinciden pero las fechas no. Verificar antes de asignar.');
+        showAssignButton();
+      } else {
+        showAlert('danger', 'No hay coincidencia. Los importes no coinciden.');
+        hideAssignButton();
+      }
+    }
+
+    function showAssignButton() {
+      const button = document.createElement('button');
+      button.className = 'btn btn-primary mt-3';
+      button.textContent = 'Asignar Comprobante a Acreditación';
+      button.onclick = () => confirmAssignment();
+      
+      const container = document.getElementById('alertContainer');
+      container.appendChild(button);
+    }
+
+    function hideAssignButton() {
+      const button = document.querySelector('#alertContainer .btn');
+      if (button) button.remove();
+    }
+
+    function confirmAssignment() {
+      if (!currentComprobante || !currentAcreditacion) return;
+      
+      const modalBody = document.getElementById('confirmModalBody');
+      modalBody.innerHTML = `
+        <p>¿Estás seguro de que quieres asignar este comprobante a esta acreditación?</p>
+        <div class="row">
+          <div class="col-md-6">
+            <strong>Comprobante:</strong><br>
+            ${currentComprobante.nombre_remitente}<br>
+            $${currentComprobante.importe}<br>
+            ${new Date(currentComprobante.fecha_envio).toLocaleDateString()}
+          </div>
+          <div class="col-md-6">
+            <strong>Acreditación:</strong><br>
+            ${currentAcreditacion.titular}<br>
+            $${currentAcreditacion.importe}<br>
+            ${new Date(currentAcreditacion.fecha_hora).toLocaleDateString()}
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('confirmAssignBtn').onclick = assignComprobante;
+      new bootstrap.Modal(document.getElementById('confirmModal')).show();
+    }
+
+    async function assignComprobante() {
+      try {
+        const res = await fetch(`/api/comprobantes/${currentComprobante.id}/asignar`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_acreditacion: currentAcreditacion.id })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          showAlert('success', data.message);
+          bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+          
+          // Recargar datos
+          loadComprobantes(comprobantesPage);
+          loadAcreditaciones(acreditacionesPage);
+          
+          // Limpiar selecciones
+          currentComprobante = null;
+          currentAcreditacion = null;
+          hideAssignButton();
+        } else {
+          showAlert('danger', data.error || data.message);
+        }
+      } catch (error) {
+        showAlert('danger', 'Error al asignar comprobante');
+      }
+    }
+
+    function getFilters() {
+      const search = document.getElementById('searchInput').value;
+      const importeMin = document.getElementById('importeMin').value;
+      const importeMax = document.getElementById('importeMax').value;
+      const fechaDesde = document.getElementById('fechaDesde').value;
+      const fechaHasta = document.getElementById('fechaHasta').value;
+      
+      let filters = '';
+      if (search) filters += `&search=${encodeURIComponent(search)}`;
+      if (importeMin) filters += `&importe_min=${importeMin}`;
+      if (importeMax) filters += `&importe_max=${importeMax}`;
+      if (fechaDesde) filters += `&fecha_desde=${fechaDesde}`;
+      if (fechaHasta) filters += `&fecha_hasta=${fechaHasta}`;
+      
+      return filters;
+    }
+
+    function applyFilters() {
+      loadComprobantes(1);
+      loadAcreditaciones(1);
+    }
+
+    function clearFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('importeMin').value = '';
+      document.getElementById('importeMax').value = '';
+      document.getElementById('fechaDesde').value = '';
+      document.getElementById('fechaHasta').value = '';
+      applyFilters();
+    }
+
+    function renderComprobantesPagination(pagination) {
+      const ul = document.getElementById('comprobantesPagination');
+      ul.innerHTML = '';
+      
+      for (let i = 1; i <= pagination.pages; i++) {
+        ul.innerHTML += `
+          <li class="page-item${i === comprobantesPage ? ' active' : ''}">
+            <a class="page-link" href="#" onclick="loadComprobantes(${i})">${i}</a>
+          </li>
+        `;
+      }
+    }
+
+    function renderAcreditacionesPagination(pagination) {
+      const ul = document.getElementById('acreditacionesPagination');
+      ul.innerHTML = '';
+      
+      for (let i = 1; i <= pagination.pages; i++) {
+        ul.innerHTML += `
+          <li class="page-item${i === acreditacionesPage ? ' active' : ''}">
+            <a class="page-link" href="#" onclick="loadAcreditaciones(${i})">${i}</a>
+          </li>
+        `;
+      }
+    }
+
+    // Inicializar
+    loadComprobantes();
+    loadAcreditaciones();
+  </script>
+</body>
+</html> 

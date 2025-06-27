@@ -972,4 +972,373 @@ router.get('/clientes/:id/comprobantes', async (req, res) => {
   }
 });
 
+// PUT /api/comprobantes/:id/asignar - Asignar comprobante a acreditación
+router.put('/comprobantes/:id/asignar', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+    const { id_acreditacion } = req.body;
+
+    if (!id_acreditacion) {
+      return res.status(400).json({
+        error: 'ID de acreditación requerido',
+        message: 'Debe especificar el ID de la acreditación'
+      });
+    }
+
+    // Verificar que el comprobante existe
+    const comprobante = await client.query(
+      'SELECT * FROM comprobantes_whatsapp WHERE id = $1',
+      [id]
+    );
+
+    if (comprobante.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Comprobante no encontrado',
+        message: 'El comprobante especificado no existe'
+      });
+    }
+
+    // Verificar que la acreditación existe
+    const acreditacion = await client.query(
+      'SELECT * FROM acreditaciones WHERE id = $1',
+      [id_acreditacion]
+    );
+
+    if (acreditacion.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Acreditación no encontrada',
+        message: 'La acreditación especificada no existe'
+      });
+    }
+
+    // Verificar que la acreditación no esté ya asignada
+    const acreditacionAsignada = await client.query(
+      'SELECT id FROM comprobantes_whatsapp WHERE id_acreditacion = $1 AND id != $2',
+      [id_acreditacion, id]
+    );
+
+    if (acreditacionAsignada.rows.length > 0) {
+      return res.status(409).json({
+        error: 'Acreditación ya asignada',
+        message: 'Esta acreditación ya está asignada a otro comprobante'
+      });
+    }
+
+    // Actualizar el comprobante
+    await client.query(`
+      UPDATE comprobantes_whatsapp 
+      SET id_acreditacion = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `, [id_acreditacion, id]);
+
+    // Actualizar la acreditación
+    await client.query(`
+      UPDATE acreditaciones 
+      SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `, [comprobante.rows[0].id_comprobante, id_acreditacion]);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'comprobante_asignado',
+      `Comprobante ${comprobante.rows[0].id_comprobante} asignado a acreditación ${id_acreditacion}`,
+      JSON.stringify({ comprobante_id: id, acreditacion_id: id_acreditacion }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Comprobante asignado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error asignando comprobante:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo asignar el comprobante'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// PUT /api/comprobantes/:id/desasignar - Desasignar comprobante
+router.put('/comprobantes/:id/desasignar', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+
+    // Verificar que el comprobante existe y está asignado
+    const comprobante = await client.query(
+      'SELECT id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id = $1',
+      [id]
+    );
+
+    if (comprobante.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Comprobante no encontrado',
+        message: 'El comprobante especificado no existe'
+      });
+    }
+
+    if (!comprobante.rows[0].id_acreditacion) {
+      return res.status(400).json({
+        error: 'Comprobante no asignado',
+        message: 'Este comprobante no está asignado a ninguna acreditación'
+      });
+    }
+
+    const id_acreditacion = comprobante.rows[0].id_acreditacion;
+
+    // Desasignar el comprobante
+    await client.query(`
+      UPDATE comprobantes_whatsapp 
+      SET id_acreditacion = NULL, cotejado = false, fecha_cotejo = NULL
+      WHERE id = $1
+    `, [id]);
+
+    // Desasignar la acreditación
+    await client.query(`
+      UPDATE acreditaciones 
+      SET id_comprobante_whatsapp = NULL, cotejado = false, fecha_cotejo = NULL
+      WHERE id = $1
+    `, [id_acreditacion]);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'comprobante_desasignado',
+      `Comprobante ${comprobante.rows[0].id_comprobante} desasignado de acreditación ${id_acreditacion}`,
+      JSON.stringify({ comprobante_id: id, acreditacion_id: id_acreditacion }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Comprobante desasignado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error desasignando comprobante:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo desasignar el comprobante'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/acreditaciones/sin-comprobante - Obtener acreditaciones disponibles para asignación
+router.get('/acreditaciones/sin-comprobante', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { 
+      page = 1, 
+      limit = 50,
+      search,
+      importe_min,
+      importe_max,
+      fecha_desde,
+      fecha_hasta
+    } = req.query;
+
+    let whereConditions = ['a.id_comprobante_whatsapp IS NULL'];
+    let params = [];
+    let paramIndex = 1;
+
+    // Filtro de búsqueda
+    if (search) {
+      whereConditions.push(`(
+        a.titular ILIKE $${paramIndex} OR 
+        a.cuit ILIKE $${paramIndex} OR
+        a.concepto ILIKE $${paramIndex}
+      )`);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Filtro por importe
+    if (importe_min) {
+      whereConditions.push(`a.importe >= $${paramIndex}`);
+      params.push(parseFloat(importe_min));
+      paramIndex++;
+    }
+
+    if (importe_max) {
+      whereConditions.push(`a.importe <= $${paramIndex}`);
+      params.push(parseFloat(importe_max));
+      paramIndex++;
+    }
+
+    // Filtro por fecha
+    if (fecha_desde) {
+      whereConditions.push(`a.fecha_hora >= $${paramIndex}`);
+      params.push(fecha_desde);
+      paramIndex++;
+    }
+
+    if (fecha_hasta) {
+      whereConditions.push(`a.fecha_hora <= $${paramIndex}`);
+      params.push(fecha_hasta);
+      paramIndex++;
+    }
+
+    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+    const offset = (page - 1) * limit;
+
+    // Query para contar total
+    const countQuery = `SELECT COUNT(*) FROM acreditaciones a ${whereClause}`;
+    const countResult = await client.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count);
+
+    // Query para obtener datos
+    const dataQuery = `
+      SELECT 
+        a.*,
+        c.nombre as cliente_nombre,
+        c.apellido as cliente_apellido
+      FROM acreditaciones a
+      LEFT JOIN clientes c ON a.id_cliente = c.id
+      ${whereClause}
+      ORDER BY a.fecha_hora DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    
+    params.push(parseInt(limit), offset);
+    const dataResult = await client.query(dataQuery, params);
+
+    res.json({
+      success: true,
+      data: dataResult.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo acreditaciones sin comprobante:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron obtener las acreditaciones'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/comprobantes/sin-acreditacion - Obtener comprobantes disponibles para asignación
+router.get('/comprobantes/sin-acreditacion', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { 
+      page = 1, 
+      limit = 50,
+      search,
+      importe_min,
+      importe_max,
+      fecha_desde,
+      fecha_hasta
+    } = req.query;
+
+    let whereConditions = ['c.id_acreditacion IS NULL'];
+    let params = [];
+    let paramIndex = 1;
+
+    // Filtro de búsqueda
+    if (search) {
+      whereConditions.push(`(
+        c.nombre_remitente ILIKE $${paramIndex} OR 
+        c.numero_telefono ILIKE $${paramIndex} OR
+        c.texto_mensaje ILIKE $${paramIndex}
+      )`);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Filtro por importe
+    if (importe_min) {
+      whereConditions.push(`c.importe >= $${paramIndex}`);
+      params.push(parseFloat(importe_min));
+      paramIndex++;
+    }
+
+    if (importe_max) {
+      whereConditions.push(`c.importe <= $${paramIndex}`);
+      params.push(parseFloat(importe_max));
+      paramIndex++;
+    }
+
+    // Filtro por fecha
+    if (fecha_desde) {
+      whereConditions.push(`c.fecha_envio >= $${paramIndex}`);
+      params.push(fecha_desde);
+      paramIndex++;
+    }
+
+    if (fecha_hasta) {
+      whereConditions.push(`c.fecha_envio <= $${paramIndex}`);
+      params.push(fecha_hasta);
+      paramIndex++;
+    }
+
+    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+    const offset = (page - 1) * limit;
+
+    // Query para contar total
+    const countQuery = `SELECT COUNT(*) FROM comprobantes_whatsapp c ${whereClause}`;
+    const countResult = await client.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count);
+
+    // Query para obtener datos
+    const dataQuery = `
+      SELECT 
+        c.*,
+        cli.nombre as cliente_nombre,
+        cli.apellido as cliente_apellido
+      FROM comprobantes_whatsapp c
+      LEFT JOIN clientes cli ON c.id_cliente = cli.id
+      ${whereClause}
+      ORDER BY c.fecha_envio DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    
+    params.push(parseInt(limit), offset);
+    const dataResult = await client.query(dataQuery, params);
+
+    res.json({
+      success: true,
+      data: dataResult.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo comprobantes sin acreditación:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron obtener los comprobantes'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 
