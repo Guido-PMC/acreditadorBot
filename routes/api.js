@@ -149,6 +149,157 @@ router.post('/notification', validateNotification, async (req, res) => {
   }
 });
 
+// GET /api/acreditaciones/sin-comprobante - Obtener acreditaciones disponibles para asignación
+router.get('/acreditaciones/sin-comprobante', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    console.log('Iniciando consulta de acreditaciones sin comprobante...');
+    
+    const { 
+      page = 1, 
+      limit = 50,
+      search,
+      importe_min,
+      importe_max,
+      fecha_desde,
+      fecha_hasta
+    } = req.query;
+
+    console.log('Parámetros recibidos:', { page, limit, search, importe_min, importe_max, fecha_desde, fecha_hasta });
+
+    let whereConditions = ['a.id_comprobante_whatsapp IS NULL'];
+    let params = [];
+    let paramIndex = 1;
+
+    // Filtro de búsqueda
+    if (search) {
+      whereConditions.push(`(
+        a.titular ILIKE $${paramIndex} OR 
+        a.cuit ILIKE $${paramIndex} OR
+        a.concepto ILIKE $${paramIndex}
+      )`);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Filtro por importe
+    if (importe_min) {
+      whereConditions.push(`a.importe >= $${paramIndex}`);
+      params.push(parseFloat(importe_min));
+      paramIndex++;
+    }
+
+    if (importe_max) {
+      whereConditions.push(`a.importe <= $${paramIndex}`);
+      params.push(parseFloat(importe_max));
+      paramIndex++;
+    }
+
+    // Filtro por fecha
+    if (fecha_desde) {
+      whereConditions.push(`a.fecha_hora >= $${paramIndex}`);
+      params.push(fecha_desde);
+      paramIndex++;
+    }
+
+    if (fecha_hasta) {
+      whereConditions.push(`a.fecha_hora <= $${paramIndex}`);
+      params.push(fecha_hasta);
+      paramIndex++;
+    }
+
+    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+    const offset = (page - 1) * limit;
+
+    console.log('WHERE clause:', whereClause);
+    console.log('Parámetros:', params);
+
+    // Query para contar total
+    const countQuery = `SELECT COUNT(*) FROM acreditaciones a ${whereClause}`;
+    console.log('Count query:', countQuery);
+    
+    const countResult = await client.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count);
+    console.log('Total encontrado:', total);
+
+    // Query para obtener datos
+    const dataQuery = `
+      SELECT 
+        a.*,
+        c.nombre as cliente_nombre,
+        c.apellido as cliente_apellido
+      FROM acreditaciones a
+      LEFT JOIN clientes c ON a.id_cliente = c.id
+      ${whereClause}
+      ORDER BY a.fecha_hora DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    
+    params.push(parseInt(limit), offset);
+    console.log('Data query:', dataQuery);
+    console.log('Parámetros finales:', params);
+    
+    const dataResult = await client.query(dataQuery, params);
+    console.log('Datos obtenidos:', dataResult.rows.length);
+
+    res.json({
+      success: true,
+      data: dataResult.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo acreditaciones sin comprobante:', error);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron obtener las acreditaciones'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/acreditaciones/:id - Obtener acreditación específica
+router.get('/acreditaciones/:id', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+    
+    const result = await client.query(`
+      SELECT * FROM acreditaciones WHERE id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'No encontrado',
+        message: 'Acreditación no encontrada'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo acreditación:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo obtener la acreditación'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 // GET /api/acreditaciones - Obtener acreditaciones
 router.get('/acreditaciones', async (req, res) => {
   const client = await db.getClient();
@@ -251,40 +402,6 @@ router.get('/acreditaciones', async (req, res) => {
     res.status(500).json({
       error: 'Error interno del servidor',
       message: 'No se pudieron obtener las acreditaciones'
-    });
-  } finally {
-    client.release();
-  }
-});
-
-// GET /api/acreditaciones/:id - Obtener acreditación específica
-router.get('/acreditaciones/:id', async (req, res) => {
-  const client = await db.getClient();
-  
-  try {
-    const { id } = req.params;
-    
-    const result = await client.query(`
-      SELECT * FROM acreditaciones WHERE id = $1
-    `, [id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        error: 'No encontrado',
-        message: 'Acreditación no encontrada'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: result.rows[0]
-    });
-
-  } catch (error) {
-    console.error('Error obteniendo acreditación:', error);
-    res.status(500).json({
-      error: 'Error interno del servidor',
-      message: 'No se pudo obtener la acreditación'
     });
   } finally {
     client.release();
@@ -1131,123 +1248,6 @@ router.put('/comprobantes/:id/desasignar', async (req, res) => {
     res.status(500).json({
       error: 'Error interno del servidor',
       message: 'No se pudo desasignar el comprobante'
-    });
-  } finally {
-    client.release();
-  }
-});
-
-// GET /api/acreditaciones/sin-comprobante - Obtener acreditaciones disponibles para asignación
-router.get('/acreditaciones/sin-comprobante', async (req, res) => {
-  const client = await db.getClient();
-  
-  try {
-    console.log('Iniciando consulta de acreditaciones sin comprobante...');
-    
-    const { 
-      page = 1, 
-      limit = 50,
-      search,
-      importe_min,
-      importe_max,
-      fecha_desde,
-      fecha_hasta
-    } = req.query;
-
-    console.log('Parámetros recibidos:', { page, limit, search, importe_min, importe_max, fecha_desde, fecha_hasta });
-
-    let whereConditions = ['a.id_comprobante_whatsapp IS NULL'];
-    let params = [];
-    let paramIndex = 1;
-
-    // Filtro de búsqueda
-    if (search) {
-      whereConditions.push(`(
-        a.titular ILIKE $${paramIndex} OR 
-        a.cuit ILIKE $${paramIndex} OR
-        a.concepto ILIKE $${paramIndex}
-      )`);
-      params.push(`%${search}%`);
-      paramIndex++;
-    }
-
-    // Filtro por importe
-    if (importe_min) {
-      whereConditions.push(`a.importe >= $${paramIndex}`);
-      params.push(parseFloat(importe_min));
-      paramIndex++;
-    }
-
-    if (importe_max) {
-      whereConditions.push(`a.importe <= $${paramIndex}`);
-      params.push(parseFloat(importe_max));
-      paramIndex++;
-    }
-
-    // Filtro por fecha
-    if (fecha_desde) {
-      whereConditions.push(`a.fecha_hora >= $${paramIndex}`);
-      params.push(fecha_desde);
-      paramIndex++;
-    }
-
-    if (fecha_hasta) {
-      whereConditions.push(`a.fecha_hora <= $${paramIndex}`);
-      params.push(fecha_hasta);
-      paramIndex++;
-    }
-
-    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
-    const offset = (page - 1) * limit;
-
-    console.log('WHERE clause:', whereClause);
-    console.log('Parámetros:', params);
-
-    // Query para contar total
-    const countQuery = `SELECT COUNT(*) FROM acreditaciones a ${whereClause}`;
-    console.log('Count query:', countQuery);
-    
-    const countResult = await client.query(countQuery, params);
-    const total = parseInt(countResult.rows[0].count);
-    console.log('Total encontrado:', total);
-
-    // Query para obtener datos
-    const dataQuery = `
-      SELECT 
-        a.*,
-        c.nombre as cliente_nombre,
-        c.apellido as cliente_apellido
-      FROM acreditaciones a
-      LEFT JOIN clientes c ON a.id_cliente = c.id
-      ${whereClause}
-      ORDER BY a.fecha_hora DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `;
-    
-    params.push(parseInt(limit), offset);
-    console.log('Data query:', dataQuery);
-    console.log('Parámetros finales:', params);
-    
-    const dataResult = await client.query(dataQuery, params);
-    console.log('Datos obtenidos:', dataResult.rows.length);
-
-    res.json({
-      success: true,
-      data: dataResult.rows,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    });
-
-  } catch (error) {
-    console.error('Error obteniendo acreditaciones sin comprobante:', error);
-    console.error('Stack trace:', error.stack);
-    res.status(500).json({
-      error: 'Error interno del servidor',
-      message: 'No se pudieron obtener las acreditaciones'
     });
   } finally {
     client.release();
