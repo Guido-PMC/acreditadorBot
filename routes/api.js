@@ -2347,6 +2347,19 @@ router.post('/comprobantes/whatsapp', [
       fecha_envio_obj
     ]);
 
+    console.log(`📊 Acreditaciones candidatas encontradas: ${acreditacionesCandidatas.rows.length}`);
+    if (acreditacionesCandidatas.rows.length === 0) {
+      console.log('❌ No hay acreditaciones candidatas que coincidan con importe y fecha');
+      console.log(`   Importe buscado: $${monto}`);
+      console.log(`   Fecha desde: ${fecha_desde.toISOString()}`);
+      console.log(`   Fecha hasta: ${fecha_hasta.toISOString()}`);
+    } else {
+      console.log('📋 Acreditaciones candidatas:');
+      acreditacionesCandidatas.rows.forEach((acred, index) => {
+        console.log(`   ${index + 1}. ID: ${acred.id}, Titular: "${acred.titular}", CUIT: "${acred.cuit}", Importe: $${acred.importe}, Fecha: ${acred.fecha_hora}`);
+      });
+    }
+
     let acreditacion_id = null;
     let acreditacion_encontrada = false;
     let mejor_coincidencia = null;
@@ -2446,6 +2459,12 @@ router.post('/comprobantes/whatsapp', [
       acreditacion_id = null;
       acreditacion_encontrada = false;
     }
+
+    console.log('\n💾 Guardando comprobante en base de datos...');
+    console.log(`   acreditacion_encontrada: ${acreditacion_encontrada}`);
+    console.log(`   acreditacion_id: ${acreditacion_id}`);
+    console.log(`   cotejado: ${acreditacion_encontrada}`);
+    console.log(`   estado: ${acreditacion_encontrada ? 'cotejado' : 'pendiente'}`);
 
     // Insertar comprobante
     const comprobanteResult = await client.query(`
