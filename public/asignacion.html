@@ -252,15 +252,18 @@
               <div>
                 <strong>${acreditacion.titular || 'Sin titular'}</strong>
                 <br>
-                <small class="text-muted">${cleanCUIT(acreditacion.cuit) || 'Sin CUIT'}</small>
+                <small class="text-muted"><strong>CUIT:</strong> ${cleanCUIT(acreditacion.cuit) || 'Sin CUIT'}</small>
               </div>
               <span class="badge bg-success">$${acreditacion.importe?.toLocaleString() || '0'}</span>
             </div>
             <div class="mt-1">
-              <small class="text-muted">${new Date(acreditacion.fecha_hora).toLocaleDateString()}</small>
+              <small class="text-muted"><strong>Fecha y Hora:</strong> ${new Date(acreditacion.fecha_hora).toLocaleDateString()} ${new Date(acreditacion.fecha_hora).toLocaleTimeString()}</small>
             </div>
             <div class="mt-1">
-              <small class="text-truncate d-block">${acreditacion.concepto || 'Sin concepto'}</small>
+              <small class="text-muted"><strong>Concepto:</strong> ${acreditacion.concepto || 'Sin concepto'}</small>
+            </div>
+            <div class="mt-1">
+              <small class="text-muted"><strong>Monto:</strong> $${acreditacion.importe?.toLocaleString() || '0'}</small>
             </div>
           </div>
         `;
@@ -354,7 +357,7 @@
             <strong>Titular:</strong> ${currentAcreditacion.titular}<br>
             <strong>CUIT:</strong> ${cleanCUIT(currentAcreditacion.cuit) || 'Sin CUIT'}<br>
             <strong>Monto:</strong> $${currentAcreditacion.importe}<br>
-            <strong>Fecha:</strong> ${new Date(currentAcreditacion.fecha_hora).toLocaleDateString()}<br>
+            <strong>Fecha y Hora:</strong> ${new Date(currentAcreditacion.fecha_hora).toLocaleDateString()} ${new Date(currentAcreditacion.fecha_hora).toLocaleTimeString()}<br>
             <strong>Concepto:</strong> ${currentAcreditacion.concepto || 'Sin concepto'}
           </div>
         </div>
