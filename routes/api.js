@@ -1558,7 +1558,8 @@ router.get('/clientes/:id/resumen', async (req, res) => {
         COUNT(CASE WHEN cotejado = true THEN 1 END) as comprobantes_cotejados,
         COUNT(CASE WHEN cotejado = false THEN 1 END) as comprobantes_pendientes,
         COUNT(CASE WHEN id_acreditacion IS NOT NULL THEN 1 END) as comprobantes_asignados,
-        COUNT(CASE WHEN id_acreditacion IS NULL THEN 1 END) as comprobantes_sin_asignar
+        COUNT(CASE WHEN id_acreditacion IS NULL THEN 1 END) as comprobantes_sin_asignar,
+        SUM(CASE WHEN cotejado = true THEN importe ELSE 0 END) as total_importe_cotejados
       FROM comprobantes_whatsapp 
       WHERE id_cliente = $1
     `, [id]);
@@ -1583,10 +1584,10 @@ router.get('/clientes/:id/resumen', async (req, res) => {
       WHERE id_cliente = $1 AND estado = 'confirmado'
     `, [id]);
 
-    // Calcular saldo (comprobantes - pagos)
-    const totalComprobantes = parseFloat(comprobantesStats.rows[0].total_importe_comprobantes || 0);
+    // Calcular saldo real (comprobantes cotejados - pagos)
+    const totalComprobantesCotejados = parseFloat(comprobantesStats.rows[0].total_importe_cotejados || 0);
     const totalPagos = parseFloat(pagosStats.rows[0].total_importe_pagos || 0);
-    const saldo = totalComprobantes - totalPagos;
+    const saldo = totalComprobantesCotejados - totalPagos;
 
     res.json({
       success: true,
