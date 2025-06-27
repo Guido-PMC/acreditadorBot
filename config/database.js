@@ -129,6 +129,9 @@ class Database {
         )
       `);
 
+      // Migración: agregar columnas faltantes si no existen
+      await this.migrateTables(client);
+
       // Índices para mejorar performance
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_acreditaciones_fecha ON acreditaciones(fecha_hora);
@@ -152,6 +155,48 @@ class Database {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  async migrateTables(client) {
+    try {
+      console.log('Ejecutando migraciones...');
+      
+      // Verificar si la columna id_cliente existe en acreditaciones
+      const acreditacionesColumns = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'acreditaciones' AND column_name = 'id_cliente'
+      `);
+      
+      if (acreditacionesColumns.rows.length === 0) {
+        console.log('Agregando columna id_cliente a tabla acreditaciones...');
+        await client.query(`
+          ALTER TABLE acreditaciones 
+          ADD COLUMN id_cliente INTEGER REFERENCES clientes(id)
+        `);
+      }
+
+      // Verificar si la columna id_cliente existe en comprobantes_whatsapp
+      const comprobantesColumns = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'comprobantes_whatsapp' AND column_name = 'id_cliente'
+      `);
+      
+      if (comprobantesColumns.rows.length === 0) {
+        console.log('Agregando columna id_cliente a tabla comprobantes_whatsapp...');
+        await client.query(`
+          ALTER TABLE comprobantes_whatsapp 
+          ADD COLUMN id_cliente INTEGER REFERENCES clientes(id)
+        `);
+      }
+
+      console.log('Migraciones completadas exitosamente');
+      
+    } catch (error) {
+      console.error('Error en migraciones:', error);
+      throw error;
     }
   }
 
