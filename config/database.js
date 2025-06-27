@@ -8,27 +8,40 @@ class Database {
 
   async connect() {
     try {
-      // Configuración para Railway
+      console.log('Conectando a la base de datos...');
+      
       this.pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-        max: 20, // máximo de conexiones en el pool
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
+        connectionString: this.connectionString,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
       });
 
-      // Verificar conexión
+      // Probar la conexión
       const client = await this.pool.connect();
+      console.log('✅ Conexión a PostgreSQL establecida');
+      
+      // Verificar si las tablas existen
+      const tablesResult = await client.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name IN ('acreditaciones', 'comprobantes_whatsapp', 'clientes', 'logs_procesamiento', 'pagos', 'portal_users')
+      `);
+      
+      if (tablesResult.rows.length < 6) {
+        console.log('Creando tablas...');
+        await this.createTables();
+      } else {
+        console.log('Tablas existentes, ejecutando migraciones...');
+        await this.migrateTables(client);
+      }
+      
       client.release();
-      
       this.isConnected = true;
-      console.log('Conexión a PostgreSQL establecida');
-      
-      // Crear tablas si no existen
-      await this.createTables();
+      console.log('✅ Base de datos lista');
       
     } catch (error) {
-      console.error('Error conectando a la base de datos:', error);
+      console.error('❌ Error conectando a la base de datos:', error);
+      this.isConnected = false;
       throw error;
     }
   }
