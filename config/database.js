@@ -139,6 +139,22 @@ class Database {
         )
       `);
 
+      // Tabla de usuarios del portal de clientes
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS portal_users (
+          id SERIAL PRIMARY KEY,
+          id_cliente INTEGER REFERENCES clientes(id) NOT NULL,
+          username VARCHAR(50) UNIQUE NOT NULL,
+          password_hash VARCHAR(255) NOT NULL,
+          email VARCHAR(100),
+          activo BOOLEAN DEFAULT TRUE,
+          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          ultimo_acceso TIMESTAMP,
+          token_reset VARCHAR(100),
+          token_expira TIMESTAMP
+        )
+      `);
+
       // Migración: agregar columnas faltantes si no existen
       await this.migrateTables(client);
 

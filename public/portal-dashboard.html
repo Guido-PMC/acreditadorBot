@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Clientes - AcreditadorBot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border: 1px solid rgba(0, 0, 0, 0.125);
+            border-radius: 0.5rem;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .stats-card.success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+        .stats-card.warning {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+        }
+        .stats-card.info {
+            background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+        }
+        .table th {
+            background-color: #f8f9fa;
+            border-top: none;
+            cursor: pointer;
+            user-select: none;
+        }
+        .table th:hover {
+            background-color: #e9ecef;
+        }
+        .table th.sortable::after {
+            content: '↕';
+            margin-left: 0.5rem;
+            opacity: 0.5;
+        }
+        .table th.sort-asc::after {
+            content: '↑';
+            opacity: 1;
+        }
+        .table th.sort-desc::after {
+            content: '↓';
+            opacity: 1;
+        }
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        .status-badge {
+            font-size: 0.75rem;
+        }
+        .nav-tabs .nav-link {
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: #6c757d;
+        }
+        .nav-tabs .nav-link.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+            font-weight: 600;
+        }
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .alert {
+            border-radius: 0.375rem;
+        }
+        .balance-positive {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .balance-negative {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .balance-zero {
+            color: #6c757d;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/portal-dashboard.html">
+                <i class="fas fa-robot me-2"></i>AcreditadorBot
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/portal-dashboard.html">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user me-1"></i>
+                            <span id="userName">Usuario</span>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="showProfile()">
+                                <i class="fas fa-user-circle me-2"></i>Mi Perfil
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="logout()">
+                                <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Alertas -->
+        <div id="alerts"></div>
+
+        <!-- Resumen de estadísticas -->
+        <div class="row mb-4" id="statsRow">
+            <div class="col-md-3 mb-3">
+                <div class="card stats-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title">Total Comprobantes</h6>
+                                <h3 id="totalComprobantes">-</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-file-invoice-dollar fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card stats-card success">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title">Cotejados</h6>
+                                <h3 id="comprobantesCotejados">-</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-check-circle fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card stats-card warning">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title">Pendientes</h6>
+                                <h3 id="comprobantesPendientes">-</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-clock fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card stats-card info">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title">Saldo Actual</h6>
+                                <h3 id="saldoActual">-</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-wallet fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs de navegación -->
+        <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="comprobantes-tab" data-bs-toggle="tab" data-bs-target="#comprobantes" type="button" role="tab">
+                    <i class="fas fa-file-invoice-dollar me-1"></i>Comprobantes
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="movimientos-tab" data-bs-toggle="tab" data-bs-target="#movimientos" type="button" role="tab">
+                    <i class="fas fa-exchange-alt me-1"></i>Movimientos
+                </button>
+            </li>
+        </ul>
+
+        <!-- Contenido de tabs -->
+        <div class="tab-content" id="mainTabsContent">
+            <!-- Tab Comprobantes -->
+            <div class="tab-pane fade show active" id="comprobantes" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-file-invoice-dollar me-2"></i>Mis Comprobantes
+                                </h5>
+                            </div>
+                            <div class="col-auto">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary" onclick="filterComprobantes('')">Todos</button>
+                                    <button type="button" class="btn btn-outline-success" onclick="filterComprobantes('cotejado')">Cotejados</button>
+                                    <button type="button" class="btn btn-outline-warning" onclick="filterComprobantes('pendiente')">Pendientes</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="sortable" onclick="sortComprobantes('id')">ID</th>
+                                        <th class="sortable" onclick="sortComprobantes('nombre_remitente')">Remitente</th>
+                                        <th>CUIT</th>
+                                        <th class="sortable" onclick="sortComprobantes('fecha_envio')">Fecha Envío</th>
+                                        <th class="sortable" onclick="sortComprobantes('fecha_recepcion')">Fecha Recepción</th>
+                                        <th class="sortable" onclick="sortComprobantes('importe')">Monto</th>
+                                        <th>Estado</th>
+                                        <th>Acreditación</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comprobantesTableBody">
+                                    <tr>
+                                        <td colspan="8" class="text-center py-4">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Cargando...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <small class="text-muted" id="comprobantesPaginationInfo">
+                                    Mostrando 0 de 0 comprobantes
+                                </small>
+                            </div>
+                            <div class="col-auto">
+                                <nav aria-label="Paginación de comprobantes">
+                                    <ul class="pagination pagination-sm mb-0" id="comprobantesPagination">
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Movimientos -->
+            <div class="tab-pane fade" id="movimientos" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-exchange-alt me-2"></i>Mis Movimientos
+                                </h5>
+                            </div>
+                            <div class="col-auto">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary" onclick="filterMovimientos('')">Todos</button>
+                                    <button type="button" class="btn btn-outline-success" onclick="filterMovimientos('credito')">Créditos</button>
+                                    <button type="button" class="btn btn-outline-danger" onclick="filterMovimientos('pago')">Pagos</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="sortable" onclick="sortMovimientos('id')">ID</th>
+                                        <th class="sortable" onclick="sortMovimientos('fecha_pago')">Fecha</th>
+                                        <th class="sortable" onclick="sortMovimientos('concepto')">Concepto</th>
+                                        <th class="sortable" onclick="sortMovimientos('importe')">Importe</th>
+                                        <th>Tipo</th>
+                                        <th>Método</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="movimientosTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Cargando...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <small class="text-muted" id="movimientosPaginationInfo">
+                                    Mostrando 0 de 0 movimientos
+                                </small>
+                            </div>
+                            <div class="col-auto">
+                                <nav aria-label="Paginación de movimientos">
+                                    <ul class="pagination pagination-sm mb-0" id="movimientosPagination">
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Perfil -->
+    <div class="modal fade" id="profileModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-user-circle me-2"></i>Mi Perfil
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="profileContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Variables globales
+        let currentUser = null;
+        let comprobantesPage = 1;
+        let movimientosPage = 1;
+        let comprobantesSort = { field: 'fecha_envio', order: 'DESC' };
+        let movimientosSort = { field: 'fecha_pago', order: 'DESC' };
+        let comprobantesFilter = '';
+        let movimientosFilter = '';
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            loadUserInfo();
+            loadResumen();
+            loadComprobantes();
+            loadMovimientos();
+        });
+
+        // Verificar autenticación
+        function checkAuth() {
+            const token = localStorage.getItem('portal_token');
+            if (!token) {
+                window.location.href = '/portal-login.html';
+                return;
+            }
+        }
+
+        // Cargar información del usuario
+        function loadUserInfo() {
+            const userStr = localStorage.getItem('portal_user');
+            if (userStr) {
+                currentUser = JSON.parse(userStr);
+                document.getElementById('userName').textContent = `${currentUser.nombre} ${currentUser.apellido}`;
+            }
+        }
+
+        // Función para hacer requests autenticados
+        async function authenticatedRequest(url, options = {}) {
+            const token = localStorage.getItem('portal_token');
+            if (!token) {
+                window.location.href = '/portal-login.html';
+                return null;
+            }
+
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                }
+            });
+
+            if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem('portal_token');
+                localStorage.removeItem('portal_user');
+                window.location.href = '/portal-login.html';
+                return null;
+            }
+
+            return response;
+        }
+
+        // Cargar resumen
+        async function loadResumen() {
+            try {
+                const response = await authenticatedRequest('/portal/resumen');
+                if (!response) return;
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    
+                    document.getElementById('totalComprobantes').textContent = data.comprobantes.total_comprobantes || 0;
+                    document.getElementById('comprobantesCotejados').textContent = data.comprobantes.comprobantes_cotejados || 0;
+                    document.getElementById('comprobantesPendientes').textContent = data.comprobantes.comprobantes_pendientes || 0;
+                    
+                    const saldo = data.saldo || 0;
+                    const saldoElement = document.getElementById('saldoActual');
+                    saldoElement.textContent = new Intl.NumberFormat('es-AR', {
+                        style: 'currency',
+                        currency: 'ARS'
+                    }).format(saldo);
+                    
+                    if (saldo > 0) {
+                        saldoElement.className = 'balance-positive';
+                    } else if (saldo < 0) {
+                        saldoElement.className = 'balance-negative';
+                    } else {
+                        saldoElement.className = 'balance-zero';
+                    }
+                }
+            } catch (error) {
+                console.error('Error cargando resumen:', error);
+            }
+        }
+
+        // Cargar comprobantes
+        async function loadComprobantes() {
+            try {
+                const params = new URLSearchParams({
+                    page: comprobantesPage,
+                    limit: 20,
+                    ordenar_por: comprobantesSort.field,
+                    orden: comprobantesSort.order,
+                    estado: comprobantesFilter
+                });
+
+                const response = await authenticatedRequest(`/portal/comprobantes?${params}`);
+                if (!response) return;
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayComprobantes(result.data);
+                    updateComprobantesPagination(result.pagination);
+                } else {
+                    showAlert('Error al cargar comprobantes: ' + result.message, 'danger');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('Error de conexión al cargar comprobantes', 'danger');
+            }
+        }
+
+        // Mostrar comprobantes
+        function displayComprobantes(comprobantes) {
+            const tbody = document.getElementById('comprobantesTableBody');
+            
+            if (comprobantes.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">
+                            <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                            No se encontraron comprobantes
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = comprobantes.map(comp => `
+                <tr>
+                    <td><span class="badge bg-secondary">${comp.id}</span></td>
+                    <td><strong>${comp.nombre_remitente}</strong></td>
+                    <td>${comp.cuit || '<span class="text-muted">-</span>'}</td>
+                    <td>${comp.fecha_envio ? new Date(comp.fecha_envio).toLocaleDateString('es-AR') : '-'}</td>
+                    <td>${comp.fecha_recepcion ? new Date(comp.fecha_recepcion).toLocaleDateString('es-AR') : '-'}</td>
+                    <td>
+                        <strong>${new Intl.NumberFormat('es-AR', {
+                            style: 'currency',
+                            currency: 'ARS'
+                        }).format(comp.importe)}</strong>
+                    </td>
+                    <td>
+                        ${comp.cotejado ? 
+                            '<span class="badge bg-success status-badge">Cotejado</span>' : 
+                            '<span class="badge bg-warning status-badge">Pendiente</span>'
+                        }
+                    </td>
+                    <td>
+                        ${comp.acreditacion ? 
+                            `<div>
+                                <small><strong>${comp.acreditacion.titular}</strong></small><br>
+                                <small class="text-muted">${new Date(comp.acreditacion.fecha).toLocaleDateString('es-AR')}</small>
+                            </div>` : 
+                            '<span class="text-muted">-</span>'
+                        }
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Actualizar paginación de comprobantes
+        function updateComprobantesPagination(pagination) {
+            const paginationElement = document.getElementById('comprobantesPagination');
+            const infoElement = document.getElementById('comprobantesPaginationInfo');
+            
+            infoElement.textContent = `Mostrando ${pagination.page} de ${pagination.pages} páginas (${pagination.total} comprobantes total)`;
+            
+            let paginationHTML = '';
+            
+            // Botón anterior
+            paginationHTML += `
+                <li class="page-item ${pagination.page <= 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changeComprobantesPage(${pagination.page - 1})">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+            `;
+            
+            // Páginas
+            const startPage = Math.max(1, pagination.page - 2);
+            const endPage = Math.min(pagination.pages, pagination.page + 2);
+            
+            for (let i = startPage; i <= endPage; i++) {
+                paginationHTML += `
+                    <li class="page-item ${i === pagination.page ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changeComprobantesPage(${i})">${i}</a>
+                    </li>
+                `;
+            }
+            
+            // Botón siguiente
+            paginationHTML += `
+                <li class="page-item ${pagination.page >= pagination.pages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changeComprobantesPage(${pagination.page + 1})">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+            `;
+            
+            paginationElement.innerHTML = paginationHTML;
+        }
+
+        // Cambiar página de comprobantes
+        function changeComprobantesPage(page) {
+            comprobantesPage = page;
+            loadComprobantes();
+        }
+
+        // Ordenar comprobantes
+        function sortComprobantes(field) {
+            if (comprobantesSort.field === field) {
+                comprobantesSort.order = comprobantesSort.order === 'ASC' ? 'DESC' : 'ASC';
+            } else {
+                comprobantesSort.field = field;
+                comprobantesSort.order = 'ASC';
+            }
+            
+            // Actualizar indicadores visuales
+            document.querySelectorAll('#comprobantes th.sortable').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+            });
+            
+            const currentTh = document.querySelector(`#comprobantes th[onclick="sortComprobantes('${field}')"]`);
+            if (currentTh) {
+                currentTh.classList.add(comprobantesSort.order === 'ASC' ? 'sort-asc' : 'sort-desc');
+            }
+            
+            loadComprobantes();
+        }
+
+        // Filtrar comprobantes
+        function filterComprobantes(estado) {
+            comprobantesFilter = estado;
+            comprobantesPage = 1;
+            loadComprobantes();
+        }
+
+        // Cargar movimientos
+        async function loadMovimientos() {
+            try {
+                const params = new URLSearchParams({
+                    page: movimientosPage,
+                    limit: 20,
+                    ordenar_por: movimientosSort.field,
+                    orden: movimientosSort.order,
+                    tipo: movimientosFilter
+                });
+
+                const response = await authenticatedRequest(`/portal/movimientos?${params}`);
+                if (!response) return;
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayMovimientos(result.data);
+                    updateMovimientosPagination(result.pagination);
+                } else {
+                    showAlert('Error al cargar movimientos: ' + result.message, 'danger');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('Error de conexión al cargar movimientos', 'danger');
+            }
+        }
+
+        // Mostrar movimientos
+        function displayMovimientos(movimientos) {
+            const tbody = document.getElementById('movimientosTableBody');
+            
+            if (movimientos.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                            No se encontraron movimientos
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = movimientos.map(mov => `
+                <tr>
+                    <td><span class="badge bg-secondary">${mov.id}</span></td>
+                    <td>${new Date(mov.fecha_pago).toLocaleDateString('es-AR')}</td>
+                    <td><strong>${mov.concepto}</strong></td>
+                    <td>
+                        <span class="${mov.tipo_pago === 'egreso' ? 'text-danger' : 'text-success'}">
+                            <strong>${new Intl.NumberFormat('es-AR', {
+                                style: 'currency',
+                                currency: 'ARS'
+                            }).format(mov.importe)}</strong>
+                        </span>
+                    </td>
+                    <td>
+                        ${mov.tipo_pago === 'egreso' ? 
+                            '<span class="badge bg-danger status-badge">Pago</span>' : 
+                            '<span class="badge bg-success status-badge">Crédito</span>'
+                        }
+                    </td>
+                    <td>${mov.metodo_pago || '<span class="text-muted">-</span>'}</td>
+                    <td>
+                        <span class="badge bg-${mov.estado === 'confirmado' ? 'success' : 'warning'} status-badge">
+                            ${mov.estado}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Actualizar paginación de movimientos
+        function updateMovimientosPagination(pagination) {
+            const paginationElement = document.getElementById('movimientosPagination');
+            const infoElement = document.getElementById('movimientosPaginationInfo');
+            
+            infoElement.textContent = `Mostrando ${pagination.page} de ${pagination.pages} páginas (${pagination.total} movimientos total)`;
+            
+            let paginationHTML = '';
+            
+            // Botón anterior
+            paginationHTML += `
+                <li class="page-item ${pagination.page <= 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changeMovimientosPage(${pagination.page - 1})">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+            `;
+            
+            // Páginas
+            const startPage = Math.max(1, pagination.page - 2);
+            const endPage = Math.min(pagination.pages, pagination.page + 2);
+            
+            for (let i = startPage; i <= endPage; i++) {
+                paginationHTML += `
+                    <li class="page-item ${i === pagination.page ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changeMovimientosPage(${i})">${i}</a>
+                    </li>
+                `;
+            }
+            
+            // Botón siguiente
+            paginationHTML += `
+                <li class="page-item ${pagination.page >= pagination.pages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changeMovimientosPage(${pagination.page + 1})">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+            `;
+            
+            paginationElement.innerHTML = paginationHTML;
+        }
+
+        // Cambiar página de movimientos
+        function changeMovimientosPage(page) {
+            movimientosPage = page;
+            loadMovimientos();
+        }
+
+        // Ordenar movimientos
+        function sortMovimientos(field) {
+            if (movimientosSort.field === field) {
+                movimientosSort.order = movimientosSort.order === 'ASC' ? 'DESC' : 'ASC';
+            } else {
+                movimientosSort.field = field;
+                movimientosSort.order = 'ASC';
+            }
+            
+            // Actualizar indicadores visuales
+            document.querySelectorAll('#movimientos th.sortable').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+            });
+            
+            const currentTh = document.querySelector(`#movimientos th[onclick="sortMovimientos('${field}')"]`);
+            if (currentTh) {
+                currentTh.classList.add(movimientosSort.order === 'ASC' ? 'sort-asc' : 'sort-desc');
+            }
+            
+            loadMovimientos();
+        }
+
+        // Filtrar movimientos
+        function filterMovimientos(tipo) {
+            movimientosFilter = tipo;
+            movimientosPage = 1;
+            loadMovimientos();
+        }
+
+        // Mostrar perfil
+        async function showProfile() {
+            try {
+                const response = await authenticatedRequest('/portal/profile');
+                if (!response) return;
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    const user = result.data;
+                    document.getElementById('profileContent').innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Usuario:</strong></p>
+                                <p><strong>Nombre:</strong></p>
+                                <p><strong>Email:</strong></p>
+                                <p><strong>Estado:</strong></p>
+                                <p><strong>Fecha Registro:</strong></p>
+                                <p><strong>Último Acceso:</strong></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p>${user.username}</p>
+                                <p>${user.nombre} ${user.apellido}</p>
+                                <p>${user.email || '<span class="text-muted">No especificado</span>'}</p>
+                                <p>
+                                    <span class="badge bg-${user.cliente_estado === 'activo' ? 'success' : 'warning'}">
+                                        ${user.cliente_estado}
+                                    </span>
+                                </p>
+                                <p>${new Date(user.fecha_registro).toLocaleDateString('es-AR')}</p>
+                                <p>${user.ultimo_acceso ? new Date(user.ultimo_acceso).toLocaleString('es-AR') : 'Nunca'}</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('profileContent').innerHTML = `
+                        <div class="alert alert-danger">
+                            Error al cargar el perfil: ${result.message}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('profileContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        Error de conexión al cargar el perfil
+                    </div>
+                `;
+            }
+            
+            const modal = new bootstrap.Modal(document.getElementById('profileModal'));
+            modal.show();
+        }
+
+        // Cerrar sesión
+        function logout() {
+            localStorage.removeItem('portal_token');
+            localStorage.removeItem('portal_user');
+            window.location.href = '/portal-login.html';
+        }
+
+        // Mostrar alerta
+        function showAlert(message, type) {
+            const alertsContainer = document.getElementById('alerts');
+            const alertId = 'alert-' + Date.now();
+            
+            const alertHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" id="${alertId}" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            alertsContainer.innerHTML = alertHTML;
+            
+            // Auto-dismiss después de 5 segundos
+            setTimeout(() => {
+                const alert = document.getElementById(alertId);
+                if (alert) {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }
+            }, 5000);
+        }
+
+        // Actualizar datos cuando se cambia de tab
+        document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+            tab.addEventListener('shown.bs.tab', function(e) {
+                if (e.target.id === 'comprobantes-tab') {
+                    loadComprobantes();
+                } else if (e.target.id === 'movimientos-tab') {
+                    loadMovimientos();
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

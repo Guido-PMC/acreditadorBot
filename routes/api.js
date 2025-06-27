@@ -2156,4 +2156,363 @@ router.post('/comprobantes/whatsapp', [
   }
 });
 
+// ===== GESTIÓN DE USUARIOS DEL PORTAL =====
+
+// GET /api/portal-users - Listar usuarios del portal
+router.get('/portal-users', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { page = 1, limit = 20, search = '' } = req.query;
+    const offset = (page - 1) * limit;
+
+    let whereConditions = [];
+    let params = [];
+    let paramIndex = 1;
+
+    if (search) {
+      whereConditions.push(`(pu.username ILIKE $${paramIndex} OR c.nombre ILIKE $${paramIndex} OR c.apellido ILIKE $${paramIndex})`);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // Query para contar total
+    const countQuery = `
+      SELECT COUNT(*) 
+      FROM portal_users pu
+      JOIN clientes c ON pu.id_cliente = c.id
+      ${whereClause}
+    `;
+    const countResult = await client.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count);
+
+    // Query para obtener datos
+    const dataQuery = `
+      SELECT 
+        pu.id,
+        pu.username,
+        pu.email,
+        pu.activo,
+        pu.fecha_creacion,
+        pu.ultimo_acceso,
+        c.id as cliente_id,
+        c.nombre as cliente_nombre,
+        c.apellido as cliente_apellido,
+        c.estado as cliente_estado
+      FROM portal_users pu
+      JOIN clientes c ON pu.id_cliente = c.id
+      ${whereClause}
+      ORDER BY pu.fecha_creacion DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    
+    params.push(parseInt(limit), offset);
+    const dataResult = await client.query(dataQuery, params);
+
+    res.json({
+      success: true,
+      data: dataResult.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo usuarios del portal:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron obtener los usuarios del portal'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/portal-users - Crear usuario del portal
+router.post('/portal-users', [
+  body('id_cliente').isInt().withMessage('ID del cliente es requerido'),
+  body('username').isLength({ min: 3 }).withMessage('Usuario debe tener al menos 3 caracteres'),
+  body('password').isLength({ min: 6 }).withMessage('Contraseña debe tener al menos 6 caracteres'),
+  body('email').optional().isEmail().withMessage('Email debe ser válido')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      error: 'Datos inválidos', 
+      details: errors.array() 
+    });
+  }
+
+  const client = await db.getClient();
+  
+  try {
+    const { id_cliente, username, password, email } = req.body;
+
+    // Verificar que el cliente existe
+    const clienteResult = await client.query(
+      'SELECT id, nombre, apellido FROM clientes WHERE id = $1',
+      [id_cliente]
+    );
+
+    if (clienteResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Cliente no encontrado',
+        message: 'El cliente especificado no existe'
+      });
+    }
+
+    // Verificar que el username no existe
+    const existingUser = await client.query(
+      'SELECT id FROM portal_users WHERE username = $1',
+      [username]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({
+        error: 'Usuario duplicado',
+        message: 'Este nombre de usuario ya existe'
+      });
+    }
+
+    // Hash de la contraseña
+    const bcrypt = require('bcrypt');
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Crear usuario del portal
+    const result = await client.query(`
+      INSERT INTO portal_users (
+        id_cliente,
+        username,
+        password_hash,
+        email
+      ) VALUES ($1, $2, $3, $4)
+      RETURNING id, username, email, activo, fecha_creacion
+    `, [id_cliente, username, passwordHash, email || null]);
+
+    const cliente = clienteResult.rows[0];
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'portal_user_creado',
+      `Usuario del portal creado: ${username} para ${cliente.nombre} ${cliente.apellido}`,
+      JSON.stringify({ username, id_cliente, email }),
+      'exitoso'
+    ]);
+
+    res.status(201).json({
+      success: true,
+      message: 'Usuario del portal creado exitosamente',
+      data: {
+        ...result.rows[0],
+        cliente: {
+          id: cliente.id,
+          nombre: cliente.nombre,
+          apellido: cliente.apellido
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error creando usuario del portal:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo crear el usuario del portal'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// PUT /api/portal-users/:id - Actualizar usuario del portal
+router.put('/portal-users/:id', [
+  body('username').optional().isLength({ min: 3 }).withMessage('Usuario debe tener al menos 3 caracteres'),
+  body('email').optional().isEmail().withMessage('Email debe ser válido'),
+  body('activo').optional().isBoolean().withMessage('Activo debe ser true o false')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      error: 'Datos inválidos', 
+      details: errors.array() 
+    });
+  }
+
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+    const { username, email, activo, password } = req.body;
+
+    // Verificar que el usuario existe
+    const existingUser = await client.query(`
+      SELECT pu.*, c.nombre, c.apellido 
+      FROM portal_users pu
+      JOIN clientes c ON pu.id_cliente = c.id
+      WHERE pu.id = $1
+    `, [id]);
+
+    if (existingUser.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Usuario no encontrado',
+        message: 'El usuario especificado no existe'
+      });
+    }
+
+    // Verificar que el username no existe (si se está cambiando)
+    if (username && username !== existingUser.rows[0].username) {
+      const usernameCheck = await client.query(
+        'SELECT id FROM portal_users WHERE username = $1 AND id != $2',
+        [username, id]
+      );
+
+      if (usernameCheck.rows.length > 0) {
+        return res.status(409).json({
+          error: 'Usuario duplicado',
+          message: 'Este nombre de usuario ya existe'
+        });
+      }
+    }
+
+    // Preparar campos a actualizar
+    let updateFields = [];
+    let params = [];
+    let paramIndex = 1;
+
+    if (username !== undefined) {
+      updateFields.push(`username = $${paramIndex}`);
+      params.push(username);
+      paramIndex++;
+    }
+
+    if (email !== undefined) {
+      updateFields.push(`email = $${paramIndex}`);
+      params.push(email);
+      paramIndex++;
+    }
+
+    if (activo !== undefined) {
+      updateFields.push(`activo = $${paramIndex}`);
+      params.push(activo);
+      paramIndex++;
+    }
+
+    if (password) {
+      const bcrypt = require('bcrypt');
+      const saltRounds = 10;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+      updateFields.push(`password_hash = $${paramIndex}`);
+      params.push(passwordHash);
+      paramIndex++;
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        error: 'Sin cambios',
+        message: 'No se especificaron campos para actualizar'
+      });
+    }
+
+    params.push(id);
+
+    // Actualizar usuario
+    await client.query(`
+      UPDATE portal_users 
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
+    `, params);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'portal_user_actualizado',
+      `Usuario del portal actualizado: ${existingUser.rows[0].username}`,
+      JSON.stringify({ id, username, email, activo, password_changed: !!password }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Usuario del portal actualizado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error actualizando usuario del portal:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo actualizar el usuario del portal'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// DELETE /api/portal-users/:id - Eliminar usuario del portal
+router.delete('/portal-users/:id', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+
+    // Verificar que el usuario existe
+    const userResult = await client.query(`
+      SELECT pu.username, c.nombre, c.apellido 
+      FROM portal_users pu
+      JOIN clientes c ON pu.id_cliente = c.id
+      WHERE pu.id = $1
+    `, [id]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Usuario no encontrado',
+        message: 'El usuario especificado no existe'
+      });
+    }
+
+    // Eliminar usuario (soft delete - cambiar a inactivo)
+    await client.query(`
+      UPDATE portal_users 
+      SET activo = false 
+      WHERE id = $1
+    `, [id]);
+
+    const user = userResult.rows[0];
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'portal_user_eliminado',
+      `Usuario del portal eliminado: ${user.username} (${user.nombre} ${user.apellido})`,
+      JSON.stringify({ id }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Usuario del portal eliminado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error eliminando usuario del portal:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo eliminar el usuario del portal'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 

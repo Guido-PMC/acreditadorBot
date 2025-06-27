@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Clientes - AcreditadorBot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            max-width: 400px;
+            width: 100%;
+        }
+        .login-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .login-body {
+            padding: 2rem;
+        }
+        .form-control {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s ease;
+        }
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .alert {
+            border-radius: 10px;
+            border: none;
+        }
+        .input-group-text {
+            background: transparent;
+            border: 2px solid #e9ecef;
+            border-right: none;
+        }
+        .input-group .form-control {
+            border-left: none;
+        }
+        .input-group .form-control:focus + .input-group-text {
+            border-color: #667eea;
+        }
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        .brand-logo {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        .brand-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .brand-subtitle {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <div class="brand-logo">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="brand-text">AcreditadorBot</div>
+            <div class="brand-subtitle">Portal de Clientes</div>
+        </div>
+        
+        <div class="login-body">
+            <div id="alerts"></div>
+            
+            <form id="loginForm">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Usuario</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-user"></i>
+                        </span>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="password" class="form-label">Contraseña</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-login w-100" id="loginButton">
+                    <span id="loginButtonText">
+                        <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+                    </span>
+                    <span id="loginButtonLoading" style="display: none;">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        Iniciando sesión...
+                    </span>
+                </button>
+            </form>
+            
+            <div class="text-center mt-4">
+                <small class="text-muted">
+                    ¿Problemas para acceder? Contacta al administrador
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Verificar si ya hay una sesión activa
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('portal_token');
+            if (token) {
+                // Verificar si el token es válido
+                checkToken(token);
+            }
+        });
+
+        // Manejar envío del formulario
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await login();
+        });
+
+        // Función de login
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                showAlert('Por favor completa todos los campos', 'warning');
+                return;
+            }
+            
+            try {
+                setLoading(true);
+                
+                const response = await fetch('/portal/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Guardar token y datos del usuario
+                    localStorage.setItem('portal_token', result.data.token);
+                    localStorage.setItem('portal_user', JSON.stringify(result.data.user));
+                    
+                    showAlert('¡Bienvenido! Redirigiendo...', 'success');
+                    
+                    // Redirigir al dashboard del portal
+                    setTimeout(() => {
+                        window.location.href = '/portal-dashboard.html';
+                    }, 1000);
+                    
+                } else {
+                    showAlert(result.error || 'Error en las credenciales', 'danger');
+                }
+                
+            } catch (error) {
+                console.error('Error de login:', error);
+                showAlert('Error de conexión. Intenta nuevamente.', 'danger');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Verificar token
+        async function checkToken(token) {
+            try {
+                const response = await fetch('/portal/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    // Token válido, redirigir al dashboard
+                    window.location.href = '/portal-dashboard.html';
+                } else {
+                    // Token inválido, limpiar localStorage
+                    localStorage.removeItem('portal_token');
+                    localStorage.removeItem('portal_user');
+                }
+            } catch (error) {
+                console.error('Error verificando token:', error);
+                localStorage.removeItem('portal_token');
+                localStorage.removeItem('portal_user');
+            }
+        }
+
+        // Mostrar/ocultar loading
+        function setLoading(loading) {
+            const button = document.getElementById('loginButton');
+            const buttonText = document.getElementById('loginButtonText');
+            const buttonLoading = document.getElementById('loginButtonLoading');
+            
+            if (loading) {
+                button.classList.add('loading');
+                buttonText.style.display = 'none';
+                buttonLoading.style.display = 'inline';
+            } else {
+                button.classList.remove('loading');
+                buttonText.style.display = 'inline';
+                buttonLoading.style.display = 'none';
+            }
+        }
+
+        // Mostrar alerta
+        function showAlert(message, type) {
+            const alertsContainer = document.getElementById('alerts');
+            const alertId = 'alert-' + Date.now();
+            
+            const alertHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" id="${alertId}" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            alertsContainer.innerHTML = alertHTML;
+            
+            // Auto-dismiss después de 5 segundos
+            setTimeout(() => {
+                const alert = document.getElementById(alertId);
+                if (alert) {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }
+            }, 5000);
+        }
+
+        // Permitir login con Enter
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const activeElement = document.activeElement;
+                if (activeElement && (activeElement.id === 'username' || activeElement.id === 'password')) {
+                    login();
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
