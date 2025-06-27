@@ -251,7 +251,7 @@
 
       // Información del cliente
       document.getElementById('clienteNombre').textContent = `${cliente.nombre} ${cliente.apellido || ''}`;
-      document.getElementById('clienteInfo').textContent = `${cliente.cuit || 'Sin CUIT'} • ${cliente.email || 'Sin email'} • ${cliente.telefono || 'Sin teléfono'}`;
+      document.getElementById('clienteInfo').textContent = `Cliente ID: ${cliente.id} • Estado: ${cliente.estado}`;
       
       // Saldo
       document.getElementById('saldoCliente').textContent = `$${resumen.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;

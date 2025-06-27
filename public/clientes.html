@@ -40,9 +40,6 @@
           <tr>
             <th>Nombre</th>
             <th>Apellido</th>
-            <th>CUIT</th>
-            <th>Email</th>
-            <th>Teléfono</th>
             <th>Estado</th>
             <th>Acciones</th>
           </tr>
@@ -73,22 +70,6 @@
             <div class="mb-3">
               <label for="apellido" class="form-label">Apellido</label>
               <input type="text" class="form-control" id="apellido">
-            </div>
-            <div class="mb-3">
-              <label for="cuit" class="form-label">CUIT</label>
-              <input type="text" class="form-control" id="cuit" maxlength="11">
-            </div>
-            <div class="mb-3">
-              <label for="email" class="form-label">Email</label>
-              <input type="email" class="form-control" id="email">
-            </div>
-            <div class="mb-3">
-              <label for="telefono" class="form-label">Teléfono</label>
-              <input type="text" class="form-control" id="telefono">
-            </div>
-            <div class="mb-3">
-              <label for="direccion" class="form-label">Dirección</label>
-              <input type="text" class="form-control" id="direccion">
             </div>
             <div class="mb-3">
               <label for="observaciones" class="form-label">Observaciones</label>
@@ -141,9 +122,6 @@
           <tr>
             <td>${cliente.nombre}</td>
             <td>${cliente.apellido || ''}</td>
-            <td>${cliente.cuit || ''}</td>
-            <td>${cliente.email || ''}</td>
-            <td>${cliente.telefono || ''}</td>
             <td>${cliente.estado}</td>
             <td>
               <button class="btn btn-sm btn-info me-1" onclick="viewComprobantes(${cliente.id})">Comprobantes</button>
@@ -182,10 +160,6 @@
       const body = {
         nombre: document.getElementById('nombre').value,
         apellido: document.getElementById('apellido').value,
-        cuit: document.getElementById('cuit').value,
-        email: document.getElementById('email').value,
-        telefono: document.getElementById('telefono').value,
-        direccion: document.getElementById('direccion').value,
         observaciones: document.getElementById('observaciones').value,
         estado: document.getElementById('estado').value
       };
@@ -218,10 +192,6 @@
       document.getElementById('clienteId').value = cliente.id;
       document.getElementById('nombre').value = cliente.nombre;
       document.getElementById('apellido').value = cliente.apellido || '';
-      document.getElementById('cuit').value = cliente.cuit || '';
-      document.getElementById('email').value = cliente.email || '';
-      document.getElementById('telefono').value = cliente.telefono || '';
-      document.getElementById('direccion').value = cliente.direccion || '';
       document.getElementById('observaciones').value = cliente.observaciones || '';
       document.getElementById('estado').value = cliente.estado || 'activo';
       document.getElementById('clienteModalLabel').innerText = 'Editar Cliente';

@@ -761,8 +761,7 @@ router.get('/clientes', async (req, res) => {
 
 // POST /api/clientes - Crear cliente
 router.post('/clientes', [
-  body('nombre').notEmpty().withMessage('Nombre es requerido'),
-  body('cuit').optional().isLength({ min: 11, max: 11 }).withMessage('CUIT debe tener 11 dígitos')
+  body('nombre').notEmpty().withMessage('Nombre es requerido')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -778,47 +777,20 @@ router.post('/clientes', [
     const {
       nombre,
       apellido,
-      email,
-      telefono,
-      cuit,
-      direccion,
       observaciones
     } = req.body;
-
-    // Verificar si el CUIT ya existe
-    if (cuit) {
-      const existingClient = await client.query(
-        'SELECT id FROM clientes WHERE cuit = $1',
-        [cuit]
-      );
-
-      if (existingClient.rows.length > 0) {
-        return res.status(409).json({
-          error: 'CUIT duplicado',
-          message: 'Ya existe un cliente con este CUIT'
-        });
-      }
-    }
 
     // Insertar cliente
     const result = await client.query(`
       INSERT INTO clientes (
         nombre,
         apellido,
-        email,
-        telefono,
-        cuit,
-        direccion,
         observaciones
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ) VALUES ($1, $2, $3)
       RETURNING id
     `, [
       nombre,
       apellido,
-      email,
-      telefono,
-      cuit,
-      direccion,
       observaciones
     ]);
 
@@ -856,8 +828,7 @@ router.post('/clientes', [
 
 // PUT /api/clientes/:id - Actualizar cliente
 router.put('/clientes/:id', [
-  body('nombre').notEmpty().withMessage('Nombre es requerido'),
-  body('cuit').optional().isLength({ min: 11, max: 11 }).withMessage('CUIT debe tener 11 dígitos')
+  body('nombre').notEmpty().withMessage('Nombre es requerido')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -874,10 +845,6 @@ router.put('/clientes/:id', [
     const {
       nombre,
       apellido,
-      email,
-      telefono,
-      cuit,
-      direccion,
       observaciones,
       estado
     } = req.body;
@@ -895,40 +862,17 @@ router.put('/clientes/:id', [
       });
     }
 
-    // Verificar si el CUIT ya existe en otro cliente
-    if (cuit) {
-      const duplicateCuit = await client.query(
-        'SELECT id FROM clientes WHERE cuit = $1 AND id != $2',
-        [cuit, id]
-      );
-
-      if (duplicateCuit.rows.length > 0) {
-        return res.status(409).json({
-          error: 'CUIT duplicado',
-          message: 'Ya existe otro cliente con este CUIT'
-        });
-      }
-    }
-
     // Actualizar cliente
     await client.query(`
       UPDATE clientes SET
         nombre = $1,
         apellido = $2,
-        email = $3,
-        telefono = $4,
-        cuit = $5,
-        direccion = $6,
-        observaciones = $7,
-        estado = $8
-      WHERE id = $9
+        observaciones = $3,
+        estado = $4
+      WHERE id = $5
     `, [
       nombre,
       apellido,
-      email,
-      telefono,
-      cuit,
-      direccion,
       observaciones,
       estado || 'activo',
       id

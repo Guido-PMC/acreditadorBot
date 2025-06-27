@@ -51,10 +51,6 @@ class Database {
           id SERIAL PRIMARY KEY,
           nombre VARCHAR(200) NOT NULL,
           apellido VARCHAR(200),
-          email VARCHAR(200),
-          telefono VARCHAR(20),
-          cuit VARCHAR(20) UNIQUE,
-          direccion TEXT,
           fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           estado VARCHAR(20) DEFAULT 'activo',
           observaciones TEXT
