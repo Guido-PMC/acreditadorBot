@@ -12,7 +12,14 @@ const webRoutes = require('./routes/web');
 const uploadRoutes = require('./routes/upload');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
+
+if (!PORT) {
+  console.error('❌ Error: PORT no está definido en las variables de entorno');
+  process.exit(1);
+}
+
+console.log(`🚀 Puerto asignado por Railway: ${PORT}`);
 
 // Middleware de logging para debug
 app.use((req, res, next) => {
