@@ -349,18 +349,29 @@
     }
 
     async function assignComprobante() {
+      console.log('🚀 Iniciando asignación...');
+      console.log('📋 Comprobante:', currentComprobante);
+      console.log('💰 Acreditación:', currentAcreditacion);
+      
       try {
+        const requestBody = { id_acreditacion: currentAcreditacion.id };
+        console.log('📤 Request body:', requestBody);
+        
         const res = await fetch(`/api/comprobantes/${currentComprobante.id}/asignar`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id_acreditacion: currentAcreditacion.id })
+          body: JSON.stringify(requestBody)
         });
         
+        console.log('📥 Response status:', res.status);
         const data = await res.json();
+        console.log('📥 Response data:', data);
         
         if (data.success) {
           showAlert('success', data.message);
           bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+          
+          console.log('✅ Asignación exitosa, recargando datos...');
           
           // Recargar datos
           loadComprobantes(comprobantesPage);
@@ -371,9 +382,11 @@
           currentAcreditacion = null;
           hideAssignButton();
         } else {
+          console.error('❌ Error en asignación:', data.error || data.message);
           showAlert('danger', data.error || data.message);
         }
       } catch (error) {
+        console.error('💥 Error de red:', error);
         showAlert('danger', 'Error al asignar comprobante');
       }
     }
