@@ -10,6 +10,7 @@ const db = require('./config/database');
 const apiRoutes = require('./routes/api');
 const webRoutes = require('./routes/web');
 const uploadRoutes = require('./routes/upload');
+const { authMiddleware } = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT;
@@ -60,6 +61,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Servir archivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Aplicar autenticación básica para rutas web (excluye APIs)
+app.use(authMiddleware);
 
 // Rutas
 console.log('Configurando rutas...');

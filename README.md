@@ -10,6 +10,7 @@ Sistema integral para el procesamiento y cotejo de transferencias bancarias cont
 - **Base de Datos PostgreSQL**: Almacenamiento robusto y escalable
 - **Sistema de Cotejo**: Comparación automática de acreditaciones vs comprobantes
 - **Logs Detallados**: Seguimiento completo de todas las operaciones
+- **Autenticación Básica**: Protección del dashboard y rutas web
 
 ## 📋 Requisitos
 
@@ -392,6 +393,29 @@ Para soporte técnico o consultas:
 - Crear issue en GitHub
 - Revisar documentación en `/docs`
 - Contactar al equipo de desarrollo
+
+## 🔐 Autenticación
+
+El sistema utiliza autenticación básica HTTP para proteger el dashboard y todas las rutas web. Las APIs permanecen sin autenticación para permitir integraciones externas.
+
+### Configuración de Credenciales
+
+Configura las variables de entorno para las credenciales:
+
+```bash
+# Variables de entorno para autenticación
+AUTH_USERNAME=admin
+AUTH_PASSWORD=acreditador2024
+```
+
+### Rutas Protegidas
+
+- ✅ **Protegidas**: Dashboard, páginas web, archivos estáticos
+- ❌ **Sin protección**: Todas las rutas `/api/*`
+
+### Acceso al Sistema
+
+Al acceder al dashboard, el navegador solicitará las credenciales configuradas. Una vez autenticado, la sesión se mantiene durante toda la navegación.
 
 ---
 
