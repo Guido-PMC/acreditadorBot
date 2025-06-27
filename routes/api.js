@@ -1827,6 +1827,56 @@ router.delete('/pagos/:id', async (req, res) => {
   }
 });
 
+// DELETE /api/comprobantes/limpiar-todos - Borrar todos los comprobantes de WhatsApp
+router.delete('/comprobantes/limpiar-todos', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    console.log('🧹 Iniciando limpieza de todos los comprobantes de WhatsApp...');
+
+    // Obtener conteo antes de borrar
+    const countBefore = await client.query('SELECT COUNT(*) FROM comprobantes_whatsapp');
+    const totalBefore = parseInt(countBefore.rows[0].count);
+
+    console.log(`📊 Total de comprobantes antes de limpiar: ${totalBefore}`);
+
+    // Borrar todos los comprobantes de WhatsApp
+    const result = await client.query('DELETE FROM comprobantes_whatsapp');
+    const deletedCount = result.rowCount;
+
+    console.log(`✅ Comprobantes eliminados: ${deletedCount}`);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'limpieza_comprobantes',
+      `Limpieza masiva: ${deletedCount} comprobantes eliminados`,
+      JSON.stringify({ total_eliminados: deletedCount }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: `Limpieza completada exitosamente`,
+      data: {
+        total_eliminados: deletedCount,
+        total_antes: totalBefore
+      }
+    });
+
+  } catch (error) {
+    console.error('💥 Error en limpieza de comprobantes:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo completar la limpieza'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 // POST /api/comprobantes/whatsapp - Endpoint para sistema de WhatsApp
 router.post('/comprobantes/whatsapp', [
   body('nombre_remitente').notEmpty().withMessage('Nombre del remitente es requerido'),
