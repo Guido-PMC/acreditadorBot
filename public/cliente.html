@@ -58,7 +58,7 @@
             <div class="d-flex justify-content-between">
               <div>
                 <h4 id="totalComprobantes">0</h4>
-                <p class="mb-0">Comprobantes</p>
+                <p class="mb-0">Total Comprobantes</p>
               </div>
               <div class="align-self-center">
                 <i class="fas fa-receipt fa-2x"></i>
@@ -72,8 +72,38 @@
           <div class="card-body">
             <div class="d-flex justify-content-between">
               <div>
+                <h4 id="comprobantesCotejados">0</h4>
+                <p class="mb-0">Comprobantes Cotejados</p>
+              </div>
+              <div class="align-self-center">
+                <i class="fas fa-check-circle fa-2x"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-warning text-white">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h4 id="comprobantesPendientes">0</h4>
+                <p class="mb-0">Comprobantes Pendientes</p>
+              </div>
+              <div class="align-self-center">
+                <i class="fas fa-clock fa-2x"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-info text-white">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
                 <h4 id="totalImporteComprobantes">$0.00</h4>
-                <p class="mb-0">Total Comprobantes</p>
+                <p class="mb-0">Total Importe</p>
               </div>
               <div class="align-self-center">
                 <i class="fas fa-money-bill-wave fa-2x"></i>
@@ -82,8 +112,12 @@
           </div>
         </div>
       </div>
-      <div class="col-md-3">
-        <div class="card bg-warning text-white">
+    </div>
+
+    <!-- Tarjetas de Pagos -->
+    <div class="row mb-4">
+      <div class="col-md-6">
+        <div class="card bg-danger text-white">
           <div class="card-body">
             <div class="d-flex justify-content-between">
               <div>
@@ -97,8 +131,8 @@
           </div>
         </div>
       </div>
-      <div class="col-md-3">
-        <div class="card bg-info text-white">
+      <div class="col-md-6">
+        <div class="card bg-secondary text-white">
           <div class="card-body">
             <div class="d-flex justify-content-between">
               <div>
@@ -258,6 +292,8 @@
       
       // Tarjetas de resumen
       document.getElementById('totalComprobantes').textContent = resumen.comprobantes.total_comprobantes || 0;
+      document.getElementById('comprobantesCotejados').textContent = resumen.comprobantes.comprobantes_cotejados || 0;
+      document.getElementById('comprobantesPendientes').textContent = resumen.comprobantes.comprobantes_pendientes || 0;
       document.getElementById('totalImporteComprobantes').textContent = `$${(resumen.comprobantes.total_importe_comprobantes || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
       document.getElementById('totalPagos').textContent = resumen.pagos.total_pagos || 0;
       document.getElementById('totalImportePagos').textContent = `$${(resumen.pagos.total_importe_pagos || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
@@ -299,13 +335,28 @@
                 <br>
                 <small class="text-muted">${comp.numero_telefono || 'Sin teléfono'}</small>
               </div>
-              <span class="badge bg-primary">$${comp.importe?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || '0.00'}</span>
+              <div class="text-end">
+                <span class="badge bg-primary">$${comp.importe?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || '0.00'}</span>
+                ${comp.id_acreditacion ? 
+                  `<button class="btn btn-sm btn-outline-warning ms-2" onclick="desasignarComprobante(${comp.id})" title="Desasignar comprobante">
+                    <i class="fas fa-unlink"></i>
+                  </button>` : ''
+                }
+              </div>
             </div>
             <div class="mt-2">
               <small class="text-muted">${new Date(comp.fecha_envio).toLocaleDateString()}</small>
-              ${comp.cotejado ? '<span class="badge bg-success ms-2">Cotejado</span>' : '<span class="badge bg-warning ms-2">Pendiente</span>'}
+              ${comp.id_acreditacion ? 
+                '<span class="badge bg-success ms-2">Asignado</span>' : 
+                '<span class="badge bg-warning ms-2">Sin Asignar</span>'
+              }
+              ${comp.cotejado ? 
+                '<span class="badge bg-info ms-2">Cotejado</span>' : 
+                '<span class="badge bg-secondary ms-2">Sin Cotejar</span>'
+              }
             </div>
             ${comp.texto_mensaje ? `<div class="mt-1"><small class="text-truncate d-block">${comp.texto_mensaje}</small></div>` : ''}
+            ${comp.id_acreditacion ? `<div class="mt-1"><small class="text-muted">Acreditación: ${comp.id_acreditacion}</small></div>` : ''}
           </div>
         </div>
       `).join('');
@@ -420,6 +471,25 @@
         }
       } catch (error) {
         showAlert('danger', 'Error al eliminar pago');
+      }
+    }
+
+    // Desasignar comprobante
+    async function desasignarComprobante(id) {
+      if (!confirm('¿Seguro que deseas desasignar este comprobante?')) return;
+      
+      try {
+        const res = await fetch(`/api/comprobantes/${id}/desasignar`, { method: 'PUT' });
+        const data = await res.json();
+        
+        if (data.success) {
+          showAlert('success', data.message);
+          loadClienteData(); // Recargar todo para actualizar datos
+        } else {
+          showAlert('danger', data.error || data.message || 'Error al desasignar comprobante');
+        }
+      } catch (error) {
+        showAlert('danger', 'Error al desasignar comprobante');
       }
     }
 

@@ -1496,7 +1496,9 @@ router.get('/clientes/:id/resumen', async (req, res) => {
         COUNT(*) as total_comprobantes,
         SUM(importe) as total_importe_comprobantes,
         COUNT(CASE WHEN cotejado = true THEN 1 END) as comprobantes_cotejados,
-        COUNT(CASE WHEN cotejado = false THEN 1 END) as comprobantes_pendientes
+        COUNT(CASE WHEN cotejado = false THEN 1 END) as comprobantes_pendientes,
+        COUNT(CASE WHEN id_acreditacion IS NOT NULL THEN 1 END) as comprobantes_asignados,
+        COUNT(CASE WHEN id_acreditacion IS NULL THEN 1 END) as comprobantes_sin_asignar
       FROM comprobantes_whatsapp 
       WHERE id_cliente = $1
     `, [id]);
