@@ -9,6 +9,7 @@ const db = require('./config/database');
 const apiRoutes = require('./routes/api');
 const webRoutes = require('./routes/web');
 const uploadRoutes = require('./routes/upload');
+const clientesRoutes = require('./routes/clientes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,6 +49,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas
 app.use('/api', apiRoutes);
+app.use('/api', clientesRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/', webRoutes);
 
