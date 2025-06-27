@@ -2182,7 +2182,7 @@ router.get('/portal-users', async (req, res) => {
     const countQuery = `
       SELECT COUNT(*) 
       FROM portal_users pu
-      JOIN clientes c ON pu.id_cliente = c.id
+      JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
       ${whereClause}
     `;
     const countResult = await client.query(countQuery, params);
@@ -2202,7 +2202,7 @@ router.get('/portal-users', async (req, res) => {
         c.apellido as cliente_apellido,
         c.estado as cliente_estado
       FROM portal_users pu
-      JOIN clientes c ON pu.id_cliente = c.id
+      JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
       ${whereClause}
       ORDER BY pu.fecha_creacion DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -2227,6 +2227,66 @@ router.get('/portal-users', async (req, res) => {
     res.status(500).json({
       error: 'Error interno del servidor',
       message: 'No se pudieron obtener los usuarios del portal'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/portal-users/:id - Obtener usuario del portal por ID
+router.get('/portal-users/:id', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+
+    const userResult = await client.query(`
+      SELECT 
+        pu.id,
+        pu.username,
+        pu.email,
+        pu.activo,
+        pu.fecha_creacion,
+        pu.ultimo_acceso,
+        pu.id_cliente as cliente_id,
+        c.nombre as cliente_nombre,
+        c.apellido as cliente_apellido,
+        c.estado as cliente_estado
+      FROM portal_users pu
+      JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
+      WHERE pu.id = $1
+    `, [id]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Usuario no encontrado',
+        message: 'El usuario especificado no existe'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        activo: user.activo,
+        fecha_creacion: user.fecha_creacion,
+        ultimo_acceso: user.ultimo_acceso,
+        cliente_id: user.cliente_id,
+        cliente_nombre: user.cliente_nombre,
+        cliente_apellido: user.cliente_apellido,
+        cliente_estado: user.cliente_estado
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo usuario del portal:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo obtener el usuario del portal'
     });
   } finally {
     client.release();
@@ -2362,7 +2422,7 @@ router.put('/portal-users/:id', [
     const existingUser = await client.query(`
       SELECT pu.*, c.nombre, c.apellido 
       FROM portal_users pu
-      JOIN clientes c ON pu.id_cliente = c.id
+      JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
       WHERE pu.id = $1
     `, [id]);
 
@@ -2474,7 +2534,7 @@ router.delete('/portal-users/:id', async (req, res) => {
     const userResult = await client.query(`
       SELECT pu.username, c.nombre, c.apellido 
       FROM portal_users pu
-      JOIN clientes c ON pu.id_cliente = c.id
+      JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
       WHERE pu.id = $1
     `, [id]);
 
