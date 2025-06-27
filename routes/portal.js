@@ -207,7 +207,7 @@ router.get('/comprobantes', authenticateToken, async (req, res) => {
     const campoOrden = camposValidos.includes(ordenar_por) ? ordenar_por : 'fecha_envio';
 
     // Construir condiciones de filtro
-    let whereConditions = ['c.id_cliente = $1'];
+    let whereConditions = ['CAST(c.id_cliente AS INTEGER) = $1'];
     let params = [cliente_id];
     let paramIndex = 2;
 
@@ -319,7 +319,7 @@ router.get('/movimientos', authenticateToken, async (req, res) => {
     const campoOrden = camposValidos.includes(ordenar_por) ? ordenar_por : 'fecha_pago';
 
     // Construir condiciones de filtro
-    let whereConditions = ['p.id_cliente = $1'];
+    let whereConditions = ['CAST(p.id_cliente AS INTEGER) = $1'];
     let params = [cliente_id];
     let paramIndex = 2;
 
@@ -399,7 +399,7 @@ router.get('/resumen', authenticateToken, async (req, res) => {
         COUNT(CASE WHEN cotejado = false THEN 1 END) as comprobantes_pendientes,
         SUM(importe) as total_importe_comprobantes
       FROM comprobantes_whatsapp 
-      WHERE id_cliente = $1
+      WHERE CAST(id_cliente AS INTEGER) = $1
     `, [cliente_id]);
 
     // Estadísticas de movimientos
@@ -411,7 +411,7 @@ router.get('/resumen', authenticateToken, async (req, res) => {
         SUM(CASE WHEN tipo_pago = 'egreso' THEN importe ELSE 0 END) as total_importe_pagos,
         SUM(CASE WHEN tipo_pago = 'credito' THEN importe ELSE 0 END) as total_importe_creditos
       FROM pagos 
-      WHERE id_cliente = $1
+      WHERE CAST(id_cliente AS INTEGER) = $1
     `, [cliente_id]);
 
     // Calcular saldo

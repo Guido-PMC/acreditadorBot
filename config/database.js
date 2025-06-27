@@ -217,6 +217,50 @@ class Database {
           ALTER TABLE comprobantes_whatsapp 
           ADD COLUMN id_cliente INTEGER REFERENCES clientes(id)
         `);
+      } else {
+        // Verificar el tipo de datos de id_cliente en comprobantes_whatsapp
+        const columnType = await client.query(`
+          SELECT data_type 
+          FROM information_schema.columns 
+          WHERE table_name = 'comprobantes_whatsapp' AND column_name = 'id_cliente'
+        `);
+        
+        if (columnType.rows.length > 0 && columnType.rows[0].data_type === 'character varying') {
+          console.log('Corrigiendo tipo de datos de id_cliente en comprobantes_whatsapp...');
+          
+          // Crear una columna temporal
+          await client.query(`
+            ALTER TABLE comprobantes_whatsapp 
+            ADD COLUMN id_cliente_temp INTEGER
+          `);
+          
+          // Convertir datos existentes
+          await client.query(`
+            UPDATE comprobantes_whatsapp 
+            SET id_cliente_temp = CASE 
+              WHEN id_cliente ~ '^[0-9]+$' THEN id_cliente::INTEGER 
+              ELSE NULL 
+            END
+          `);
+          
+          // Eliminar columna antigua y renombrar la nueva
+          await client.query(`
+            ALTER TABLE comprobantes_whatsapp 
+            DROP COLUMN id_cliente
+          `);
+          
+          await client.query(`
+            ALTER TABLE comprobantes_whatsapp 
+            RENAME COLUMN id_cliente_temp TO id_cliente
+          `);
+          
+          // Agregar la referencia foreign key
+          await client.query(`
+            ALTER TABLE comprobantes_whatsapp 
+            ADD CONSTRAINT fk_comprobantes_cliente 
+            FOREIGN KEY (id_cliente) REFERENCES clientes(id)
+          `);
+        }
       }
 
       // Verificar si la columna cuit existe en comprobantes_whatsapp
