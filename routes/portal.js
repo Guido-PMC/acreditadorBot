@@ -403,7 +403,9 @@ router.get('/resumen', authenticateToken, async (req, res) => {
         COUNT(*) as total_comprobantes,
         COUNT(CASE WHEN cotejado = true THEN 1 END) as comprobantes_cotejados,
         COUNT(CASE WHEN cotejado = false THEN 1 END) as comprobantes_pendientes,
-        SUM(importe) as total_importe_comprobantes
+        SUM(importe) as total_importe_comprobantes,
+        SUM(CASE WHEN cotejado = true THEN importe ELSE 0 END) as total_importe_cotejados,
+        SUM(CASE WHEN cotejado = false THEN importe ELSE 0 END) as total_importe_pendientes
       FROM comprobantes_whatsapp 
       WHERE CAST(id_cliente AS INTEGER) = $1
     `, [cliente_id]);
@@ -420,17 +422,22 @@ router.get('/resumen', authenticateToken, async (req, res) => {
       WHERE CAST(id_cliente AS INTEGER) = $1
     `, [cliente_id]);
 
-    // Calcular saldo
-    const saldo = (comprobantesStats.rows[0].total_importe_comprobantes || 0) + 
-                  (movimientosStats.rows[0].total_importe_creditos || 0) - 
-                  (movimientosStats.rows[0].total_importe_pagos || 0);
+    // Calcular saldo actual (solo comprobantes cotejados + créditos - pagos)
+    const saldo_actual = (comprobantesStats.rows[0].total_importe_cotejados || 0) + 
+                         (movimientosStats.rows[0].total_importe_creditos || 0) - 
+                         (movimientosStats.rows[0].total_importe_pagos || 0);
+
+    // Saldo pendiente (comprobantes no cotejados)
+    const saldo_pendiente = comprobantesStats.rows[0].total_importe_pendientes || 0;
 
     res.json({
       success: true,
       data: {
         comprobantes: comprobantesStats.rows[0],
         movimientos: movimientosStats.rows[0],
-        saldo: saldo
+        saldo_actual: saldo_actual,
+        saldo_pendiente: saldo_pendiente,
+        saldo_total: saldo_actual + saldo_pendiente
       }
     });
 

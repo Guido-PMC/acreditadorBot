@@ -133,7 +133,7 @@
 
         <!-- Resumen de estadísticas -->
         <div class="row mb-4" id="statsRow">
-            <div class="col-md-3 mb-3">
+            <div class="col-md-2 mb-3">
                 <div class="card stats-card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -148,7 +148,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-md-2 mb-3">
                 <div class="card stats-card success">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -163,7 +163,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-md-2 mb-3">
                 <div class="card stats-card warning">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -178,7 +178,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-md-2 mb-3">
                 <div class="card stats-card info">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -188,6 +188,36 @@
                             </div>
                             <div class="align-self-center">
                                 <i class="fas fa-wallet fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2 mb-3">
+                <div class="card stats-card warning">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title">Saldo Pendiente</h6>
+                                <h3 id="saldoPendiente">-</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-hourglass-half fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2 mb-3">
+                <div class="card stats-card primary">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title">Saldo Total</h6>
+                                <h3 id="saldoTotal">-</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-calculator fa-2x"></i>
                             </div>
                         </div>
                     </div>
@@ -444,20 +474,37 @@
                     document.getElementById('comprobantesCotejados').textContent = data.comprobantes.comprobantes_cotejados || 0;
                     document.getElementById('comprobantesPendientes').textContent = data.comprobantes.comprobantes_pendientes || 0;
                     
-                    const saldo = data.saldo || 0;
-                    const saldoElement = document.getElementById('saldoActual');
-                    saldoElement.textContent = new Intl.NumberFormat('es-AR', {
+                    // Saldo actual (solo comprobantes cotejados + créditos - pagos)
+                    const saldoActual = data.saldo_actual || 0;
+                    const saldoActualElement = document.getElementById('saldoActual');
+                    saldoActualElement.textContent = new Intl.NumberFormat('es-AR', {
                         style: 'currency',
                         currency: 'ARS'
-                    }).format(saldo);
+                    }).format(saldoActual);
                     
-                    if (saldo > 0) {
-                        saldoElement.className = 'balance-positive';
-                    } else if (saldo < 0) {
-                        saldoElement.className = 'balance-negative';
+                    if (saldoActual > 0) {
+                        saldoActualElement.className = 'balance-positive';
+                    } else if (saldoActual < 0) {
+                        saldoActualElement.className = 'balance-negative';
                     } else {
-                        saldoElement.className = 'balance-zero';
+                        saldoActualElement.className = 'balance-zero';
                     }
+                    
+                    // Saldo pendiente (comprobantes no cotejados)
+                    const saldoPendiente = data.saldo_pendiente || 0;
+                    const saldoPendienteElement = document.getElementById('saldoPendiente');
+                    saldoPendienteElement.textContent = new Intl.NumberFormat('es-AR', {
+                        style: 'currency',
+                        currency: 'ARS'
+                    }).format(saldoPendiente);
+                    
+                    // Saldo total (actual + pendiente)
+                    const saldoTotal = data.saldo_total || 0;
+                    const saldoTotalElement = document.getElementById('saldoTotal');
+                    saldoTotalElement.textContent = new Intl.NumberFormat('es-AR', {
+                        style: 'currency',
+                        currency: 'ARS'
+                    }).format(saldoTotal);
                 }
             } catch (error) {
                 console.error('Error cargando resumen:', error);
