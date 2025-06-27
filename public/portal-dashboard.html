@@ -464,7 +464,7 @@
 
                 return `
                     <tr>
-                        <td>${new Date(mov.fecha).toLocaleDateString('es-AR')}</td>
+                        <td>${new Date(mov.fecha).toLocaleDateString('es-AR')} ${new Date(mov.fecha).toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'})}</td>
                         <td>${tipoBadge}</td>
                         <td><strong>${mov.concepto}</strong></td>
                         <td>
