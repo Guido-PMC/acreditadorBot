@@ -207,6 +207,21 @@ class Database {
         `);
       }
 
+      // Verificar si la columna numero_telefono existe en clientes
+      const clientesTelefonoColumns = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'clientes' AND column_name = 'numero_telefono'
+      `);
+      
+      if (clientesTelefonoColumns.rows.length === 0) {
+        console.log('Agregando columna numero_telefono a tabla clientes...');
+        await client.query(`
+          ALTER TABLE clientes 
+          ADD COLUMN numero_telefono VARCHAR(20)
+        `);
+      }
+
       console.log('Migraciones completadas exitosamente');
       
     } catch (error) {

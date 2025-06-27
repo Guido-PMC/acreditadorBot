@@ -1827,4 +1827,213 @@ router.delete('/pagos/:id', async (req, res) => {
   }
 });
 
+// POST /api/comprobantes/whatsapp - Endpoint para sistema de WhatsApp
+router.post('/comprobantes/whatsapp', [
+  body('numero_telefono').notEmpty().withMessage('Número de teléfono es requerido'),
+  body('nombre_remitente').notEmpty().withMessage('Nombre del remitente es requerido'),
+  body('importe').isNumeric().withMessage('Importe debe ser numérico'),
+  body('fecha_envio').notEmpty().withMessage('Fecha de envío es requerida'),
+  body('texto_mensaje').optional(),
+  body('archivo_url').optional()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      error: 'Datos inválidos', 
+      details: errors.array() 
+    });
+  }
+
+  const client = await db.getClient();
+  
+  try {
+    const {
+      numero_telefono,
+      nombre_remitente,
+      importe,
+      fecha_envio,
+      texto_mensaje,
+      archivo_url
+    } = req.body;
+
+    console.log('📱 Recibiendo comprobante de WhatsApp:', {
+      numero_telefono,
+      nombre_remitente,
+      importe,
+      fecha_envio
+    });
+
+    // Generar ID único para el comprobante
+    const id_comprobante = `WH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Buscar o crear cliente
+    let cliente = await client.query(
+      'SELECT id, nombre, apellido FROM clientes WHERE numero_telefono = $1 OR nombre = $2',
+      [numero_telefono, nombre_remitente]
+    );
+
+    let cliente_id;
+    let cliente_creado = false;
+
+    if (cliente.rows.length === 0) {
+      console.log('👤 Cliente no encontrado, creando nuevo cliente...');
+      
+      // Crear nuevo cliente
+      const nuevoCliente = await client.query(`
+        INSERT INTO clientes (nombre, apellido, observaciones, estado)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, nombre, apellido
+      `, [
+        nombre_remitente,
+        null, // apellido
+        `Cliente creado automáticamente desde WhatsApp. Tel: ${numero_telefono}`,
+        'activo'
+      ]);
+
+      cliente_id = nuevoCliente.rows[0].id;
+      cliente_creado = true;
+      
+      console.log('✅ Cliente creado:', nuevoCliente.rows[0]);
+    } else {
+      cliente_id = cliente.rows[0].id;
+      console.log('✅ Cliente encontrado:', cliente.rows[0]);
+    }
+
+    // Buscar acreditación que coincida
+    const fecha_envio_obj = new Date(fecha_envio);
+    const fecha_desde = new Date(fecha_envio_obj.getTime() - 24 * 60 * 60 * 1000); // 1 día antes
+    const fecha_hasta = new Date(fecha_envio_obj.getTime() + 24 * 60 * 60 * 1000); // 1 día después
+
+    console.log('🔍 Buscando acreditación coincidente...');
+
+    const acreditacionCoincidente = await client.query(`
+      SELECT id, titular, cuit, importe, fecha_hora, cotejado
+      FROM acreditaciones 
+      WHERE importe = $1 
+        AND fecha_hora BETWEEN $2 AND $3
+        AND (titular ILIKE $4 OR cuit = $5)
+        AND cotejado = false
+        AND id_comprobante_whatsapp IS NULL
+      ORDER BY ABS(EXTRACT(EPOCH FROM (fecha_hora - $6))) ASC
+      LIMIT 1
+    `, [
+      parseFloat(importe),
+      fecha_desde,
+      fecha_hasta,
+      `%${nombre_remitente}%`,
+      numero_telefono,
+      fecha_envio_obj
+    ]);
+
+    let acreditacion_id = null;
+    let acreditacion_encontrada = false;
+
+    if (acreditacionCoincidente.rows.length > 0) {
+      acreditacion_id = acreditacionCoincidente.rows[0].id;
+      acreditacion_encontrada = true;
+      
+      console.log('💰 Acreditación coincidente encontrada:', acreditacionCoincidente.rows[0]);
+    } else {
+      console.log('❌ No se encontró acreditación coincidente');
+    }
+
+    // Insertar comprobante
+    const comprobanteResult = await client.query(`
+      INSERT INTO comprobantes_whatsapp (
+        id_comprobante,
+        numero_telefono,
+        nombre_remitente,
+        importe,
+        fecha_envio,
+        texto_mensaje,
+        archivo_url,
+        id_cliente,
+        id_acreditacion,
+        cotejado,
+        fecha_cotejo,
+        estado
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING id, id_comprobante, cotejado, id_acreditacion
+    `, [
+      id_comprobante,
+      numero_telefono,
+      nombre_remitente,
+      parseFloat(importe),
+      fecha_envio_obj,
+      texto_mensaje || null,
+      archivo_url || null,
+      cliente_id,
+      acreditacion_id,
+      acreditacion_encontrada, // cotejado
+      acreditacion_encontrada ? new Date() : null, // fecha_cotejo
+      acreditacion_encontrada ? 'cotejado' : 'pendiente'
+    ]);
+
+    const comprobante = comprobanteResult.rows[0];
+
+    // Si se encontró acreditación, actualizarla
+    if (acreditacion_encontrada && acreditacion_id) {
+      await client.query(`
+        UPDATE acreditaciones 
+        SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [id_comprobante, acreditacion_id]);
+
+      console.log('✅ Acreditación actualizada con comprobante');
+    }
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'comprobante_whatsapp_creado',
+      `Comprobante de WhatsApp creado: ${nombre_remitente} - $${importe}`,
+      JSON.stringify({
+        comprobante_id: comprobante.id,
+        id_comprobante: id_comprobante,
+        cliente_id,
+        cliente_creado,
+        acreditacion_encontrada,
+        acreditacion_id
+      }),
+      'exitoso'
+    ]);
+
+    console.log('✅ Comprobante creado exitosamente');
+
+    res.json({
+      success: true,
+      message: 'Comprobante procesado exitosamente',
+      data: {
+        comprobante_id: comprobante.id,
+        id_comprobante: id_comprobante,
+        cliente: {
+          id: cliente_id,
+          creado: cliente_creado,
+          nombre: nombre_remitente
+        },
+        acreditacion: acreditacion_encontrada ? {
+          id: acreditacion_id,
+          encontrada: true,
+          cotejado: true
+        } : {
+          encontrada: false,
+          cotejado: false
+        },
+        estado: acreditacion_encontrada ? 'cotejado' : 'pendiente'
+      }
+    });
+
+  } catch (error) {
+    console.error('💥 Error procesando comprobante de WhatsApp:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo procesar el comprobante'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 

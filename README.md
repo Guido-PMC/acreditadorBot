@@ -198,6 +198,82 @@ Marca una acreditación como cotejada.
 #### GET `/api/buscar-acreditacion`
 Busca acreditaciones por criterios específicos.
 
+### POST /api/comprobantes/whatsapp
+
+Endpoint para que el sistema de WhatsApp cargue comprobantes automáticamente.
+
+**URL:** `POST /api/comprobantes/whatsapp`
+
+**Headers:**
+```
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "numero_telefono": "1234567890",
+  "nombre_remitente": "Juan Pérez",
+  "importe": 50000.00,
+  "fecha_envio": "2025-06-27T10:30:00.000Z",
+  "texto_mensaje": "Pago realizado",
+  "archivo_url": "https://ejemplo.com/comprobante.jpg"
+}
+```
+
+**Campos requeridos:**
+- `numero_telefono`: Número de teléfono del remitente
+- `nombre_remitente`: Nombre del remitente
+- `importe`: Monto del comprobante (numérico)
+- `fecha_envio`: Fecha y hora del envío (ISO 8601)
+
+**Campos opcionales:**
+- `texto_mensaje`: Texto del mensaje de WhatsApp
+- `archivo_url`: URL del archivo adjunto
+
+**Respuesta exitosa:**
+```json
+{
+  "success": true,
+  "message": "Comprobante procesado exitosamente",
+  "data": {
+    "comprobante_id": 123,
+    "id_comprobante": "WH_1234567890_abc123",
+    "cliente": {
+      "id": 5,
+      "creado": true,
+      "nombre": "Juan Pérez"
+    },
+    "acreditacion": {
+      "id": 45,
+      "encontrada": true,
+      "cotejado": true
+    },
+    "estado": "cotejado"
+  }
+}
+```
+
+**Funcionalidades automáticas:**
+
+1. **Creación automática de cliente**: Si el cliente no existe, se crea automáticamente
+2. **Búsqueda de acreditación**: Busca acreditaciones que coincidan por:
+   - Monto exacto
+   - Fecha (±1 día)
+   - Nombre del titular o CUIT
+3. **Cotejo automático**: Si encuentra coincidencia, vincula automáticamente
+4. **Logging**: Registra todas las operaciones
+
+**Criterios de búsqueda de acreditación:**
+- Importe exacto
+- Fecha dentro de ±24 horas
+- Nombre del titular (búsqueda parcial) O CUIT exacto
+- Acreditación no cotejada y sin comprobante asignado
+
+**Estados de respuesta:**
+- `"cotejado"`: Se encontró y vinculó acreditación
+- `"pendiente"`: No se encontró acreditación coincidente
+
 ## 📁 Estructura del Proyecto
 
 ```
