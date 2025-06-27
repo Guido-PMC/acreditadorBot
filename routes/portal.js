@@ -60,7 +60,7 @@ router.post('/login', [
         c.apellido,
         c.estado as cliente_estado
       FROM portal_users pu
-      JOIN clientes c ON pu.id_cliente = c.id
+      JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
       WHERE pu.username = $1 AND pu.activo = true
     `, [username]);
 
@@ -147,7 +147,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
         c.estado as cliente_estado,
         c.fecha_registro
       FROM portal_users pu
-      JOIN clientes c ON pu.id_cliente = c.id
+      JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
       WHERE pu.id = $1
     `, [req.user.id]);
 
@@ -248,7 +248,7 @@ router.get('/comprobantes', authenticateToken, async (req, res) => {
         a.cuit as acreditacion_cuit,
         a.fecha_hora as acreditacion_fecha
       FROM comprobantes_whatsapp c
-      LEFT JOIN acreditaciones a ON c.id_acreditacion = a.id
+      LEFT JOIN acreditaciones a ON CAST(c.id_acreditacion AS INTEGER) = a.id
       ${whereClause}
       ORDER BY c.${campoOrden} ${ordenValido}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
