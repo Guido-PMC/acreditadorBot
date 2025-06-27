@@ -1465,4 +1465,65 @@ router.post('/comprobantes', [
   }
 });
 
+// DELETE /api/comprobantes/:id - Eliminar comprobante
+router.delete('/comprobantes/:id', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+
+    // Verificar que el comprobante existe
+    const comprobante = await client.query(
+      'SELECT id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id = $1',
+      [id]
+    );
+
+    if (comprobante.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Comprobante no encontrado',
+        message: 'El comprobante especificado no existe'
+      });
+    }
+
+    // Verificar si está asignado a una acreditación
+    if (comprobante.rows[0].id_acreditacion) {
+      return res.status(400).json({
+        error: 'Comprobante asignado',
+        message: 'No se puede eliminar un comprobante que está asignado a una acreditación'
+      });
+    }
+
+    // Eliminar el comprobante
+    await client.query(
+      'DELETE FROM comprobantes_whatsapp WHERE id = $1',
+      [id]
+    );
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'comprobante_eliminado',
+      `Comprobante ${comprobante.rows[0].id_comprobante} eliminado`,
+      JSON.stringify({ comprobante_id: id }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Comprobante eliminado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error eliminando comprobante:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo eliminar el comprobante'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 
