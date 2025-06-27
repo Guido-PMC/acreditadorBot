@@ -1834,7 +1834,8 @@ router.post('/comprobantes/whatsapp', [
   body('importe').isNumeric().withMessage('Importe debe ser numérico'),
   body('fecha_envio').notEmpty().withMessage('Fecha de envío es requerida'),
   body('texto_mensaje').optional(),
-  body('archivo_url').optional()
+  body('archivo_url').optional(),
+  body('cuit').optional()
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -1854,7 +1855,8 @@ router.post('/comprobantes/whatsapp', [
       importe,
       fecha_envio,
       texto_mensaje,
-      archivo_url
+      archivo_url,
+      cuit
     } = req.body;
 
     // LOGGING DETALLADO DE LO QUE SE RECIBE
@@ -1868,6 +1870,7 @@ router.post('/comprobantes/whatsapp', [
     console.log('   fecha_envio:', fecha_envio, '(tipo:', typeof fecha_envio, ')');
     console.log('   texto_mensaje:', texto_mensaje);
     console.log('   archivo_url:', archivo_url);
+    console.log('   cuit:', cuit);
     console.log('📋 BODY COMPLETO:', JSON.stringify(req.body, null, 2));
     console.log('='.repeat(80));
 
@@ -1951,24 +1954,42 @@ router.post('/comprobantes/whatsapp', [
 
     console.log('🔍 Buscando acreditación coincidente...');
 
+    // Construir condiciones de búsqueda dinámicamente
+    let whereConditions = [
+      'importe = $1',
+      'fecha_hora BETWEEN $2 AND $3',
+      'cotejado = false',
+      'id_comprobante_whatsapp IS NULL'
+    ];
+    
+    let params = [
+      parseFloat(importe),
+      fecha_desde,
+      fecha_hasta
+    ];
+    
+    let paramIndex = 4;
+    
+    // Agregar condición de búsqueda por nombre o CUIT
+    if (cuit && cuit.trim()) {
+      whereConditions.push(`(titular ILIKE $${paramIndex} OR cuit = $${paramIndex + 1})`);
+      params.push(`%${nombre_remitente}%`, cuit.trim());
+      paramIndex += 2;
+    } else {
+      whereConditions.push(`(titular ILIKE $${paramIndex} OR cuit = $${paramIndex + 1})`);
+      params.push(`%${nombre_remitente}%`, numero_telefono);
+      paramIndex += 2;
+    }
+    
+    params.push(fecha_envio_obj);
+
     const acreditacionCoincidente = await client.query(`
       SELECT id, titular, cuit, importe, fecha_hora, cotejado
       FROM acreditaciones 
-      WHERE importe = $1 
-        AND fecha_hora BETWEEN $2 AND $3
-        AND (titular ILIKE $4 OR cuit = $5)
-        AND cotejado = false
-        AND id_comprobante_whatsapp IS NULL
-      ORDER BY ABS(EXTRACT(EPOCH FROM (fecha_hora - $6))) ASC
+      WHERE ${whereConditions.join(' AND ')}
+      ORDER BY ABS(EXTRACT(EPOCH FROM (fecha_hora - $${paramIndex}))) ASC
       LIMIT 1
-    `, [
-      parseFloat(importe),
-      fecha_desde,
-      fecha_hasta,
-      `%${nombre_remitente}%`,
-      numero_telefono,
-      fecha_envio_obj
-    ]);
+    `, params);
 
     let acreditacion_id = null;
     let acreditacion_encontrada = false;
