@@ -7,10 +7,12 @@ Sistema integral para el procesamiento y cotejo de transferencias bancarias cont
 - **API en Tiempo Real**: Recibe notificaciones automáticas de transferencias bancarias
 - **Carga de Archivos CSV**: Procesamiento masivo de transacciones diarias
 - **Interfaz Web Moderna**: Dashboard con estadísticas y gestión de datos
+- **Portal de Clientes**: Sistema de autenticación JWT para que los clientes vean sus datos
 - **Base de Datos PostgreSQL**: Almacenamiento robusto y escalable
 - **Sistema de Cotejo**: Comparación automática de acreditaciones vs comprobantes
 - **Logs Detallados**: Seguimiento completo de todas las operaciones
 - **Autenticación Básica**: Protección del dashboard y rutas web
+- **Gestión de Usuarios**: ABM completo para usuarios del portal de clientes
 
 ## 📋 Requisitos
 
@@ -75,12 +77,114 @@ Sistema integral para el procesamiento y cotejo de transferencias bancarias cont
    ```bash
    railway variables set DATABASE_URL=<tu-url-postgresql>
    railway variables set NODE_ENV=production
+   railway variables set JWT_SECRET=<tu-secreto-jwt>
    ```
 
 6. **Desplegar**
    ```bash
    railway up
    ```
+
+## 🏢 Portal de Clientes
+
+### Características del Portal
+
+- **Autenticación JWT**: Sistema seguro de login/logout
+- **Dashboard Personalizado**: Estadísticas específicas del cliente
+- **Comprobantes**: Lista de todos los comprobantes con ordenamiento
+- **Movimientos**: Pagos y créditos del cliente
+- **Ordenamiento**: Click en columnas para ordenar por ID, Fecha, Monto, etc.
+- **Filtros**: Por estado (cotejado/pendiente) y tipo de movimiento
+- **Responsive**: Diseño adaptativo para móviles y desktop
+
+### URLs del Portal
+
+- **Login**: `/portal-login.html`
+- **Dashboard**: `/portal-dashboard.html`
+- **Gestión de Usuarios**: `/portal-users.html` (solo administradores)
+
+### API del Portal
+
+#### Autenticación
+
+**POST `/portal/login`**
+```json
+{
+  "username": "cliente1",
+  "password": "cliente123"
+}
+```
+
+**Respuesta:**
+```json
+{
+  "success": true,
+  "data": {
+    "token": "jwt_token_here",
+    "user": {
+      "id": 1,
+      "cliente_id": 1,
+      "username": "cliente1",
+      "nombre": "Juan",
+      "apellido": "Pérez"
+    }
+  }
+}
+```
+
+#### Datos del Cliente
+
+**GET `/portal/profile`** (requiere token)
+```bash
+Authorization: Bearer <token>
+```
+
+**GET `/portal/resumen`** (requiere token)
+- Estadísticas generales del cliente
+
+**GET `/portal/comprobantes`** (requiere token)
+- Lista de comprobantes con paginación y ordenamiento
+- Query params: `page`, `limit`, `ordenar_por`, `orden`, `estado`
+
+**GET `/portal/movimientos`** (requiere token)
+- Lista de movimientos (pagos y créditos)
+- Query params: `page`, `limit`, `ordenar_por`, `orden`, `tipo`
+
+### Gestión de Usuarios del Portal
+
+#### API de Administración
+
+**GET `/api/portal-users`**
+- Lista usuarios del portal con paginación
+
+**POST `/api/portal-users`**
+```json
+{
+  "id_cliente": 1,
+  "username": "cliente1",
+  "password": "cliente123",
+  "email": "cliente1@test.com"
+}
+```
+
+**PUT `/api/portal-users/:id`**
+- Actualizar usuario existente
+
+**DELETE `/api/portal-users/:id`**
+- Desactivar usuario (soft delete)
+
+### Crear Usuario de Prueba
+
+Para crear un usuario de prueba para el cliente ID 1:
+
+```bash
+node create_portal_user.js
+```
+
+Esto creará:
+- Usuario: `cliente1`
+- Contraseña: `cliente123`
+- Email: `cliente1@test.com`
 
 ## 📊 Estructura de la Base de Datos
 
@@ -108,12 +212,60 @@ Almacena comprobantes recibidos por WhatsApp.
 |-------|------|-------------|
 | id | SERIAL | ID único |
 | id_comprobante | VARCHAR(50) | ID del comprobante |
-| numero_telefono | VARCHAR(20) | Número de teléfono |
+| id_cliente | INTEGER | ID del cliente |
 | nombre_remitente | VARCHAR(200) | Nombre del remitente |
+| cuit | VARCHAR(20) | CUIT del remitente |
 | importe | DECIMAL(15,2) | Monto del comprobante |
 | fecha_envio | TIMESTAMP | Fecha de envío |
-| archivo_url | TEXT | URL del archivo adjunto |
+| fecha_recepcion | TIMESTAMP | Fecha de recepción |
+| estado | VARCHAR(20) | Estado del comprobante |
 | cotejado | BOOLEAN | Si fue cotejado |
+| id_acreditacion | INTEGER | ID de la acreditación vinculada |
+| fecha_cotejo | TIMESTAMP | Fecha del cotejo |
+
+### Tabla: `clientes`
+Almacena información de los clientes.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| id | SERIAL | ID único |
+| nombre | VARCHAR(100) | Nombre del cliente |
+| apellido | VARCHAR(100) | Apellido del cliente |
+| estado | VARCHAR(20) | Estado: 'activo' o 'inactivo' |
+| fecha_registro | TIMESTAMP | Fecha de registro |
+
+### Tabla: `pagos`
+Almacena movimientos de dinero (pagos y créditos).
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| id | SERIAL | ID único |
+| id_cliente | INTEGER | ID del cliente |
+| concepto | VARCHAR(200) | Concepto del movimiento |
+| importe | DECIMAL(15,2) | Monto del movimiento |
+| fecha_pago | TIMESTAMP | Fecha del movimiento |
+| tipo_pago | VARCHAR(50) | Tipo: 'egreso' o 'credito' |
+| metodo_pago | VARCHAR(50) | Método de pago |
+| referencia | VARCHAR(100) | Referencia del pago |
+| observaciones | TEXT | Observaciones adicionales |
+| estado | VARCHAR(20) | Estado del movimiento |
+| fecha_creacion | TIMESTAMP | Fecha de creación |
+
+### Tabla: `portal_users`
+Almacena usuarios del portal de clientes.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| id | SERIAL | ID único |
+| id_cliente | INTEGER | ID del cliente |
+| username | VARCHAR(50) | Nombre de usuario |
+| password_hash | VARCHAR(255) | Hash de la contraseña |
+| email | VARCHAR(100) | Email del usuario |
+| activo | BOOLEAN | Si el usuario está activo |
+| fecha_creacion | TIMESTAMP | Fecha de creación |
+| ultimo_acceso | TIMESTAMP | Último acceso |
+| token_reset | VARCHAR(100) | Token para reset de contraseña |
+| token_expira | TIMESTAMP | Expiración del token |
 
 ### Tabla: `logs_procesamiento`
 Registra todas las operaciones del sistema.
