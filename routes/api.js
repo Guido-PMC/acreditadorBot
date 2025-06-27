@@ -1932,55 +1932,6 @@ router.post('/comprobantes/whatsapp', [
     // Generar ID único para el comprobante
     const id_comprobante = `WH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Verificar si ya existe un comprobante similar (duplicado)
-    const comprobanteDuplicado = await client.query(`
-      SELECT id, id_comprobante, nombre_remitente, importe, fecha_envio, id_cliente
-      FROM comprobantes_whatsapp 
-      WHERE nombre_remitente = $1 
-        AND cuit = $2 
-        AND importe = $3 
-        AND fecha_envio BETWEEN $4 AND $5
-        AND id_cliente = $6
-    `, [
-      nombre_remitente,
-      cuit_limpio,
-      parseFloat(monto),
-      new Date(fecha_envio_obj.getTime() - 5 * 60 * 1000), // 5 minutos antes
-      new Date(fecha_envio_obj.getTime() + 5 * 60 * 1000), // 5 minutos después
-      cliente_id
-    ]);
-
-    if (comprobanteDuplicado.rows.length > 0) {
-      console.log('⚠️ Comprobante duplicado detectado:', comprobanteDuplicado.rows[0]);
-      
-      // Registrar log del intento de duplicado
-      await client.query(`
-        INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
-        VALUES ($1, $2, $3, $4)
-      `, [
-        'comprobante_duplicado',
-        `Intento de crear comprobante duplicado: ${nombre_remitente} - $${monto}`,
-        JSON.stringify({
-          nombre_remitente,
-          cuit: cuit_limpio,
-          monto,
-          fecha: fecha_envio_obj,
-          cliente_id,
-          comprobante_existente: comprobanteDuplicado.rows[0].id_comprobante
-        }),
-        'advertencia'
-      ]);
-
-      return res.status(409).json({
-        error: 'Comprobante duplicado',
-        message: 'Este comprobante ya fue procesado anteriormente',
-        data: {
-          comprobante_existente: comprobanteDuplicado.rows[0].id_comprobante,
-          fecha_procesamiento: comprobanteDuplicado.rows[0].fecha_envio
-        }
-      });
-    }
-
     // Buscar o crear cliente (usando el campo 'cliente', no nombre_remitente)
     let cliente_id;
     let cliente_creado = false;
@@ -2091,6 +2042,55 @@ router.post('/comprobantes/whatsapp', [
         error: 'Formato de fecha inválido',
         message: `La fecha '${fecha}' no es válida. Formatos soportados: DD/MM/YYYY, YYYY-MM-DD, ISO 8601, o fecha+hora separadas`,
         details: error.message
+      });
+    }
+
+    // Verificar si ya existe un comprobante similar (duplicado) - DESPUÉS DEL PARSING
+    const comprobanteDuplicado = await client.query(`
+      SELECT id, id_comprobante, nombre_remitente, importe, fecha_envio, id_cliente
+      FROM comprobantes_whatsapp 
+      WHERE nombre_remitente = $1 
+        AND cuit = $2 
+        AND importe = $3 
+        AND fecha_envio BETWEEN $4 AND $5
+        AND id_cliente = $6
+    `, [
+      nombre_remitente,
+      cuit_limpio,
+      parseFloat(monto),
+      new Date(fecha_envio_obj.getTime() - 5 * 60 * 1000), // 5 minutos antes
+      new Date(fecha_envio_obj.getTime() + 5 * 60 * 1000), // 5 minutos después
+      cliente_id
+    ]);
+
+    if (comprobanteDuplicado.rows.length > 0) {
+      console.log('⚠️ Comprobante duplicado detectado:', comprobanteDuplicado.rows[0]);
+      
+      // Registrar log del intento de duplicado
+      await client.query(`
+        INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+        VALUES ($1, $2, $3, $4)
+      `, [
+        'comprobante_duplicado',
+        `Intento de crear comprobante duplicado: ${nombre_remitente} - $${monto}`,
+        JSON.stringify({
+          nombre_remitente,
+          cuit: cuit_limpio,
+          monto,
+          fecha: fecha_envio_obj,
+          cliente_id,
+          comprobante_existente: comprobanteDuplicado.rows[0].id_comprobante
+        }),
+        'advertencia'
+      ]);
+
+      return res.status(409).json({
+        error: 'Comprobante duplicado',
+        message: 'Este comprobante ya fue procesado anteriormente',
+        data: {
+          comprobante_existente: comprobanteDuplicado.rows[0].id_comprobante,
+          fecha_procesamiento: comprobanteDuplicado.rows[0].fecha_envio
+        }
       });
     }
 
