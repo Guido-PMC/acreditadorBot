@@ -325,7 +325,7 @@
                         ${user.email ? `<br><small class="text-muted">${user.email}</small>` : ''}
                     </td>
                     <td>
-                        <strong>${user.cliente_nombre} ${user.cliente_apellido}</strong>
+                        <strong>${user.cliente_nombre || 'Sin nombre'} ${user.cliente_apellido || 'Sin apellido'}</strong>
                         <br><small class="text-muted">ID: ${user.cliente_id}</small>
                     </td>
                     <td>${user.email || '<span class="text-muted">-</span>'}</td>
