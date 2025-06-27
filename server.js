@@ -57,8 +57,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 console.log('Configurando rutas...');
 app.use('/api', apiRoutes);
 console.log('Rutas API configuradas');
-app.use('/api', clientesRoutes);
-console.log('Rutas de clientes configuradas');
+// app.use('/api', clientesRoutes);
+// console.log('Rutas de clientes configuradas');
 app.use('/upload', uploadRoutes);
 console.log('Rutas de upload configuradas');
 app.use('/', webRoutes);
@@ -66,11 +66,25 @@ console.log('Rutas web configuradas');
 
 // Ruta de health check para Railway
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    database: db.isConnected ? 'Connected' : 'Disconnected'
-  });
+  console.log('Healthcheck solicitado');
+  try {
+    const healthData = {
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      database: db.isConnected ? 'Connected' : 'Disconnected',
+      uptime: process.uptime(),
+      memory: process.memoryUsage()
+    };
+    console.log('Healthcheck exitoso:', healthData);
+    res.status(200).json(healthData);
+  } catch (error) {
+    console.error('Error en healthcheck:', error);
+    res.status(500).json({
+      status: 'ERROR',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 // Manejo de errores global
@@ -90,13 +104,32 @@ app.use('*', (req, res) => {
 // Inicializar base de datos y servidor
 async function startServer() {
   try {
+    console.log('Iniciando servidor...');
+    console.log(`Puerto configurado: ${PORT}`);
+    console.log(`Variables de entorno:`, {
+      NODE_ENV: process.env.NODE_ENV,
+      PORT: process.env.PORT,
+      DATABASE_URL: process.env.DATABASE_URL ? 'Configurado' : 'No configurado'
+    });
+    
     await db.connect();
     console.log('Base de datos conectada');
     
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`Servidor corriendo en puerto ${PORT}`);
       console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
+      console.log('Servidor listo para recibir requests');
     });
+
+    // Agregar manejo de errores del servidor
+    server.on('error', (error) => {
+      console.error('Error en el servidor:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Puerto ${PORT} ya está en uso`);
+      }
+      process.exit(1);
+    });
+
   } catch (error) {
     console.error('Error al iniciar el servidor:', error);
     process.exit(1);
