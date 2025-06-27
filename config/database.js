@@ -10,8 +10,15 @@ class Database {
     try {
       console.log('Conectando a la base de datos...');
       
+      const connectionString = process.env.DATABASE_URL;
+      if (!connectionString) {
+        throw new Error('DATABASE_URL no está definida en las variables de entorno');
+      }
+      
+      console.log('🔗 URL de conexión configurada:', connectionString ? 'Sí' : 'No');
+      
       this.pool = new Pool({
-        connectionString: this.connectionString,
+        connectionString: connectionString,
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
       });
 
