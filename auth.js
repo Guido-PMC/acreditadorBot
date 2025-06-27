@@ -31,6 +31,11 @@ function authMiddleware(req, res, next) {
     return next(); // No requerir autenticación para APIs
   }
   
+  // Excluir health check
+  if (req.path === '/health') {
+    return next(); // No requerir autenticación para health check
+  }
+  
   // Excluir archivos estáticos específicos si es necesario
   if (req.path.startsWith('/favicon.ico') || req.path.startsWith('/robots.txt')) {
     return next();
