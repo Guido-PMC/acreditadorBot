@@ -2235,13 +2235,14 @@ router.get('/portal-users', async (req, res) => {
 
 // POST /api/portal-users - Crear usuario del portal
 router.post('/portal-users', [
-  body('id_cliente').isInt().withMessage('ID del cliente es requerido'),
-  body('username').isLength({ min: 3 }).withMessage('Usuario debe tener al menos 3 caracteres'),
-  body('password').isLength({ min: 6 }).withMessage('Contraseña debe tener al menos 6 caracteres'),
+  body('id_cliente').notEmpty().withMessage('ID del cliente es requerido').isInt({ min: 1 }).withMessage('ID del cliente debe ser un número entero válido'),
+  body('username').notEmpty().withMessage('Usuario es requerido').isLength({ min: 3, max: 50 }).withMessage('Usuario debe tener entre 3 y 50 caracteres').matches(/^[a-zA-Z0-9_]+$/).withMessage('Usuario solo puede contener letras, números y guiones bajos'),
+  body('password').notEmpty().withMessage('Contraseña es requerida').isLength({ min: 6, max: 100 }).withMessage('Contraseña debe tener entre 6 y 100 caracteres'),
   body('email').optional().isEmail().withMessage('Email debe ser válido')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    console.log('❌ Errores de validación al crear usuario del portal:', errors.array());
     return res.status(400).json({ 
       error: 'Datos inválidos', 
       details: errors.array() 
@@ -2252,14 +2253,17 @@ router.post('/portal-users', [
   
   try {
     const { id_cliente, username, password, email } = req.body;
+    
+    console.log('🔧 Intentando crear usuario del portal:', { id_cliente, username, email: email || 'no especificado' });
 
     // Verificar que el cliente existe
     const clienteResult = await client.query(
       'SELECT id, nombre, apellido FROM clientes WHERE id = $1',
-      [id_cliente]
+      [parseInt(id_cliente)]
     );
 
     if (clienteResult.rows.length === 0) {
+      console.log('❌ Cliente no encontrado:', id_cliente);
       return res.status(404).json({
         error: 'Cliente no encontrado',
         message: 'El cliente especificado no existe'
@@ -2273,6 +2277,7 @@ router.post('/portal-users', [
     );
 
     if (existingUser.rows.length > 0) {
+      console.log('❌ Usuario duplicado:', username);
       return res.status(409).json({
         error: 'Usuario duplicado',
         message: 'Este nombre de usuario ya existe'
@@ -2293,9 +2298,10 @@ router.post('/portal-users', [
         email
       ) VALUES ($1, $2, $3, $4)
       RETURNING id, username, email, activo, fecha_creacion
-    `, [id_cliente, username, passwordHash, email || null]);
+    `, [parseInt(id_cliente), username, passwordHash, email || null]);
 
     const cliente = clienteResult.rows[0];
+    console.log('✅ Usuario del portal creado exitosamente:', result.rows[0].id);
 
     // Registrar log
     await client.query(`
@@ -2322,7 +2328,7 @@ router.post('/portal-users', [
     });
 
   } catch (error) {
-    console.error('Error creando usuario del portal:', error);
+    console.error('❌ Error creando usuario del portal:', error);
     res.status(500).json({
       error: 'Error interno del servidor',
       message: 'No se pudo crear el usuario del portal'
