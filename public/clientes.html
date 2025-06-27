@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de Clientes</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">AcreditadorBot</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item"><a class="nav-link" href="/dashboard.html">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link active" href="/clientes.html">Clientes</a></li>
+          <li class="nav-item"><a class="nav-link" href="/upload.html">Subir CSV</a></li>
+          <li class="nav-item"><a class="nav-link" href="/logs.html">Logs</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1>Gestión de Clientes</h1>
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#clienteModal" onclick="openClienteModal()">Nuevo Cliente</button>
+    </div>
+    <div class="mb-3">
+      <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nombre, apellido, CUIT o email..." oninput="loadClientes()">
+    </div>
+    <div id="alertContainer"></div>
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Apellido</th>
+            <th>CUIT</th>
+            <th>Email</th>
+            <th>Teléfono</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="clientesTableBody"></tbody>
+      </table>
+    </div>
+    <nav>
+      <ul class="pagination" id="pagination"></ul>
+    </nav>
+  </div>
+
+  <!-- Modal Cliente -->
+  <div class="modal fade" id="clienteModal" tabindex="-1" aria-labelledby="clienteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="clienteForm" onsubmit="submitClienteForm(event)">
+          <div class="modal-header">
+            <h5 class="modal-title" id="clienteModalLabel">Nuevo Cliente</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="clienteId">
+            <div class="mb-3">
+              <label for="nombre" class="form-label">Nombre *</label>
+              <input type="text" class="form-control" id="nombre" required>
+            </div>
+            <div class="mb-3">
+              <label for="apellido" class="form-label">Apellido</label>
+              <input type="text" class="form-control" id="apellido">
+            </div>
+            <div class="mb-3">
+              <label for="cuit" class="form-label">CUIT</label>
+              <input type="text" class="form-control" id="cuit" maxlength="11">
+            </div>
+            <div class="mb-3">
+              <label for="email" class="form-label">Email</label>
+              <input type="email" class="form-control" id="email">
+            </div>
+            <div class="mb-3">
+              <label for="telefono" class="form-label">Teléfono</label>
+              <input type="text" class="form-control" id="telefono">
+            </div>
+            <div class="mb-3">
+              <label for="direccion" class="form-label">Dirección</label>
+              <input type="text" class="form-control" id="direccion">
+            </div>
+            <div class="mb-3">
+              <label for="observaciones" class="form-label">Observaciones</label>
+              <textarea class="form-control" id="observaciones"></textarea>
+            </div>
+            <div class="mb-3">
+              <label for="estado" class="form-label">Estado</label>
+              <select class="form-select" id="estado">
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let currentPage = 1;
+    let totalPages = 1;
+    let currentSearch = '';
+    let editingCliente = false;
+
+    async function loadClientes(page = 1) {
+      currentPage = page;
+      currentSearch = document.getElementById('searchInput').value;
+      let url = `/api/clientes?page=${page}&limit=10`;
+      if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!data.success) {
+        showAlert('danger', data.error || 'Error al cargar clientes');
+        return;
+      }
+      renderClientes(data.data);
+      renderPagination(data.pagination);
+    }
+
+    function renderClientes(clientes) {
+      const tbody = document.getElementById('clientesTableBody');
+      tbody.innerHTML = '';
+      clientes.forEach(cliente => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${cliente.nombre}</td>
+            <td>${cliente.apellido || ''}</td>
+            <td>${cliente.cuit || ''}</td>
+            <td>${cliente.email || ''}</td>
+            <td>${cliente.telefono || ''}</td>
+            <td>${cliente.estado}</td>
+            <td>
+              <button class="btn btn-sm btn-info me-1" onclick="viewComprobantes(${cliente.id})">Comprobantes</button>
+              <button class="btn btn-sm btn-warning me-1" onclick="editCliente(${cliente.id})">Editar</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteCliente(${cliente.id})">Eliminar</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function renderPagination(pagination) {
+      totalPages = pagination.pages;
+      const ul = document.getElementById('pagination');
+      ul.innerHTML = '';
+      for (let i = 1; i <= totalPages; i++) {
+        ul.innerHTML += `<li class="page-item${i === currentPage ? ' active' : ''}"><a class="page-link" href="#" onclick="loadClientes(${i})">${i}</a></li>`;
+      }
+    }
+
+    function showAlert(type, message) {
+      document.getElementById('alertContainer').innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">${message}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>`;
+    }
+
+    function openClienteModal() {
+      editingCliente = false;
+      document.getElementById('clienteForm').reset();
+      document.getElementById('clienteId').value = '';
+      document.getElementById('clienteModalLabel').innerText = 'Nuevo Cliente';
+      document.getElementById('estado').value = 'activo';
+    }
+
+    async function submitClienteForm(event) {
+      event.preventDefault();
+      const id = document.getElementById('clienteId').value;
+      const body = {
+        nombre: document.getElementById('nombre').value,
+        apellido: document.getElementById('apellido').value,
+        cuit: document.getElementById('cuit').value,
+        email: document.getElementById('email').value,
+        telefono: document.getElementById('telefono').value,
+        direccion: document.getElementById('direccion').value,
+        observaciones: document.getElementById('observaciones').value,
+        estado: document.getElementById('estado').value
+      };
+      let method = 'POST', url = '/api/clientes';
+      if (id) {
+        method = 'PUT';
+        url += `/${id}`;
+      }
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data.success) {
+        showAlert('success', data.message);
+        loadClientes();
+        bootstrap.Modal.getInstance(document.getElementById('clienteModal')).hide();
+      } else {
+        showAlert('danger', data.error || data.message || 'Error al guardar cliente');
+      }
+    }
+
+    async function editCliente(id) {
+      const res = await fetch(`/api/clientes?page=1&limit=1&search=${id}`);
+      const data = await res.json();
+      const cliente = data.data.find(c => c.id == id);
+      if (!cliente) return showAlert('danger', 'Cliente no encontrado');
+      editingCliente = true;
+      document.getElementById('clienteId').value = cliente.id;
+      document.getElementById('nombre').value = cliente.nombre;
+      document.getElementById('apellido').value = cliente.apellido || '';
+      document.getElementById('cuit').value = cliente.cuit || '';
+      document.getElementById('email').value = cliente.email || '';
+      document.getElementById('telefono').value = cliente.telefono || '';
+      document.getElementById('direccion').value = cliente.direccion || '';
+      document.getElementById('observaciones').value = cliente.observaciones || '';
+      document.getElementById('estado').value = cliente.estado || 'activo';
+      document.getElementById('clienteModalLabel').innerText = 'Editar Cliente';
+      new bootstrap.Modal(document.getElementById('clienteModal')).show();
+    }
+
+    async function deleteCliente(id) {
+      if (!confirm('¿Seguro que deseas eliminar este cliente?')) return;
+      const res = await fetch(`/api/clientes/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showAlert('success', data.message);
+        loadClientes();
+      } else {
+        showAlert('danger', data.error || data.message || 'Error al eliminar cliente');
+      }
+    }
+
+    async function viewComprobantes(id) {
+      window.location.href = `/dashboard.html?id_cliente=${id}`;
+    }
+
+    // Inicializar
+    loadClientes();
+  </script>
+</body>
+</html> 
