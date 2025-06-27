@@ -1830,9 +1830,11 @@ router.delete('/pagos/:id', async (req, res) => {
 // POST /api/comprobantes/whatsapp - Endpoint para sistema de WhatsApp
 router.post('/comprobantes/whatsapp', [
   body('nombre_remitente').notEmpty().withMessage('Nombre del remitente es requerido'),
-  body('importe').isNumeric().withMessage('Importe debe ser numérico'),
-  body('fecha_envio').notEmpty().withMessage('Fecha de envío es requerida'),
-  body('cuit').optional()
+  body('cuit').notEmpty().withMessage('CUIT es requerido'),
+  body('fecha').notEmpty().withMessage('Fecha es requerida'),
+  body('hora').optional(),
+  body('monto').isNumeric().withMessage('Monto debe ser numérico'),
+  body('cliente').notEmpty().withMessage('Cliente es requerido')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -1848,9 +1850,11 @@ router.post('/comprobantes/whatsapp', [
   try {
     const {
       nombre_remitente,
-      importe,
-      fecha_envio,
-      cuit
+      cuit,
+      fecha,
+      hora,
+      monto,
+      cliente
     } = req.body;
 
     // LOGGING DETALLADO DE LO QUE SE RECIBE
@@ -1859,32 +1863,36 @@ router.post('/comprobantes/whatsapp', [
     console.log('='.repeat(80));
     console.log('📋 DATOS RECIBIDOS:');
     console.log('   nombre_remitente:', nombre_remitente);
-    console.log('   importe:', importe, '(tipo:', typeof importe, ')');
-    console.log('   fecha_envio:', fecha_envio, '(tipo:', typeof fecha_envio, ')');
     console.log('   cuit:', cuit);
+    console.log('   fecha:', fecha);
+    console.log('   hora:', hora);
+    console.log('   monto:', monto, '(tipo:', typeof monto, ')');
+    console.log('   cliente:', cliente);
     console.log('📋 BODY COMPLETO:', JSON.stringify(req.body, null, 2));
     console.log('='.repeat(80));
 
     console.log('📱 Recibiendo comprobante de WhatsApp:', {
       nombre_remitente,
-      importe,
-      fecha_envio,
-      cuit
+      cuit,
+      fecha,
+      hora,
+      monto,
+      cliente
     });
 
     // Generar ID único para el comprobante
     const id_comprobante = `WH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Buscar o crear cliente
-    let cliente = await client.query(
-      'SELECT id, nombre, apellido FROM clientes WHERE nombre = $1',
-      [nombre_remitente]
-    );
-
+    // Buscar o crear cliente (usando el campo 'cliente', no nombre_remitente)
     let cliente_id;
     let cliente_creado = false;
 
-    if (cliente.rows.length === 0) {
+    const clienteResult = await client.query(
+      'SELECT id, nombre, apellido FROM clientes WHERE nombre = $1',
+      [cliente] // Usar el campo 'cliente', no 'nombre_remitente'
+    );
+
+    if (clienteResult.rows.length === 0) {
       console.log('👤 Cliente no encontrado, creando nuevo cliente...');
       
       // Crear nuevo cliente
@@ -1893,7 +1901,7 @@ router.post('/comprobantes/whatsapp', [
         VALUES ($1, $2, $3, $4)
         RETURNING id, nombre, apellido
       `, [
-        nombre_remitente,
+        cliente, // Usar el campo 'cliente'
         null, // apellido
         `Cliente creado automáticamente desde WhatsApp`,
         'activo'
@@ -1904,8 +1912,8 @@ router.post('/comprobantes/whatsapp', [
       
       console.log('✅ Cliente creado:', nuevoCliente.rows[0]);
     } else {
-      cliente_id = cliente.rows[0].id;
-      console.log('✅ Cliente encontrado:', cliente.rows[0]);
+      cliente_id = clienteResult.rows[0].id;
+      console.log('✅ Cliente encontrado:', clienteResult.rows[0]);
     }
 
     // Buscar acreditación que coincida
@@ -1913,16 +1921,26 @@ router.post('/comprobantes/whatsapp', [
     
     try {
       // Intentar parsear la fecha en diferentes formatos
-      if (fecha_envio.includes('/')) {
+      if (fecha.includes('/')) {
         // Formato DD/MM/YYYY
-        const [day, month, year] = fecha_envio.split('/');
+        const [day, month, year] = fecha.split('/');
         fecha_envio_obj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      } else if (fecha_envio.includes('-')) {
+      } else if (fecha.includes('-')) {
         // Formato YYYY-MM-DD o ISO
-        fecha_envio_obj = new Date(fecha_envio);
+        fecha_envio_obj = new Date(fecha);
       } else {
         // Otros formatos
-        fecha_envio_obj = new Date(fecha_envio);
+        fecha_envio_obj = new Date(fecha);
+      }
+      
+      // Si hay hora, agregarla a la fecha
+      if (hora && hora !== 'null' && hora !== '0' && hora !== 0) {
+        try {
+          const [hours, minutes, seconds] = hora.split(':');
+          fecha_envio_obj.setHours(parseInt(hours) || 0, parseInt(minutes) || 0, parseInt(seconds) || 0);
+        } catch (error) {
+          console.log('⚠️ No se pudo parsear la hora, usando fecha sin hora');
+        }
       }
       
       // Verificar que la fecha sea válida
@@ -1933,10 +1951,10 @@ router.post('/comprobantes/whatsapp', [
       console.log('📅 Fecha parseada:', fecha_envio_obj.toISOString());
       
     } catch (error) {
-      console.error('❌ Error parseando fecha:', fecha_envio, error);
+      console.error('❌ Error parseando fecha:', fecha, error);
       return res.status(400).json({
         error: 'Formato de fecha inválido',
-        message: `La fecha '${fecha_envio}' no es válida. Use formato DD/MM/YYYY, YYYY-MM-DD o ISO 8601`
+        message: `La fecha '${fecha}' no es válida. Use formato DD/MM/YYYY, YYYY-MM-DD o ISO 8601`
       });
     }
 
@@ -1954,7 +1972,7 @@ router.post('/comprobantes/whatsapp', [
     ];
     
     let params = [
-      parseFloat(importe),
+      parseFloat(monto),
       fecha_desde,
       fecha_hasta
     ];
@@ -2015,7 +2033,7 @@ router.post('/comprobantes/whatsapp', [
       id_comprobante,
       null, // numero_telefono
       nombre_remitente,
-      parseFloat(importe),
+      parseFloat(monto),
       fecha_envio_obj,
       null, // texto_mensaje
       null, // archivo_url
@@ -2045,7 +2063,7 @@ router.post('/comprobantes/whatsapp', [
       VALUES ($1, $2, $3, $4)
     `, [
       'comprobante_whatsapp_creado',
-      `Comprobante de WhatsApp creado: ${nombre_remitente} - $${importe}`,
+      `Comprobante de WhatsApp creado: ${nombre_remitente} - $${monto}`,
       JSON.stringify({
         comprobante_id: comprobante.id,
         id_comprobante: id_comprobante,
