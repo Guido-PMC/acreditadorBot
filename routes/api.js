@@ -2432,19 +2432,39 @@ router.post('/comprobantes/whatsapp', [
       console.log(`\n   📊 Score final: ${score} puntos`);
       console.log(`   📋 Coincidencias: [${coincidencias.join(', ')}]`);
 
-      // Actualizar mejor coincidencia si el score es mayor
-      if (score > mejor_score) {
-        mejor_score = score;
-        mejor_coincidencia = acreditacion;
-        acreditacion_id = acreditacion.id;
-        acreditacion_encontrada = true;
-        console.log(`   🏆 ¡Nueva mejor coincidencia! (Score anterior: ${mejor_score - score + score})`);
+      // Verificar si hay al menos una coincidencia de nombre O CUIT
+      const tieneCoincidenciaNombre = coincidencias.includes('nombre_exacto') || coincidencias.includes('nombre_parcial');
+      const tieneCoincidenciaCUIT = coincidencias.includes('cuit_exacto');
+      const tieneCoincidenciaRequerida = tieneCoincidenciaNombre || tieneCoincidenciaCUIT;
+
+      console.log(`   🔍 Coincidencias requeridas:`);
+      console.log(`      Nombre: ${tieneCoincidenciaNombre ? '✅' : '❌'}`);
+      console.log(`      CUIT: ${tieneCoincidenciaCUIT ? '✅' : '❌'}`);
+      console.log(`      Al menos una: ${tieneCoincidenciaRequerida ? '✅' : '❌'}`);
+
+      // Solo considerar si tiene score suficiente Y al menos una coincidencia requerida
+      if (score >= 50 && tieneCoincidenciaRequerida) {
+        if (score > mejor_score) {
+          mejor_score = score;
+          mejor_coincidencia = acreditacion;
+          acreditacion_id = acreditacion.id;
+          acreditacion_encontrada = true;
+          console.log(`   🏆 ¡Nueva mejor coincidencia! (Score: ${score}, Coincidencias requeridas: ✅)`);
+        } else {
+          console.log(`   📉 No supera el mejor score actual: ${mejor_score}`);
+        }
       } else {
-        console.log(`   📉 No supera el mejor score actual: ${mejor_score}`);
+        if (score >= 50 && !tieneCoincidenciaRequerida) {
+          console.log(`   ❌ Score suficiente (${score}) pero sin coincidencias requeridas`);
+        } else if (score < 50 && tieneCoincidenciaRequerida) {
+          console.log(`   ❌ Coincidencias requeridas ✅ pero score insuficiente (${score})`);
+        } else {
+          console.log(`   ❌ Score insuficiente (${score}) y sin coincidencias requeridas`);
+        }
       }
     }
 
-    // Solo considerar como coincidencia si el score es suficientemente alto
+    // Solo considerar como coincidencia si el score es suficientemente alto Y tiene coincidencias requeridas
     if (mejor_score >= 50) { // Mínimo 50 puntos para considerar coincidencia
       console.log('\n💰 Acreditación coincidente encontrada con matching inteligente:');
       console.log(`   Acreditación ID: ${mejor_coincidencia.id}`);
@@ -2452,10 +2472,12 @@ router.post('/comprobantes/whatsapp', [
       console.log(`   CUIT: "${mejor_coincidencia.cuit}"`);
       console.log(`   Importe: $${mejor_coincidencia.importe}`);
       console.log(`   Score final: ${mejor_score} puntos`);
+      console.log(`   ✅ Coincidencia requerida (nombre O CUIT) verificada`);
     } else {
-      console.log('\n❌ No se encontró acreditación con score suficiente:');
+      console.log('\n❌ No se encontró acreditación con score suficiente O sin coincidencias requeridas:');
       console.log(`   Mejor score obtenido: ${mejor_score}`);
       console.log(`   Umbral mínimo requerido: 50 puntos`);
+      console.log(`   Requisito adicional: Al menos coincidencia de nombre O CUIT`);
       acreditacion_id = null;
       acreditacion_encontrada = false;
     }
