@@ -157,61 +157,18 @@
 
     <!-- Contenido Principal -->
     <div class="row">
-      <!-- Comprobantes -->
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-              <i class="fas fa-receipt me-2"></i>Comprobantes de WhatsApp (Entradas)
-            </h5>
-            <div>
-              <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadClienteData()" title="Recargar datos">
-                <i class="fas fa-sync-alt"></i>
-              </button>
-              <span class="badge bg-primary" id="comprobantesCount">0</span>
-            </div>
-          </div>
-          <div class="card-body">
-            <div id="comprobantesContainer">
-              <div class="text-center text-muted">Cargando comprobantes...</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Pagos -->
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-              <i class="fas fa-credit-card me-2"></i>Pagos Realizados (Salidas)
-            </h5>
-            <div>
-              <button class="btn btn-sm btn-success" onclick="openPagoModal()">
-                <i class="fas fa-plus me-1"></i>Nuevo Pago
-              </button>
-              <span class="badge bg-warning ms-2" id="pagosCount">0</span>
-            </div>
-          </div>
-          <div class="card-body">
-            <div id="pagosContainer">
-              <div class="text-center text-muted">Cargando pagos...</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Vista Unificada de Movimientos -->
-    <div class="row mt-4">
+      <!-- Movimientos Unificados -->
       <div class="col-12">
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
-              <i class="fas fa-list me-2"></i>Vista Unificada de Movimientos
+              <i class="fas fa-list me-2"></i>Movimientos del Cliente
             </h5>
             <div>
-              <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadMovimientosUnificados()" title="Recargar movimientos">
+              <button class="btn btn-sm btn-success me-2" onclick="openPagoModal()">
+                <i class="fas fa-plus me-1"></i>Nuevo Pago
+              </button>
+              <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadClienteData()" title="Recargar datos">
                 <i class="fas fa-sync-alt"></i>
               </button>
               <span class="badge bg-info" id="movimientosCount">0</span>
@@ -361,8 +318,6 @@
         }
 
         renderClienteInfo(data.data);
-        loadComprobantes();
-        loadPagos();
         loadMovimientosUnificados();
       } catch (error) {
         showAlert('danger', 'Error al cargar datos del cliente');
@@ -394,145 +349,6 @@
     function cleanCUIT(cuit) {
       if (!cuit) return '';
       return cuit.replace(/[^0-9]/g, '');
-    }
-
-    // Cargar comprobantes
-    async function loadComprobantes() {
-      try {
-        const res = await fetch(`/api/clientes/${clienteId}/comprobantes?limit=100`);
-        const data = await res.json();
-        
-        if (!data.success) {
-          showAlert('danger', data.error || 'Error al cargar comprobantes');
-          return;
-        }
-
-        console.log('📋 Comprobantes cargados:', data.data);
-        console.log('📊 Total comprobantes:', data.data.length);
-        
-        // Debug: mostrar información de cada comprobante
-        data.data.forEach((comp, index) => {
-          console.log(`Comprobante ${index + 1}:`, {
-            id: comp.id,
-            nombre: comp.nombre_remitente,
-            importe: comp.importe,
-            cotejado: comp.cotejado,
-            id_acreditacion: comp.id_acreditacion,
-            fecha_envio: comp.fecha_envio
-          });
-        });
-
-        renderComprobantes(data.data);
-        document.getElementById('comprobantesCount').textContent = data.data.length;
-      } catch (error) {
-        console.error('Error cargando comprobantes:', error);
-        showAlert('danger', 'Error al cargar comprobantes');
-      }
-    }
-
-    // Renderizar comprobantes
-    function renderComprobantes(comprobantes) {
-      const container = document.getElementById('comprobantesContainer');
-      
-      if (comprobantes.length === 0) {
-        container.innerHTML = '<div class="text-center text-muted">No hay comprobantes registrados</div>';
-        return;
-      }
-
-      container.innerHTML = comprobantes.map(comp => `
-        <div class="card mb-2">
-          <div class="card-body p-3">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <strong>${comp.nombre_remitente || 'Sin nombre'}</strong>
-                <br>
-                <small class="text-muted"><strong>CUIT:</strong> ${cleanCUIT(comp.cuit) || 'Sin CUIT'}</small>
-              </div>
-              <div class="text-end">
-                <span class="badge bg-primary">$${comp.importe?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || '0.00'}</span>
-                ${comp.id_acreditacion ? 
-                  `<button class="btn btn-sm btn-outline-warning ms-2" onclick="desasignarComprobante(${comp.id})" title="Desasignar comprobante">
-                    <i class="fas fa-unlink"></i>
-                  </button>` : ''
-                }
-              </div>
-            </div>
-            <div class="mt-2">
-              <small class="text-muted"><strong>Fecha Envío:</strong> ${new Date(comp.fecha_envio).toLocaleDateString()} ${new Date(comp.fecha_envio).toLocaleTimeString()}</small>
-            </div>
-            <div class="mt-1">
-              <small class="text-muted"><strong>Fecha Recepción:</strong> ${new Date(comp.fecha_recepcion).toLocaleDateString()} ${new Date(comp.fecha_recepcion).toLocaleTimeString()}</small>
-            </div>
-            <div class="mt-1">
-              <small class="text-muted"><strong>Monto:</strong> $${comp.importe?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || '0.00'}</small>
-            </div>
-            <div class="mt-2">
-              ${comp.id_acreditacion ? 
-                '<span class="badge bg-success me-2">Asignado</span>' : 
-                '<span class="badge bg-warning me-2">Sin Asignar</span>'
-              }
-              ${comp.cotejado ? 
-                '<span class="badge bg-info me-2">Cotejado</span>' : 
-                '<span class="badge bg-secondary me-2">Sin Cotejar</span>'
-              }
-            </div>
-            ${comp.id_acreditacion ? `<div class="mt-1"><small class="text-muted"><strong>Acreditación:</strong> ${comp.id_acreditacion}</small></div>` : ''}
-          </div>
-        </div>
-      `).join('');
-    }
-
-    // Cargar pagos
-    async function loadPagos() {
-      try {
-        const res = await fetch(`/api/clientes/${clienteId}/pagos?limit=10`);
-        const data = await res.json();
-        
-        if (!data.success) {
-          showAlert('danger', data.error || 'Error al cargar pagos');
-          return;
-        }
-
-        renderPagos(data.data);
-        document.getElementById('pagosCount').textContent = data.data.length;
-      } catch (error) {
-        showAlert('danger', 'Error al cargar pagos');
-      }
-    }
-
-    // Renderizar pagos
-    function renderPagos(pagos) {
-      const container = document.getElementById('pagosContainer');
-      
-      if (pagos.length === 0) {
-        container.innerHTML = '<div class="text-center text-muted">No hay pagos registrados</div>';
-        return;
-      }
-
-      container.innerHTML = pagos.map(pago => `
-        <div class="card mb-2">
-          <div class="card-body p-3">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <strong>${pago.concepto}</strong>
-                <br>
-                <small class="text-muted">${pago.metodo_pago || 'Sin método'} • ${new Date(pago.fecha_pago).toLocaleDateString()}</small>
-              </div>
-              <div class="text-end">
-                <span class="badge ${pago.tipo_pago === 'credito' ? 'bg-success' : 'bg-warning'}">$${pago.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                <button class="btn btn-sm btn-outline-danger ms-2" onclick="deletePago(${pago.id})" title="Eliminar ${pago.tipo_pago === 'credito' ? 'crédito' : 'pago'}">
-                  <i class="fas fa-trash"></i>
-                </button>
-              </div>
-            </div>
-            <div class="mt-1">
-              <span class="badge ${pago.tipo_pago === 'credito' ? 'bg-success' : 'bg-warning'} me-2">${pago.tipo_pago === 'credito' ? 'Crédito' : 'Pago'}</span>
-            </div>
-            ${pago.referencia ? `<div class="mt-1"><small class="text-muted"><strong>Ref:</strong> ${pago.referencia}</small></div>` : ''}
-            ${pago.observaciones ? `<div class="mt-1"><small class="text-muted">${pago.observaciones}</small></div>` : ''}
-          </div>
-        </div>
-      `).join('');
     }
 
     // Abrir modal de pago
