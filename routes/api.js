@@ -1838,6 +1838,7 @@ router.post('/comprobantes/whatsapp', [
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    console.log('❌ Errores de validación:', errors.array());
     return res.status(400).json({ 
       error: 'Datos inválidos', 
       details: errors.array() 
@@ -1855,6 +1856,20 @@ router.post('/comprobantes/whatsapp', [
       texto_mensaje,
       archivo_url
     } = req.body;
+
+    // LOGGING DETALLADO DE LO QUE SE RECIBE
+    console.log('='.repeat(80));
+    console.log('📱 POST RECIBIDO EN /api/comprobantes/whatsapp');
+    console.log('='.repeat(80));
+    console.log('📋 DATOS RECIBIDOS:');
+    console.log('   numero_telefono:', numero_telefono);
+    console.log('   nombre_remitente:', nombre_remitente);
+    console.log('   importe:', importe, '(tipo:', typeof importe, ')');
+    console.log('   fecha_envio:', fecha_envio, '(tipo:', typeof fecha_envio, ')');
+    console.log('   texto_mensaje:', texto_mensaje);
+    console.log('   archivo_url:', archivo_url);
+    console.log('📋 BODY COMPLETO:', JSON.stringify(req.body, null, 2));
+    console.log('='.repeat(80));
 
     console.log('📱 Recibiendo comprobante de WhatsApp:', {
       numero_telefono,
