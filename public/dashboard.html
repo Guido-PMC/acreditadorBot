@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AcreditadorBot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .stats-card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .stats-card:hover {
+            transform: translateY(-2px);
+        }
+        .bg-gradient-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+        }
+        .bg-gradient-success {
+            background: linear-gradient(45deg, #11998e, #38ef7d);
+        }
+        .bg-gradient-warning {
+            background: linear-gradient(45deg, #f093fb, #f5576c);
+        }
+        .bg-gradient-info {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="fas fa-university me-2"></i>AcreditadorBot
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/dashboard">
+                            <i class="fas fa-chart-line me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/upload">
+                            <i class="fas fa-upload me-1"></i>Subir CSV
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/acreditaciones">
+                            <i class="fas fa-list me-1"></i>Acreditaciones
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logs">
+                            <i class="fas fa-history me-1"></i>Logs
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Dashboard Content -->
+    <div class="container-fluid py-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-chart-line me-2"></i>Dashboard
+                </h1>
+                <p class="text-muted">Resumen general del sistema de acreditaciones</p>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card stats-card bg-gradient-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title" id="totalAcreditaciones">-</h4>
+                                <p class="card-text">Total Acreditaciones</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-university fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card stats-card bg-gradient-success text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title" id="totalCotejadas">-</h4>
+                                <p class="card-text">Cotejadas</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-check-circle fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card stats-card bg-gradient-warning text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title" id="totalPendientes">-</h4>
+                                <p class="card-text">Pendientes</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-clock fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card stats-card bg-gradient-info text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title" id="importeTotal">-</h4>
+                                <p class="card-text">Importe Total</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-dollar-sign fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <div class="col-xl-8 col-lg-7">
+                <div class="card stats-card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-chart-area me-2"></i>Acreditaciones por Día
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="acreditacionesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-4 col-lg-5">
+                <div class="card stats-card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-chart-pie me-2"></i>Distribución por Fuente
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="fuenteChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Today vs Yesterday -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card stats-card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-calendar-day me-2"></i>Hoy
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h3 class="text-primary" id="hoyCount">-</h3>
+                                <p class="text-muted">Acreditaciones</p>
+                            </div>
+                            <div class="col-6">
+                                <h3 class="text-success" id="hoyImporte">-</h3>
+                                <p class="text-muted">Importe Total</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card stats-card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-calendar-minus me-2"></i>Ayer
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h3 class="text-primary" id="ayerCount">-</h3>
+                                <p class="text-muted">Acreditaciones</p>
+                            </div>
+                            <div class="col-6">
+                                <h3 class="text-success" id="ayerImporte">-</h3>
+                                <p class="text-muted">Importe Total</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card stats-card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-list me-2"></i>Últimas Acreditaciones
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Titular</th>
+                                        <th>Importe</th>
+                                        <th>Fuente</th>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ultimasAcreditaciones">
+                                    <tr>
+                                        <td colspan="6" class="text-center">Cargando...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stats-card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-history me-2"></i>Actividad Reciente
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group list-group-flush" id="logsRecientes">
+                            <div class="list-group-item text-center">Cargando...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let acreditacionesChart, fuenteChart;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboardData();
+            initializeCharts();
+        });
+
+        async function loadDashboardData() {
+            try {
+                const response = await fetch('/api/dashboard-stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateStats(data.data);
+                    updateRecentActivity(data.data);
+                }
+            } catch (error) {
+                console.error('Error cargando datos del dashboard:', error);
+            }
+        }
+
+        function updateStats(data) {
+            const stats = data.general;
+            const hoy = data.hoy;
+            const ayer = data.ayer;
+
+            document.getElementById('totalAcreditaciones').textContent = stats.total_acreditaciones || 0;
+            document.getElementById('totalCotejadas').textContent = stats.total_cotejadas || 0;
+            document.getElementById('totalPendientes').textContent = stats.total_pendientes || 0;
+            document.getElementById('importeTotal').textContent = 
+                stats.importe_total ? `$${parseFloat(stats.importe_total).toLocaleString()}` : '$0';
+
+            document.getElementById('hoyCount').textContent = hoy.count || 0;
+            document.getElementById('hoyImporte').textContent = 
+                hoy.total ? `$${parseFloat(hoy.total).toLocaleString()}` : '$0';
+
+            document.getElementById('ayerCount').textContent = ayer.count || 0;
+            document.getElementById('ayerImporte').textContent = 
+                ayer.total ? `$${parseFloat(ayer.total).toLocaleString()}` : '$0';
+        }
+
+        function updateRecentActivity(data) {
+            // Actualizar últimas acreditaciones
+            const ultimasContainer = document.getElementById('ultimasAcreditaciones');
+            if (data.ultimas_acreditaciones.length > 0) {
+                ultimasContainer.innerHTML = data.ultimas_acreditaciones.map(acred => `
+                    <tr>
+                        <td><code>${acred.id_transaccion}</code></td>
+                        <td>${acred.titular || 'N/A'}</td>
+                        <td><strong>$${parseFloat(acred.importe).toLocaleString()}</strong></td>
+                        <td>
+                            <span class="badge ${acred.fuente === 'api' ? 'bg-primary' : 'bg-success'}">
+                                ${acred.fuente.toUpperCase()}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge ${acred.cotejado ? 'bg-success' : 'bg-warning'}">
+                                ${acred.cotejado ? 'Cotejada' : 'Pendiente'}
+                            </span>
+                        </td>
+                        <td><small>${new Date(acred.fecha_hora).toLocaleDateString()}</small></td>
+                    </tr>
+                `).join('');
+            } else {
+                ultimasContainer.innerHTML = '<tr><td colspan="6" class="text-center">No hay acreditaciones</td></tr>';
+            }
+
+            // Actualizar logs recientes
+            const logsContainer = document.getElementById('logsRecientes');
+            if (data.logs_recientes.length > 0) {
+                logsContainer.innerHTML = data.logs_recientes.map(log => `
+                    <div class="list-group-item border-0 px-0">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">${log.tipo}</h6>
+                                <p class="mb-1 small">${log.descripcion}</p>
+                                <small class="text-muted">${new Date(log.fecha).toLocaleString()}</small>
+                            </div>
+                            <span class="badge ${log.estado === 'exitoso' ? 'bg-success' : 'bg-danger'} ms-2">
+                                ${log.estado}
+                            </span>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                logsContainer.innerHTML = '<div class="list-group-item text-center">No hay actividad reciente</div>';
+            }
+        }
+
+        function initializeCharts() {
+            // Chart de acreditaciones por día (placeholder)
+            const acreditacionesCtx = document.getElementById('acreditacionesChart').getContext('2d');
+            acreditacionesChart = new Chart(acreditacionesCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                    datasets: [{
+                        label: 'Acreditaciones',
+                        data: [12, 19, 3, 5, 2, 3, 7],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Chart de distribución por fuente
+            const fuenteCtx = document.getElementById('fuenteChart').getContext('2d');
+            fuenteChart = new Chart(fuenteCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['API', 'CSV'],
+                    datasets: [{
+                        data: [70, 30],
+                        backgroundColor: ['#667eea', '#11998e'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Actualizar datos cada 30 segundos
+        setInterval(loadDashboardData, 30000);
+    </script>
+</body>
+</html> 
