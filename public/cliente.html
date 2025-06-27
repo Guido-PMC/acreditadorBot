@@ -43,6 +43,10 @@
               <div class="text-end">
                 <h3 class="text-primary mb-0" id="saldoCliente">$0.00</h3>
                 <small class="text-muted">Saldo Actual</small>
+                <br>
+                <button class="btn btn-sm btn-outline-info mt-2" onclick="debugComprobantes()" title="Debug">
+                  <i class="fas fa-bug me-1"></i>Debug
+                </button>
               </div>
             </div>
           </div>
@@ -157,7 +161,12 @@
             <h5 class="mb-0">
               <i class="fas fa-receipt me-2"></i>Comprobantes de WhatsApp
             </h5>
-            <span class="badge bg-primary" id="comprobantesCount">0</span>
+            <div>
+              <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadClienteData()" title="Recargar datos">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+              <span class="badge bg-primary" id="comprobantesCount">0</span>
+            </div>
           </div>
           <div class="card-body">
             <div id="comprobantesContainer">
@@ -302,7 +311,7 @@
     // Cargar comprobantes
     async function loadComprobantes() {
       try {
-        const res = await fetch(`/api/clientes/${clienteId}/comprobantes?limit=10`);
+        const res = await fetch(`/api/clientes/${clienteId}/comprobantes?limit=100`);
         const data = await res.json();
         
         if (!data.success) {
@@ -310,9 +319,25 @@
           return;
         }
 
+        console.log('📋 Comprobantes cargados:', data.data);
+        console.log('📊 Total comprobantes:', data.data.length);
+        
+        // Debug: mostrar información de cada comprobante
+        data.data.forEach((comp, index) => {
+          console.log(`Comprobante ${index + 1}:`, {
+            id: comp.id,
+            nombre: comp.nombre_remitente,
+            importe: comp.importe,
+            cotejado: comp.cotejado,
+            id_acreditacion: comp.id_acreditacion,
+            fecha_envio: comp.fecha_envio
+          });
+        });
+
         renderComprobantes(data.data);
         document.getElementById('comprobantesCount').textContent = data.data.length;
       } catch (error) {
+        console.error('Error cargando comprobantes:', error);
         showAlert('danger', 'Error al cargar comprobantes');
       }
     }
@@ -490,6 +515,39 @@
         }
       } catch (error) {
         showAlert('danger', 'Error al desasignar comprobante');
+      }
+    }
+
+    // Función de debug para verificar estado de la base de datos
+    async function debugComprobantes() {
+      console.log('🔍 Iniciando debug de comprobantes...');
+      
+      try {
+        // Verificar resumen del cliente
+        const resumenRes = await fetch(`/api/clientes/${clienteId}/resumen`);
+        const resumenData = await resumenRes.json();
+        console.log('📊 Resumen del cliente:', resumenData.data.resumen);
+        
+        // Verificar comprobantes del cliente
+        const comprobantesRes = await fetch(`/api/clientes/${clienteId}/comprobantes?limit=100`);
+        const comprobantesData = await comprobantesRes.json();
+        console.log('📋 Comprobantes del cliente:', comprobantesData.data);
+        
+        // Verificar comprobantes sin asignar
+        const sinAsignarRes = await fetch('/api/comprobantes/sin-acreditacion?limit=100');
+        const sinAsignarData = await sinAsignarRes.json();
+        console.log('❌ Comprobantes sin asignar:', sinAsignarData.data);
+        
+        // Verificar acreditaciones sin comprobante
+        const acreditacionesRes = await fetch('/api/acreditaciones/sin-comprobante?limit=100');
+        const acreditacionesData = await acreditacionesRes.json();
+        console.log('💰 Acreditaciones sin comprobante:', acreditacionesData.data);
+        
+        showAlert('info', 'Debug completado. Revisa la consola para más detalles.');
+        
+      } catch (error) {
+        console.error('Error en debug:', error);
+        showAlert('danger', 'Error en debug');
       }
     }
 
