@@ -36,6 +36,18 @@ function authMiddleware(req, res, next) {
     return next(); // No requerir autenticación para health check
   }
   
+  // Excluir rutas del portal de clientes
+  if (req.path.startsWith('/portal')) {
+    return next(); // No requerir autenticación para el portal
+  }
+  
+  // Excluir páginas específicas del portal
+  if (req.path === '/portal-login.html' || 
+      req.path === '/portal-dashboard.html' || 
+      req.path === '/portal-users.html') {
+    return next(); // No requerir autenticación para páginas del portal
+  }
+  
   // Excluir archivos estáticos específicos si es necesario
   if (req.path.startsWith('/favicon.ico') || req.path.startsWith('/robots.txt')) {
     return next();
