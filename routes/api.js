@@ -30,17 +30,113 @@ function normalizeCUIT(cuit) {
   // Remover todos los caracteres no numéricos
   let normalized = cuit.replace(/[^0-9]/g, '');
   
-  // Si tiene 8 dígitos, agregar el prefijo 20
+  // Si tiene menos de 8 dígitos, no es válido
+  if (normalized.length < 8) return '';
+  
+  // Si tiene exactamente 8 dígitos, agregar el tipo más común (20)
   if (normalized.length === 8) {
     normalized = '20' + normalized;
   }
   
-  // Si tiene 9 dígitos, agregar el prefijo 2
+  // Si tiene 9 dígitos, agregar el tipo más común (20)
   if (normalized.length === 9) {
-    normalized = '2' + normalized;
+    normalized = '20' + normalized;
   }
   
+  // Si tiene 10 dígitos, agregar el tipo más común (20)
+  if (normalized.length === 10) {
+    normalized = '20' + normalized;
+  }
+  
+  // Si tiene más de 11 dígitos, truncar a 11
+  if (normalized.length > 11) {
+    normalized = normalized.substring(0, 11);
+  }
+  
+  // Si no tiene exactamente 11 dígitos después de la normalización, no es válido
+  if (normalized.length !== 11) return '';
+  
   return normalized;
+}
+
+function calculateCUITVerifier(baseCUIT) {
+  if (!baseCUIT || baseCUIT.length !== 10) return null;
+  
+  // Serie para multiplicar: 2,3,4,5,6,7,2,3,4,5
+  const serie = [2, 3, 4, 5, 6, 7, 2, 3, 4, 5];
+  
+  let suma = 0;
+  
+  // Multiplicar cada dígito por la serie correspondiente
+  for (let i = 0; i < 10; i++) {
+    suma += parseInt(baseCUIT[i]) * serie[i];
+  }
+  
+  // Calcular módulo 11
+  const resto = suma % 11;
+  
+  // Calcular dígito verificador
+  let verificador;
+  if (resto === 0) {
+    verificador = 0;
+  } else if (resto === 1) {
+    // Casos especiales según el tipo
+    const tipo = parseInt(baseCUIT.substring(0, 2));
+    if (tipo === 20) {
+      verificador = 9; // Hombre
+    } else if (tipo === 27) {
+      verificador = 4; // Mujer
+    } else if (tipo === 24) {
+      verificador = 3; // Repetido
+    } else if (tipo === 30) {
+      verificador = 9; // Empresa
+    } else if (tipo === 34) {
+      verificador = 3; // Repetida
+    } else {
+      verificador = 11 - resto;
+    }
+  } else {
+    verificador = 11 - resto;
+  }
+  
+  return verificador;
+}
+
+function generateAllCUITVariations(dni) {
+  if (!dni) return [];
+  
+  // Normalizar DNI (remover caracteres no numéricos)
+  let dniClean = dni.replace(/[^0-9]/g, '');
+  
+  // Si tiene menos de 7 dígitos, agregar ceros al inicio
+  while (dniClean.length < 7) {
+    dniClean = '0' + dniClean;
+  }
+  
+  // Si tiene más de 8 dígitos, truncar
+  if (dniClean.length > 8) {
+    dniClean = dniClean.substring(0, 8);
+  }
+  
+  const variations = [];
+  
+  // Tipos válidos
+  const tiposPersonasFisicas = ['20', '23', '24', '25', '26', '27'];
+  const tiposPersonasJuridicas = ['30', '33', '34'];
+  const todosLosTipos = [...tiposPersonasFisicas, ...tiposPersonasJuridicas];
+  
+  // Generar variaciones para cada tipo
+  for (const tipo of todosLosTipos) {
+    const baseCUIT = tipo + dniClean;
+    const verificador = calculateCUITVerifier(baseCUIT);
+    
+    if (verificador !== null) {
+      const cuitCompleto = baseCUIT + verificador;
+      variations.push(cuitCompleto);
+    }
+  }
+  
+  return variations;
 }
 
 function namesMatch(name1, name2, threshold = 0.8) {
@@ -67,10 +163,35 @@ function namesMatch(name1, name2, threshold = 0.8) {
 function cuitsMatch(cuit1, cuit2) {
   if (!cuit1 || !cuit2) return false;
   
+  // Normalizar ambos CUITs
   const normalized1 = normalizeCUIT(cuit1);
   const normalized2 = normalizeCUIT(cuit2);
   
-  return normalized1 === normalized2;
+  // Coincidencia exacta después de normalización
+  if (normalized1 === normalized2) return true;
+  
+  // Si uno de los CUITs no se pudo normalizar, intentar generar variaciones
+  if (!normalized1 || !normalized2) {
+    // Intentar extraer DNI del CUIT más largo
+    const cuitLargo = cuit1.length >= cuit2.length ? cuit1 : cuit2;
+    const cuitCorto = cuit1.length >= cuit2.length ? cuit2 : cuit1;
+    
+    // Extraer DNI (últimos 8 dígitos antes del verificador)
+    const dni = cuitLargo.replace(/[^0-9]/g, '').substring(2, 10);
+    
+    if (dni.length === 8) {
+      const variations = generateAllCUITVariations(dni);
+      
+      // Verificar si el CUIT corto coincide con alguna variación
+      for (const variation of variations) {
+        if (cuitsMatch(cuitCorto, variation)) {
+          return true;
+        }
+      }
+    }
+  }
+  
+  return false;
 }
 
 // Middleware para validar errores de validación
