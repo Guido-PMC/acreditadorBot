@@ -9,7 +9,6 @@ const db = require('./config/database');
 const apiRoutes = require('./routes/api');
 const webRoutes = require('./routes/web');
 const uploadRoutes = require('./routes/upload');
-const clientesRoutes = require('./routes/clientes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -57,8 +56,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 console.log('Configurando rutas...');
 app.use('/api', apiRoutes);
 console.log('Rutas API configuradas');
-app.use('/api', clientesRoutes);
-console.log('Rutas de clientes configuradas');
 app.use('/upload', uploadRoutes);
 console.log('Rutas de upload configuradas');
 app.use('/', webRoutes);
