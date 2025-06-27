@@ -180,145 +180,62 @@
             </div>
         </div>
 
-        <!-- Tabs de navegación -->
-        <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="comprobantes-tab" data-bs-toggle="tab" data-bs-target="#comprobantes" type="button" role="tab">
-                    <i class="fas fa-file-invoice-dollar me-1"></i>Comprobantes
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="movimientos-tab" data-bs-toggle="tab" data-bs-target="#movimientos" type="button" role="tab">
-                    <i class="fas fa-exchange-alt me-1"></i>Movimientos
-                </button>
-            </li>
-        </ul>
-
-        <!-- Contenido de tabs -->
-        <div class="tab-content" id="mainTabsContent">
-            <!-- Tab Comprobantes -->
-            <div class="tab-pane fade show active" id="comprobantes" role="tabpanel">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="row align-items-center">
-                            <div class="col">
-                                <h5 class="mb-0">
-                                    <i class="fas fa-file-invoice-dollar me-2"></i>Mis Comprobantes
-                                </h5>
-                            </div>
-                            <div class="col-auto">
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-outline-primary" onclick="filterComprobantes('')">Todos</button>
-                                    <button type="button" class="btn btn-outline-success" onclick="filterComprobantes('cotejado')">Cotejados</button>
-                                    <button type="button" class="btn btn-outline-warning" onclick="filterComprobantes('pendiente')">Pendientes</button>
-                                </div>
-                            </div>
-                        </div>
+        <!-- Vista Unificada de Movimientos -->
+        <div class="card">
+            <div class="card-header">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list me-2"></i>Mis Movimientos
+                        </h5>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th class="sortable" onclick="sortComprobantes('id')">ID</th>
-                                        <th class="sortable" onclick="sortComprobantes('nombre_remitente')">Remitente</th>
-                                        <th>CUIT</th>
-                                        <th class="sortable" onclick="sortComprobantes('fecha_envio')">Fecha Envío</th>
-                                        <th class="sortable" onclick="sortComprobantes('fecha_recepcion')">Fecha Recepción</th>
-                                        <th class="sortable" onclick="sortComprobantes('importe')">Monto</th>
-                                        <th>Estado</th>
-                                        <th>Acreditación</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="comprobantesTableBody">
-                                    <tr>
-                                        <td colspan="8" class="text-center py-4">
-                                            <div class="spinner-border text-primary" role="status">
-                                                <span class="visually-hidden">Cargando...</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <div class="row align-items-center">
-                            <div class="col">
-                                <small class="text-muted" id="comprobantesPaginationInfo">
-                                    Mostrando 0 de 0 comprobantes
-                                </small>
-                            </div>
-                            <div class="col-auto">
-                                <nav aria-label="Paginación de comprobantes">
-                                    <ul class="pagination pagination-sm mb-0" id="comprobantesPagination">
-                                    </ul>
-                                </nav>
-                            </div>
+                    <div class="col-auto">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-primary" onclick="filterMovimientos('')">Todos</button>
+                            <button type="button" class="btn btn-outline-success" onclick="filterMovimientos('comprobante')">Comprobantes</button>
+                            <button type="button" class="btn btn-outline-info" onclick="filterMovimientos('credito')">Créditos</button>
+                            <button type="button" class="btn btn-outline-danger" onclick="filterMovimientos('pago')">Pagos</button>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Tab Movimientos -->
-            <div class="tab-pane fade" id="movimientos" role="tabpanel">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="row align-items-center">
-                            <div class="col">
-                                <h5 class="mb-0">
-                                    <i class="fas fa-exchange-alt me-2"></i>Mis Movimientos
-                                </h5>
-                            </div>
-                            <div class="col-auto">
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-outline-primary" onclick="filterMovimientos('')">Todos</button>
-                                    <button type="button" class="btn btn-outline-success" onclick="filterMovimientos('credito')">Créditos</button>
-                                    <button type="button" class="btn btn-outline-danger" onclick="filterMovimientos('pago')">Pagos</button>
-                                </div>
-                            </div>
-                        </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th class="sortable" onclick="sortMovimientos('fecha')">Fecha</th>
+                                <th class="sortable" onclick="sortMovimientos('tipo')">Tipo</th>
+                                <th class="sortable" onclick="sortMovimientos('concepto')">Concepto</th>
+                                <th class="sortable" onclick="sortMovimientos('importe')">Importe</th>
+                                <th>Detalles</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="movimientosUnificadosTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center py-4">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Cargando...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <small class="text-muted" id="movimientosUnificadosPaginationInfo">
+                            Mostrando 0 de 0 movimientos
+                        </small>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th class="sortable" onclick="sortMovimientos('id')">ID</th>
-                                        <th class="sortable" onclick="sortMovimientos('fecha_pago')">Fecha</th>
-                                        <th class="sortable" onclick="sortMovimientos('concepto')">Concepto</th>
-                                        <th class="sortable" onclick="sortMovimientos('importe')">Importe</th>
-                                        <th>Tipo</th>
-                                        <th>Método</th>
-                                        <th>Estado</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="movimientosTableBody">
-                                    <tr>
-                                        <td colspan="7" class="text-center py-4">
-                                            <div class="spinner-border text-primary" role="status">
-                                                <span class="visually-hidden">Cargando...</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <div class="row align-items-center">
-                            <div class="col">
-                                <small class="text-muted" id="movimientosPaginationInfo">
-                                    Mostrando 0 de 0 movimientos
-                                </small>
-                            </div>
-                            <div class="col-auto">
-                                <nav aria-label="Paginación de movimientos">
-                                    <ul class="pagination pagination-sm mb-0" id="movimientosPagination">
-                                    </ul>
-                                </nav>
-                            </div>
-                        </div>
+                    <div class="col-auto">
+                        <nav aria-label="Paginación de movimientos">
+                            <ul class="pagination pagination-sm mb-0" id="movimientosUnificadosPagination">
+                            </ul>
+                        </nav>
                     </div>
                 </div>
             </div>
@@ -353,20 +270,19 @@
     <script>
         // Variables globales
         let currentUser = null;
-        let comprobantesPage = 1;
-        let movimientosPage = 1;
-        let comprobantesSort = { field: 'fecha_envio', order: 'DESC' };
-        let movimientosSort = { field: 'fecha_pago', order: 'DESC' };
-        let comprobantesFilter = '';
         let movimientosFilter = '';
 
         // Inicializar
         document.addEventListener('DOMContentLoaded', function() {
             checkAuth();
-            loadUserInfo();
             loadResumen();
-            loadComprobantes();
-            loadMovimientos();
+            loadMovimientosUnificados();
+            
+            // Actualizar datos cada 30 segundos
+            setInterval(() => {
+                loadResumen();
+                loadMovimientosUnificados();
+            }, 30000);
         });
 
         // Verificar autenticación
@@ -456,195 +372,80 @@
             }
         }
 
-        // Cargar comprobantes
-        async function loadComprobantes() {
+        // Cargar movimientos unificados (comprobantes + pagos)
+        async function loadMovimientosUnificados() {
             try {
-                const params = new URLSearchParams({
-                    page: comprobantesPage,
-                    limit: 20,
-                    ordenar_por: comprobantesSort.field,
-                    orden: comprobantesSort.order,
-                    estado: comprobantesFilter
+                // Cargar comprobantes y movimientos en paralelo
+                const [comprobantesRes, movimientosRes] = await Promise.all([
+                    authenticatedRequest('/portal/comprobantes?limit=100'),
+                    authenticatedRequest('/portal/movimientos?limit=100')
+                ]);
+
+                if (!comprobantesRes || !movimientosRes) return;
+
+                const [comprobantesData, movimientosData] = await Promise.all([
+                    comprobantesRes.json(),
+                    movimientosRes.json()
+                ]);
+
+                if (!comprobantesData.success || !movimientosData.success) {
+                    showAlert('Error al cargar movimientos', 'danger');
+                    return;
+                }
+
+                // Combinar y ordenar movimientos
+                const movimientos = [];
+                
+                // Agregar comprobantes como entradas
+                comprobantesData.data.forEach(comp => {
+                    movimientos.push({
+                        id: `comp_${comp.id}`,
+                        tipo: 'comprobante',
+                        concepto: `Comprobante: ${comp.nombre_remitente || 'Sin nombre'}`,
+                        importe: comp.importe,
+                        fecha: comp.fecha_envio,
+                        fecha_recepcion: comp.fecha_recepcion,
+                        cuit: comp.cuit,
+                        estado: comp.cotejado ? 'Cotejado' : 'Pendiente',
+                        acreditacion: comp.acreditacion,
+                        es_entrada: true
+                    });
                 });
 
-                const response = await authenticatedRequest(`/portal/comprobantes?${params}`);
-                if (!response) return;
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    displayComprobantes(result.data);
-                    updateComprobantesPagination(result.pagination);
-                } else {
-                    showAlert('Error al cargar comprobantes: ' + result.message, 'danger');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showAlert('Error de conexión al cargar comprobantes', 'danger');
-            }
-        }
-
-        // Mostrar comprobantes
-        function displayComprobantes(comprobantes) {
-            const tbody = document.getElementById('comprobantesTableBody');
-            
-            if (comprobantes.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="8" class="text-center py-4 text-muted">
-                            <i class="fas fa-inbox fa-2x mb-2"></i><br>
-                            No se encontraron comprobantes
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            tbody.innerHTML = comprobantes.map(comp => `
-                <tr>
-                    <td><span class="badge bg-secondary">${comp.id}</span></td>
-                    <td><strong>${comp.nombre_remitente}</strong></td>
-                    <td>${comp.cuit || '<span class="text-muted">-</span>'}</td>
-                    <td>${comp.fecha_envio ? new Date(comp.fecha_envio).toLocaleDateString('es-AR') : '-'}</td>
-                    <td>${comp.fecha_recepcion ? new Date(comp.fecha_recepcion).toLocaleDateString('es-AR') : '-'}</td>
-                    <td>
-                        <strong>${new Intl.NumberFormat('es-AR', {
-                            style: 'currency',
-                            currency: 'ARS'
-                        }).format(comp.importe)}</strong>
-                    </td>
-                    <td>
-                        ${comp.cotejado ? 
-                            '<span class="badge bg-success status-badge">Cotejado</span>' : 
-                            '<span class="badge bg-warning status-badge">Pendiente</span>'
-                        }
-                    </td>
-                    <td>
-                        ${comp.acreditacion ? 
-                            `<div>
-                                <small><strong>${comp.acreditacion.titular}</strong></small><br>
-                                <small class="text-muted">${new Date(comp.acreditacion.fecha).toLocaleDateString('es-AR')}</small>
-                            </div>` : 
-                            '<span class="text-muted">-</span>'
-                        }
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        // Actualizar paginación de comprobantes
-        function updateComprobantesPagination(pagination) {
-            const paginationElement = document.getElementById('comprobantesPagination');
-            const infoElement = document.getElementById('comprobantesPaginationInfo');
-            
-            infoElement.textContent = `Mostrando ${pagination.page} de ${pagination.pages} páginas (${pagination.total} comprobantes total)`;
-            
-            let paginationHTML = '';
-            
-            // Botón anterior
-            paginationHTML += `
-                <li class="page-item ${pagination.page <= 1 ? 'disabled' : ''}">
-                    <a class="page-link" href="#" onclick="changeComprobantesPage(${pagination.page - 1})">
-                        <i class="fas fa-chevron-left"></i>
-                    </a>
-                </li>
-            `;
-            
-            // Páginas
-            const startPage = Math.max(1, pagination.page - 2);
-            const endPage = Math.min(pagination.pages, pagination.page + 2);
-            
-            for (let i = startPage; i <= endPage; i++) {
-                paginationHTML += `
-                    <li class="page-item ${i === pagination.page ? 'active' : ''}">
-                        <a class="page-link" href="#" onclick="changeComprobantesPage(${i})">${i}</a>
-                    </li>
-                `;
-            }
-            
-            // Botón siguiente
-            paginationHTML += `
-                <li class="page-item ${pagination.page >= pagination.pages ? 'disabled' : ''}">
-                    <a class="page-link" href="#" onclick="changeComprobantesPage(${pagination.page + 1})">
-                        <i class="fas fa-chevron-right"></i>
-                    </a>
-                </li>
-            `;
-            
-            paginationElement.innerHTML = paginationHTML;
-        }
-
-        // Cambiar página de comprobantes
-        function changeComprobantesPage(page) {
-            comprobantesPage = page;
-            loadComprobantes();
-        }
-
-        // Ordenar comprobantes
-        function sortComprobantes(field) {
-            if (comprobantesSort.field === field) {
-                comprobantesSort.order = comprobantesSort.order === 'ASC' ? 'DESC' : 'ASC';
-            } else {
-                comprobantesSort.field = field;
-                comprobantesSort.order = 'ASC';
-            }
-            
-            // Actualizar indicadores visuales
-            document.querySelectorAll('#comprobantes th.sortable').forEach(th => {
-                th.classList.remove('sort-asc', 'sort-desc');
-            });
-            
-            const currentTh = document.querySelector(`#comprobantes th[onclick="sortComprobantes('${field}')"]`);
-            if (currentTh) {
-                currentTh.classList.add(comprobantesSort.order === 'ASC' ? 'sort-asc' : 'sort-desc');
-            }
-            
-            loadComprobantes();
-        }
-
-        // Filtrar comprobantes
-        function filterComprobantes(estado) {
-            comprobantesFilter = estado;
-            comprobantesPage = 1;
-            loadComprobantes();
-        }
-
-        // Cargar movimientos
-        async function loadMovimientos() {
-            try {
-                const params = new URLSearchParams({
-                    page: movimientosPage,
-                    limit: 20,
-                    ordenar_por: movimientosSort.field,
-                    orden: movimientosSort.order,
-                    tipo: movimientosFilter
+                // Agregar movimientos como salidas o entradas
+                movimientosData.data.forEach(mov => {
+                    movimientos.push({
+                        id: `mov_${mov.id}`,
+                        tipo: 'movimiento',
+                        concepto: mov.concepto,
+                        importe: mov.importe,
+                        fecha: mov.fecha_pago,
+                        metodo_pago: mov.metodo_pago,
+                        referencia: mov.referencia,
+                        tipo_pago: mov.tipo_pago,
+                        estado: mov.estado,
+                        es_entrada: mov.tipo_pago === 'credito'
+                    });
                 });
 
-                const response = await authenticatedRequest(`/portal/movimientos?${params}`);
-                if (!response) return;
+                // Ordenar por fecha (más reciente primero)
+                movimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
-                const result = await response.json();
-                
-                if (result.success) {
-                    displayMovimientos(result.data);
-                    updateMovimientosPagination(result.pagination);
-                } else {
-                    showAlert('Error al cargar movimientos: ' + result.message, 'danger');
-                }
+                displayMovimientosUnificados(movimientos);
             } catch (error) {
-                console.error('Error:', error);
-                showAlert('Error de conexión al cargar movimientos', 'danger');
+                console.error('Error cargando movimientos unificados:', error);
+                showAlert('Error al cargar movimientos unificados', 'danger');
             }
         }
 
-        // Mostrar movimientos
-        function displayMovimientos(movimientos) {
-            const tbody = document.getElementById('movimientosTableBody');
+        // Mostrar movimientos unificados
+        function displayMovimientosUnificados(movimientos) {
+            const tbody = document.getElementById('movimientosUnificadosTableBody');
             
             if (movimientos.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="text-center py-4 text-muted">
+                        <td colspan="6" class="text-center py-4 text-muted">
                             <i class="fas fa-inbox fa-2x mb-2"></i><br>
                             No se encontraron movimientos
                         </td>
@@ -653,39 +454,47 @@
                 return;
             }
 
-            tbody.innerHTML = movimientos.map(mov => `
-                <tr>
-                    <td><span class="badge bg-secondary">${mov.id}</span></td>
-                    <td>${new Date(mov.fecha_pago).toLocaleDateString('es-AR')}</td>
-                    <td><strong>${mov.concepto}</strong></td>
-                    <td>
-                        <span class="${mov.tipo_pago === 'egreso' ? 'text-danger' : 'text-success'}">
-                            <strong>${new Intl.NumberFormat('es-AR', {
-                                style: 'currency',
-                                currency: 'ARS'
-                            }).format(mov.importe)}</strong>
-                        </span>
-                    </td>
-                    <td>
-                        ${mov.tipo_pago === 'egreso' ? 
-                            '<span class="badge bg-danger status-badge">Pago</span>' : 
-                            '<span class="badge bg-success status-badge">Crédito</span>'
-                        }
-                    </td>
-                    <td>${mov.metodo_pago || '<span class="text-muted">-</span>'}</td>
-                    <td>
-                        <span class="badge bg-${mov.estado === 'confirmado' ? 'success' : 'warning'} status-badge">
-                            ${mov.estado}
-                        </span>
-                    </td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = movimientos.map(mov => {
+                const isEntrada = mov.es_entrada;
+                const importeClass = isEntrada ? 'text-success' : 'text-danger';
+                const importeSign = isEntrada ? '+' : '-';
+                const tipoBadge = mov.tipo === 'comprobante' ? 
+                    '<span class="badge bg-primary status-badge">Comprobante</span>' : 
+                    `<span class="badge bg-${mov.tipo_pago === 'credito' ? 'success' : 'danger'} status-badge">${mov.tipo_pago === 'credito' ? 'Crédito' : 'Pago'}</span>`;
+
+                return `
+                    <tr>
+                        <td>${new Date(mov.fecha).toLocaleDateString('es-AR')}</td>
+                        <td>${tipoBadge}</td>
+                        <td><strong>${mov.concepto}</strong></td>
+                        <td>
+                            <span class="${importeClass}">
+                                <strong>${importeSign}${new Intl.NumberFormat('es-AR', {
+                                    style: 'currency',
+                                    currency: 'ARS'
+                                }).format(mov.importe)}</strong>
+                            </span>
+                        </td>
+                        <td>
+                            ${mov.cuit ? `<small><strong>CUIT:</strong> ${mov.cuit}</small><br>` : ''}
+                            ${mov.metodo_pago ? `<small><strong>Método:</strong> ${mov.metodo_pago}</small><br>` : ''}
+                            ${mov.referencia ? `<small><strong>Ref:</strong> ${mov.referencia}</small><br>` : ''}
+                            ${mov.acreditacion ? `<small><strong>Acreditación:</strong> ${mov.acreditacion.titular}</small>` : ''}
+                        </td>
+                        <td>
+                            <span class="badge bg-${mov.estado === 'Cotejado' || mov.estado === 'confirmado' ? 'success' : 'warning'} status-badge">
+                                ${mov.estado}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         // Actualizar paginación de movimientos
         function updateMovimientosPagination(pagination) {
-            const paginationElement = document.getElementById('movimientosPagination');
-            const infoElement = document.getElementById('movimientosPaginationInfo');
+            const paginationElement = document.getElementById('movimientosUnificadosPagination');
+            const infoElement = document.getElementById('movimientosUnificadosPaginationInfo');
             
             infoElement.textContent = `Mostrando ${pagination.page} de ${pagination.pages} páginas (${pagination.total} movimientos total)`;
             
@@ -730,33 +539,16 @@
             loadMovimientos();
         }
 
-        // Ordenar movimientos
-        function sortMovimientos(field) {
-            if (movimientosSort.field === field) {
-                movimientosSort.order = movimientosSort.order === 'ASC' ? 'DESC' : 'ASC';
-            } else {
-                movimientosSort.field = field;
-                movimientosSort.order = 'ASC';
-            }
-            
-            // Actualizar indicadores visuales
-            document.querySelectorAll('#movimientos th.sortable').forEach(th => {
-                th.classList.remove('sort-asc', 'sort-desc');
-            });
-            
-            const currentTh = document.querySelector(`#movimientos th[onclick="sortMovimientos('${field}')"]`);
-            if (currentTh) {
-                currentTh.classList.add(movimientosSort.order === 'ASC' ? 'sort-asc' : 'sort-desc');
-            }
-            
-            loadMovimientos();
-        }
-
         // Filtrar movimientos
         function filterMovimientos(tipo) {
             movimientosFilter = tipo;
-            movimientosPage = 1;
-            loadMovimientos();
+            loadMovimientosUnificados();
+        }
+
+        // Ordenar movimientos (simplificado para la vista unificada)
+        function sortMovimientos(field) {
+            // Por ahora, solo recargamos los datos ya que el ordenamiento se hace en el cliente
+            loadMovimientosUnificados();
         }
 
         // Mostrar perfil
@@ -843,17 +635,6 @@
                 }
             }, 5000);
         }
-
-        // Actualizar datos cuando se cambia de tab
-        document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
-            tab.addEventListener('shown.bs.tab', function(e) {
-                if (e.target.id === 'comprobantes-tab') {
-                    loadComprobantes();
-                } else if (e.target.id === 'movimientos-tab') {
-                    loadMovimientos();
-                }
-            });
-        });
     </script>
 </body>
 </html> 
