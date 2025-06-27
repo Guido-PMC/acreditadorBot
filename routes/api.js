@@ -7,6 +7,8 @@ const router = express.Router();
 function normalizeName(name) {
   if (!name) return '';
   
+  console.log(`🔤 Normalizando nombre: "${name}"`);
+  
   // Convertir a minúsculas y remover caracteres especiales
   let normalized = name.toLowerCase()
     .replace(/[áäâà]/g, 'a')
@@ -21,7 +23,11 @@ function normalizeName(name) {
   
   // Ordenar palabras alfabéticamente para manejar diferentes órdenes
   const words = normalized.split(' ').filter(word => word.length > 0);
-  return words.sort().join(' ');
+  const result = words.sort().join(' ');
+  
+  console.log(`🔤 Nombre normalizado: "${result}" (palabras: [${words.join(', ')}])`);
+  
+  return result;
 }
 
 function normalizeCUIT(cuit) {
@@ -142,55 +148,89 @@ function generateAllCUITVariations(dni) {
 function namesMatch(name1, name2, threshold = 0.8) {
   if (!name1 || !name2) return false;
   
+  console.log(`🔍 Comparando nombres: "${name1}" vs "${name2}"`);
+  
   const normalized1 = normalizeName(name1);
   const normalized2 = normalizeName(name2);
   
   // Coincidencia exacta después de normalización
-  if (normalized1 === normalized2) return true;
+  if (normalized1 === normalized2) {
+    console.log(`✅ Coincidencia exacta: "${normalized1}"`);
+    return true;
+  }
   
   // Coincidencia parcial (al menos 80% de las palabras coinciden)
   const words1 = normalized1.split(' ');
   const words2 = normalized2.split(' ');
   
-  if (words1.length === 0 || words2.length === 0) return false;
+  if (words1.length === 0 || words2.length === 0) {
+    console.log(`❌ Uno de los nombres está vacío después de normalización`);
+    return false;
+  }
   
   const commonWords = words1.filter(word => words2.includes(word));
   const similarity = commonWords.length / Math.max(words1.length, words2.length);
   
-  return similarity >= threshold;
+  console.log(`📊 Análisis de similitud:`);
+  console.log(`   Palabras nombre1: [${words1.join(', ')}]`);
+  console.log(`   Palabras nombre2: [${words2.join(', ')}]`);
+  console.log(`   Palabras comunes: [${commonWords.join(', ')}]`);
+  console.log(`   Similitud: ${commonWords.length}/${Math.max(words1.length, words2.length)} = ${(similarity * 100).toFixed(1)}%`);
+  console.log(`   Umbral requerido: ${(threshold * 100).toFixed(1)}%`);
+  
+  const matches = similarity >= threshold;
+  console.log(`   ${matches ? '✅' : '❌'} Coincidencia: ${matches ? 'SÍ' : 'NO'}`);
+  
+  return matches;
 }
 
 function cuitsMatch(cuit1, cuit2) {
   if (!cuit1 || !cuit2) return false;
   
+  console.log(`🔍 Comparando CUITs: "${cuit1}" vs "${cuit2}"`);
+  
   // Normalizar ambos CUITs
   const normalized1 = normalizeCUIT(cuit1);
   const normalized2 = normalizeCUIT(cuit2);
   
+  console.log(`🔢 CUITs normalizados: "${normalized1}" vs "${normalized2}"`);
+  
   // Coincidencia exacta después de normalización
-  if (normalized1 === normalized2) return true;
+  if (normalized1 === normalized2) {
+    console.log(`✅ Coincidencia exacta de CUIT: "${normalized1}"`);
+    return true;
+  }
   
   // Si uno de los CUITs no se pudo normalizar, intentar generar variaciones
   if (!normalized1 || !normalized2) {
+    console.log(`⚠️ Uno de los CUITs no se pudo normalizar, intentando variaciones...`);
+    
     // Intentar extraer DNI del CUIT más largo
     const cuitLargo = cuit1.length >= cuit2.length ? cuit1 : cuit2;
     const cuitCorto = cuit1.length >= cuit2.length ? cuit2 : cuit1;
     
+    console.log(`🔢 CUIT largo: "${cuitLargo}", CUIT corto: "${cuitCorto}"`);
+    
     // Extraer DNI (últimos 8 dígitos antes del verificador)
     const dni = cuitLargo.replace(/[^0-9]/g, '').substring(2, 10);
     
+    console.log(`🔢 DNI extraído: "${dni}"`);
+    
     if (dni.length === 8) {
       const variations = generateAllCUITVariations(dni);
+      console.log(`🔢 Variaciones generadas para DNI ${dni}: [${variations.join(', ')}]`);
       
       // Verificar si el CUIT corto coincide con alguna variación
       for (const variation of variations) {
         if (cuitsMatch(cuitCorto, variation)) {
+          console.log(`✅ Coincidencia encontrada con variación: "${variation}"`);
           return true;
         }
       }
     }
   }
   
+  console.log(`❌ No se encontró coincidencia de CUIT`);
   return false;
 }
 
@@ -2314,51 +2354,70 @@ router.post('/comprobantes/whatsapp', [
 
     // Evaluar cada acreditación candidata con matching inteligente
     for (const acreditacion of acreditacionesCandidatas.rows) {
+      console.log(`\n🔍 Evaluando acreditación ${acreditacion.id}:`);
+      console.log(`   Titular: "${acreditacion.titular}"`);
+      console.log(`   CUIT: "${acreditacion.cuit}"`);
+      console.log(`   Importe: $${acreditacion.importe}`);
+      console.log(`   Fecha: ${acreditacion.fecha_hora}`);
+      
       let score = 0;
       let coincidencias = [];
 
       // Coincidencia de importe (ya filtrado, score base)
       score += 30;
       coincidencias.push('importe');
+      console.log(`   ✅ Importe coincidente: +30 puntos`);
 
       // Coincidencia de fecha (más cercana = mejor score)
       const diffHoras = Math.abs(acreditacion.fecha_hora - fecha_envio_obj) / (1000 * 60 * 60);
       if (diffHoras <= 1) {
         score += 25;
         coincidencias.push('fecha_exacta');
+        console.log(`   ✅ Fecha exacta (${diffHoras.toFixed(2)}h): +25 puntos`);
       } else if (diffHoras <= 6) {
         score += 20;
         coincidencias.push('fecha_cercana');
+        console.log(`   ✅ Fecha cercana (${diffHoras.toFixed(2)}h): +20 puntos`);
       } else if (diffHoras <= 12) {
         score += 15;
         coincidencias.push('fecha_media');
+        console.log(`   ✅ Fecha media (${diffHoras.toFixed(2)}h): +15 puntos`);
       } else {
         score += 10;
         coincidencias.push('fecha_lejana');
+        console.log(`   ✅ Fecha lejana (${diffHoras.toFixed(2)}h): +10 puntos`);
       }
 
       // Coincidencia de nombre
+      console.log(`\n   🔤 Evaluando nombre: "${nombre_remitente}" vs "${acreditacion.titular}"`);
       if (namesMatch(nombre_remitente, acreditacion.titular)) {
         score += 25;
         coincidencias.push('nombre_exacto');
+        console.log(`   ✅ Nombre exacto: +25 puntos`);
       } else if (namesMatch(nombre_remitente, acreditacion.titular, 0.6)) {
         score += 15;
         coincidencias.push('nombre_parcial');
+        console.log(`   ✅ Nombre parcial: +15 puntos`);
+      } else {
+        console.log(`   ❌ Nombre no coincide`);
       }
 
       // Coincidencia de CUIT
-      if (cuit_limpio && acreditacion.cuit && cuitsMatch(cuit_limpio, acreditacion.cuit)) {
-        score += 20;
-        coincidencias.push('cuit_exacto');
+      if (cuit_limpio && acreditacion.cuit) {
+        console.log(`\n   🔢 Evaluando CUIT: "${cuit_limpio}" vs "${acreditacion.cuit}"`);
+        if (cuitsMatch(cuit_limpio, acreditacion.cuit)) {
+          score += 20;
+          coincidencias.push('cuit_exacto');
+          console.log(`   ✅ CUIT exacto: +20 puntos`);
+        } else {
+          console.log(`   ❌ CUIT no coincide`);
+        }
+      } else {
+        console.log(`   ⚠️ No hay CUIT para comparar`);
       }
 
-      console.log(`📊 Evaluando acreditación ${acreditacion.id}:`, {
-        titular: acreditacion.titular,
-        cuit: acreditacion.cuit,
-        score,
-        coincidencias,
-        diffHoras: Math.round(diffHoras * 100) / 100
-      });
+      console.log(`\n   📊 Score final: ${score} puntos`);
+      console.log(`   📋 Coincidencias: [${coincidencias.join(', ')}]`);
 
       // Actualizar mejor coincidencia si el score es mayor
       if (score > mejor_score) {
@@ -2366,21 +2425,24 @@ router.post('/comprobantes/whatsapp', [
         mejor_coincidencia = acreditacion;
         acreditacion_id = acreditacion.id;
         acreditacion_encontrada = true;
+        console.log(`   🏆 ¡Nueva mejor coincidencia! (Score anterior: ${mejor_score - score + score})`);
+      } else {
+        console.log(`   📉 No supera el mejor score actual: ${mejor_score}`);
       }
     }
 
     // Solo considerar como coincidencia si el score es suficientemente alto
     if (mejor_score >= 50) { // Mínimo 50 puntos para considerar coincidencia
-      console.log('💰 Acreditación coincidente encontrada con matching inteligente:', {
-        acreditacion: mejor_coincidencia,
-        score: mejor_score,
-        coincidencias: mejor_coincidencia ? ['importe', 'fecha_cercana', 'nombre_exacto'] : []
-      });
+      console.log('\n💰 Acreditación coincidente encontrada con matching inteligente:');
+      console.log(`   Acreditación ID: ${mejor_coincidencia.id}`);
+      console.log(`   Titular: "${mejor_coincidencia.titular}"`);
+      console.log(`   CUIT: "${mejor_coincidencia.cuit}"`);
+      console.log(`   Importe: $${mejor_coincidencia.importe}`);
+      console.log(`   Score final: ${mejor_score} puntos`);
     } else {
-      console.log('❌ No se encontró acreditación con score suficiente:', {
-        mejor_score,
-        umbral: 50
-      });
+      console.log('\n❌ No se encontró acreditación con score suficiente:');
+      console.log(`   Mejor score obtenido: ${mejor_score}`);
+      console.log(`   Umbral mínimo requerido: 50 puntos`);
       acreditacion_id = null;
       acreditacion_encontrada = false;
     }
@@ -2446,9 +2508,19 @@ router.post('/comprobantes/whatsapp', [
 
     console.log('✅ Comprobante creado exitosamente');
 
+    // Determinar el mensaje de estado más claro
+    let estadoMensaje = '';
+    if (acreditacion_encontrada) {
+      estadoMensaje = 'Comprobante cotejado automáticamente con acreditación';
+      console.log('✅ Comprobante cotejado automáticamente');
+    } else {
+      estadoMensaje = 'Comprobante pendiente de cotejo manual';
+      console.log('⏳ Comprobante pendiente de cotejo manual');
+    }
+
     res.json({
       success: true,
-      message: 'Comprobante procesado exitosamente',
+      message: estadoMensaje,
       data: {
         comprobante_id: comprobante.id,
         id_comprobante: id_comprobante,
@@ -2465,7 +2537,9 @@ router.post('/comprobantes/whatsapp', [
           encontrada: false,
           cotejado: false
         },
-        estado: acreditacion_encontrada ? 'cotejado' : 'pendiente'
+        estado: acreditacion_encontrada ? 'cotejado' : 'pendiente',
+        estado_detalle: estadoMensaje,
+        score: acreditacion_encontrada ? mejor_score : 0
       }
     });
 
