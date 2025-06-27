@@ -2018,41 +2018,79 @@ router.post('/comprobantes/whatsapp', [
     let fecha_envio_obj;
     
     try {
-      // Intentar parsear la fecha en diferentes formatos
-      if (fecha.includes('/')) {
-        // Formato DD/MM/YYYY
+      console.log('🔧 Iniciando parsing de fecha...');
+      console.log('   fecha recibida:', fecha);
+      console.log('   hora recibida:', hora);
+      
+      // Estrategia 1: Si la fecha ya viene en formato ISO completo con hora, usarla directamente
+      if (fecha.includes('T') && fecha.includes('Z')) {
+        console.log('📅 Fecha en formato ISO completo detectada');
+        fecha_envio_obj = new Date(fecha);
+      } 
+      // Estrategia 2: Si la fecha incluye hora pero no es ISO (ej: "2025-06-26 23:41")
+      else if (fecha.includes(' ') && fecha.includes(':')) {
+        console.log('📅 Fecha con hora en formato local detectada');
+        fecha_envio_obj = new Date(fecha);
+      }
+      // Estrategia 3: Si la fecha incluye hora con T (ej: "2025-06-26T23:41")
+      else if (fecha.includes('T') && fecha.includes(':')) {
+        console.log('📅 Fecha con hora en formato ISO sin Z detectada');
+        fecha_envio_obj = new Date(fecha);
+      }
+      // Estrategia 4: Formato DD/MM/YYYY
+      else if (fecha.includes('/')) {
+        console.log('📅 Fecha en formato DD/MM/YYYY detectada');
         const [day, month, year] = fecha.split('/');
         fecha_envio_obj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      } else if (fecha.includes('-')) {
-        // Formato YYYY-MM-DD o ISO
+      } 
+      // Estrategia 5: Formato YYYY-MM-DD (solo fecha)
+      else if (fecha.includes('-') && !fecha.includes(':')) {
+        console.log('📅 Fecha en formato YYYY-MM-DD detectada');
         fecha_envio_obj = new Date(fecha);
-      } else {
-        // Otros formatos
+      } 
+      // Estrategia 6: Otros formatos
+      else {
+        console.log('📅 Otro formato de fecha detectado');
         fecha_envio_obj = new Date(fecha);
       }
       
-      // Si hay hora, agregarla a la fecha
+      // Si hay hora separada, aplicarla solo si la fecha no tiene hora específica
       if (hora && hora !== 'null' && hora !== '0' && hora !== 0) {
         try {
+          console.log('🕐 Aplicando hora separada:', hora);
           const [hours, minutes, seconds] = hora.split(':');
-          fecha_envio_obj.setHours(parseInt(hours) || 0, parseInt(minutes) || 0, parseInt(seconds) || 0);
+          
+          // Verificar si la fecha actual tiene hora específica (no es medianoche)
+          const currentHours = fecha_envio_obj.getHours();
+          const currentMinutes = fecha_envio_obj.getMinutes();
+          const currentSeconds = fecha_envio_obj.getSeconds();
+          
+          if (currentHours === 0 && currentMinutes === 0 && currentSeconds === 0) {
+            fecha_envio_obj.setHours(parseInt(hours) || 0, parseInt(minutes) || 0, parseInt(seconds) || 0);
+            console.log('✅ Hora separada aplicada correctamente');
+          } else {
+            console.log('⚠️ Fecha ya tiene hora específica, no se aplica hora separada');
+            console.log(`   Hora actual en fecha: ${currentHours}:${currentMinutes}:${currentSeconds}`);
+          }
         } catch (error) {
-          console.log('⚠️ No se pudo parsear la hora, usando fecha sin hora');
+          console.log('⚠️ No se pudo parsear la hora separada:', error.message);
         }
       }
       
       // Verificar que la fecha sea válida
       if (isNaN(fecha_envio_obj.getTime())) {
-        throw new Error('Fecha inválida');
+        throw new Error('Fecha inválida después del parsing');
       }
       
-      console.log('📅 Fecha parseada:', fecha_envio_obj.toISOString());
+      console.log('📅 Fecha final parseada:', fecha_envio_obj.toISOString());
+      console.log('📅 Fecha local:', fecha_envio_obj.toLocaleString('es-AR'));
       
     } catch (error) {
       console.error('❌ Error parseando fecha:', fecha, error);
       return res.status(400).json({
         error: 'Formato de fecha inválido',
-        message: `La fecha '${fecha}' no es válida. Use formato DD/MM/YYYY, YYYY-MM-DD o ISO 8601`
+        message: `La fecha '${fecha}' no es válida. Formatos soportados: DD/MM/YYYY, YYYY-MM-DD, ISO 8601, o fecha+hora separadas`,
+        details: error.message
       });
     }
 
