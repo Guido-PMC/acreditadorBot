@@ -1526,4 +1526,298 @@ router.delete('/comprobantes/:id', async (req, res) => {
   }
 });
 
+// GET /api/clientes/:id/resumen - Obtener resumen completo del cliente
+router.get('/clientes/:id/resumen', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+
+    // Verificar si el cliente existe
+    const cliente = await client.query(
+      'SELECT * FROM clientes WHERE id = $1',
+      [id]
+    );
+
+    if (cliente.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Cliente no encontrado',
+        message: 'El cliente especificado no existe'
+      });
+    }
+
+    // Obtener estadísticas de comprobantes
+    const comprobantesStats = await client.query(`
+      SELECT 
+        COUNT(*) as total_comprobantes,
+        SUM(importe) as total_importe_comprobantes,
+        COUNT(CASE WHEN cotejado = true THEN 1 END) as comprobantes_cotejados,
+        COUNT(CASE WHEN cotejado = false THEN 1 END) as comprobantes_pendientes
+      FROM comprobantes_whatsapp 
+      WHERE id_cliente = $1
+    `, [id]);
+
+    // Obtener estadísticas de acreditaciones
+    const acreditacionesStats = await client.query(`
+      SELECT 
+        COUNT(*) as total_acreditaciones,
+        SUM(importe) as total_importe_acreditaciones,
+        COUNT(CASE WHEN cotejado = true THEN 1 END) as acreditaciones_cotejadas,
+        COUNT(CASE WHEN cotejado = false THEN 1 END) as acreditaciones_pendientes
+      FROM acreditaciones 
+      WHERE id_cliente = $1
+    `, [id]);
+
+    // Obtener estadísticas de pagos
+    const pagosStats = await client.query(`
+      SELECT 
+        COUNT(*) as total_pagos,
+        SUM(importe) as total_importe_pagos
+      FROM pagos 
+      WHERE id_cliente = $1 AND estado = 'confirmado'
+    `, [id]);
+
+    // Calcular saldo (comprobantes - pagos)
+    const totalComprobantes = parseFloat(comprobantesStats.rows[0].total_importe_comprobantes || 0);
+    const totalPagos = parseFloat(pagosStats.rows[0].total_importe_pagos || 0);
+    const saldo = totalComprobantes - totalPagos;
+
+    res.json({
+      success: true,
+      data: {
+        cliente: cliente.rows[0],
+        resumen: {
+          comprobantes: comprobantesStats.rows[0],
+          acreditaciones: acreditacionesStats.rows[0],
+          pagos: pagosStats.rows[0],
+          saldo: saldo
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo resumen del cliente:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo obtener el resumen del cliente'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/clientes/:id/pagos - Obtener pagos de un cliente
+router.get('/clientes/:id/pagos', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+    const { 
+      page = 1, 
+      limit = 50 
+    } = req.query;
+
+    // Verificar si el cliente existe
+    const existingClient = await client.query(
+      'SELECT nombre, apellido FROM clientes WHERE id = $1',
+      [id]
+    );
+
+    if (existingClient.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Cliente no encontrado',
+        message: 'El cliente especificado no existe'
+      });
+    }
+
+    const offset = (page - 1) * limit;
+
+    // Query para contar total
+    const countQuery = `
+      SELECT COUNT(*) 
+      FROM pagos 
+      WHERE id_cliente = $1
+    `;
+    const countResult = await client.query(countQuery, [id]);
+    const total = parseInt(countResult.rows[0].count);
+
+    // Query para obtener datos
+    const dataQuery = `
+      SELECT * FROM pagos
+      WHERE id_cliente = $1
+      ORDER BY fecha_pago DESC
+      LIMIT $2 OFFSET $3
+    `;
+    
+    const dataResult = await client.query(dataQuery, [id, parseInt(limit), offset]);
+
+    res.json({
+      success: true,
+      data: dataResult.rows,
+      cliente: existingClient.rows[0],
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo pagos del cliente:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron obtener los pagos del cliente'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/pagos - Crear nuevo pago
+router.post('/pagos', [
+  body('id_cliente').isInt().withMessage('ID del cliente es requerido'),
+  body('concepto').notEmpty().withMessage('Concepto es requerido'),
+  body('importe').isNumeric().withMessage('Importe debe ser numérico')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      error: 'Datos inválidos', 
+      details: errors.array() 
+    });
+  }
+
+  const client = await db.getClient();
+  
+  try {
+    const {
+      id_cliente,
+      concepto,
+      importe,
+      fecha_pago,
+      tipo_pago = 'egreso',
+      metodo_pago,
+      referencia,
+      observaciones
+    } = req.body;
+
+    // Verificar que el cliente existe
+    const existingClient = await client.query(
+      'SELECT nombre, apellido FROM clientes WHERE id = $1',
+      [id_cliente]
+    );
+
+    if (existingClient.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Cliente no encontrado',
+        message: 'El cliente especificado no existe'
+      });
+    }
+
+    // Insertar nuevo pago
+    const result = await client.query(`
+      INSERT INTO pagos (
+        id_cliente,
+        concepto,
+        importe,
+        fecha_pago,
+        tipo_pago,
+        metodo_pago,
+        referencia,
+        observaciones
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, concepto, importe
+    `, [
+      id_cliente,
+      concepto,
+      importe,
+      fecha_pago || new Date().toISOString(),
+      tipo_pago,
+      metodo_pago || null,
+      referencia || null,
+      observaciones || null
+    ]);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'pago_creado',
+      `Pago creado: ${concepto} - $${importe} para ${existingClient.rows[0].nombre} ${existingClient.rows[0].apellido}`,
+      JSON.stringify(req.body),
+      'exitoso'
+    ]);
+
+    res.status(201).json({
+      success: true,
+      message: 'Pago registrado exitosamente',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error creando pago:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo crear el pago'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// DELETE /api/pagos/:id - Eliminar pago
+router.delete('/pagos/:id', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+
+    // Verificar que el pago existe
+    const pago = await client.query(
+      'SELECT p.*, c.nombre, c.apellido FROM pagos p JOIN clientes c ON p.id_cliente = c.id WHERE p.id = $1',
+      [id]
+    );
+
+    if (pago.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Pago no encontrado',
+        message: 'El pago especificado no existe'
+      });
+    }
+
+    // Eliminar el pago
+    await client.query(
+      'DELETE FROM pagos WHERE id = $1',
+      [id]
+    );
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'pago_eliminado',
+      `Pago eliminado: ${pago.rows[0].concepto} - $${pago.rows[0].importe} de ${pago.rows[0].nombre} ${pago.rows[0].apellido}`,
+      JSON.stringify({ pago_id: id }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Pago eliminado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error eliminando pago:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo eliminar el pago'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 

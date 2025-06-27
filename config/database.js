@@ -129,6 +129,23 @@ class Database {
         )
       `);
 
+      // Tabla de pagos/salidas de dinero
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS pagos (
+          id SERIAL PRIMARY KEY,
+          id_cliente INTEGER REFERENCES clientes(id) NOT NULL,
+          concepto VARCHAR(200) NOT NULL,
+          importe DECIMAL(15,2) NOT NULL,
+          fecha_pago TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          tipo_pago VARCHAR(50) DEFAULT 'egreso',
+          metodo_pago VARCHAR(50),
+          referencia VARCHAR(100),
+          observaciones TEXT,
+          estado VARCHAR(20) DEFAULT 'confirmado',
+          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       // Migración: agregar columnas faltantes si no existen
       await this.migrateTables(client);
 
@@ -146,6 +163,8 @@ class Database {
         CREATE INDEX IF NOT EXISTS idx_clientes_cuit ON clientes(cuit);
         CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes(nombre);
         CREATE INDEX IF NOT EXISTS idx_logs_fecha ON logs_procesamiento(fecha);
+        CREATE INDEX IF NOT EXISTS idx_pagos_cliente ON pagos(id_cliente);
+        CREATE INDEX IF NOT EXISTS idx_pagos_fecha ON pagos(fecha_pago);
       `);
 
       console.log('Tablas creadas/verificadas exitosamente');

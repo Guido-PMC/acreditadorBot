@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vista del Cliente - AcreditadorBot</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">AcreditadorBot</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item"><a class="nav-link" href="/dashboard.html">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="/clientes.html">Clientes</a></li>
+          <li class="nav-item"><a class="nav-link" href="/asignacion.html">Asignación</a></li>
+          <li class="nav-item"><a class="nav-link" href="/upload.html">Subir CSV</a></li>
+          <li class="nav-item"><a class="nav-link" href="/logs.html">Logs</a></li>
+          <li class="nav-item"><a class="nav-link" href="/acreditaciones.html">Acreditaciones</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid">
+    <div id="alertContainer"></div>
+    
+    <!-- Header del Cliente -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <h2 id="clienteNombre">Cargando...</h2>
+                <p class="text-muted mb-0" id="clienteInfo">Cargando información...</p>
+              </div>
+              <div class="text-end">
+                <h3 class="text-primary mb-0" id="saldoCliente">$0.00</h3>
+                <small class="text-muted">Saldo Actual</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tarjetas de Resumen -->
+    <div class="row mb-4">
+      <div class="col-md-3">
+        <div class="card bg-primary text-white">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h4 id="totalComprobantes">0</h4>
+                <p class="mb-0">Comprobantes</p>
+              </div>
+              <div class="align-self-center">
+                <i class="fas fa-receipt fa-2x"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-success text-white">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h4 id="totalImporteComprobantes">$0.00</h4>
+                <p class="mb-0">Total Comprobantes</p>
+              </div>
+              <div class="align-self-center">
+                <i class="fas fa-money-bill-wave fa-2x"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-warning text-white">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h4 id="totalPagos">0</h4>
+                <p class="mb-0">Pagos Realizados</p>
+              </div>
+              <div class="align-self-center">
+                <i class="fas fa-credit-card fa-2x"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-info text-white">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h4 id="totalImportePagos">$0.00</h4>
+                <p class="mb-0">Total Pagos</p>
+              </div>
+              <div class="align-self-center">
+                <i class="fas fa-calculator fa-2x"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="row">
+      <!-- Comprobantes -->
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+              <i class="fas fa-receipt me-2"></i>Comprobantes de WhatsApp
+            </h5>
+            <span class="badge bg-primary" id="comprobantesCount">0</span>
+          </div>
+          <div class="card-body">
+            <div id="comprobantesContainer">
+              <div class="text-center text-muted">Cargando comprobantes...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagos -->
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+              <i class="fas fa-credit-card me-2"></i>Pagos Realizados
+            </h5>
+            <div>
+              <button class="btn btn-sm btn-success" onclick="openPagoModal()">
+                <i class="fas fa-plus me-1"></i>Nuevo Pago
+              </button>
+              <span class="badge bg-warning ms-2" id="pagosCount">0</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="pagosContainer">
+              <div class="text-center text-muted">Cargando pagos...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Nuevo Pago -->
+  <div class="modal fade" id="pagoModal" tabindex="-1" aria-labelledby="pagoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="pagoForm" onsubmit="submitPagoForm(event)">
+          <div class="modal-header">
+            <h5 class="modal-title" id="pagoModalLabel">Nuevo Pago</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="clienteIdPago">
+            <div class="mb-3">
+              <label for="concepto" class="form-label">Concepto *</label>
+              <input type="text" class="form-control" id="concepto" required placeholder="Ej: Pago por servicios">
+            </div>
+            <div class="mb-3">
+              <label for="importe" class="form-label">Importe *</label>
+              <input type="number" class="form-control" id="importe" required step="0.01" min="0" placeholder="0.00">
+            </div>
+            <div class="mb-3">
+              <label for="fechaPago" class="form-label">Fecha de Pago</label>
+              <input type="datetime-local" class="form-control" id="fechaPago">
+            </div>
+            <div class="mb-3">
+              <label for="metodoPago" class="form-label">Método de Pago</label>
+              <select class="form-select" id="metodoPago">
+                <option value="">Seleccionar...</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="cheque">Cheque</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="referencia" class="form-label">Referencia</label>
+              <input type="text" class="form-control" id="referencia" placeholder="Número de comprobante, etc.">
+            </div>
+            <div class="mb-3">
+              <label for="observacionesPago" class="form-label">Observaciones</label>
+              <textarea class="form-control" id="observacionesPago" rows="3" placeholder="Observaciones adicionales"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-success">Registrar Pago</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let clienteId = null;
+
+    // Obtener ID del cliente de la URL
+    function getClienteId() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('id');
+    }
+
+    // Cargar datos del cliente
+    async function loadClienteData() {
+      clienteId = getClienteId();
+      if (!clienteId) {
+        showAlert('danger', 'ID de cliente no especificado');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/clientes/${clienteId}/resumen`);
+        const data = await res.json();
+        
+        if (!data.success) {
+          showAlert('danger', data.error || 'Error al cargar datos del cliente');
+          return;
+        }
+
+        renderClienteInfo(data.data);
+        loadComprobantes();
+        loadPagos();
+      } catch (error) {
+        showAlert('danger', 'Error al cargar datos del cliente');
+      }
+    }
+
+    // Renderizar información del cliente
+    function renderClienteInfo(data) {
+      const cliente = data.cliente;
+      const resumen = data.resumen;
+
+      // Información del cliente
+      document.getElementById('clienteNombre').textContent = `${cliente.nombre} ${cliente.apellido || ''}`;
+      document.getElementById('clienteInfo').textContent = `${cliente.cuit || 'Sin CUIT'} • ${cliente.email || 'Sin email'} • ${cliente.telefono || 'Sin teléfono'}`;
+      
+      // Saldo
+      document.getElementById('saldoCliente').textContent = `$${resumen.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+      
+      // Tarjetas de resumen
+      document.getElementById('totalComprobantes').textContent = resumen.comprobantes.total_comprobantes || 0;
+      document.getElementById('totalImporteComprobantes').textContent = `$${(resumen.comprobantes.total_importe_comprobantes || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+      document.getElementById('totalPagos').textContent = resumen.pagos.total_pagos || 0;
+      document.getElementById('totalImportePagos').textContent = `$${(resumen.pagos.total_importe_pagos || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+    }
+
+    // Cargar comprobantes
+    async function loadComprobantes() {
+      try {
+        const res = await fetch(`/api/clientes/${clienteId}/comprobantes?limit=10`);
+        const data = await res.json();
+        
+        if (!data.success) {
+          showAlert('danger', data.error || 'Error al cargar comprobantes');
+          return;
+        }
+
+        renderComprobantes(data.data);
+        document.getElementById('comprobantesCount').textContent = data.data.length;
+      } catch (error) {
+        showAlert('danger', 'Error al cargar comprobantes');
+      }
+    }
+
+    // Renderizar comprobantes
+    function renderComprobantes(comprobantes) {
+      const container = document.getElementById('comprobantesContainer');
+      
+      if (comprobantes.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted">No hay comprobantes registrados</div>';
+        return;
+      }
+
+      container.innerHTML = comprobantes.map(comp => `
+        <div class="card mb-2">
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <strong>${comp.nombre_remitente || 'Sin nombre'}</strong>
+                <br>
+                <small class="text-muted">${comp.numero_telefono || 'Sin teléfono'}</small>
+              </div>
+              <span class="badge bg-primary">$${comp.importe?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || '0.00'}</span>
+            </div>
+            <div class="mt-2">
+              <small class="text-muted">${new Date(comp.fecha_envio).toLocaleDateString()}</small>
+              ${comp.cotejado ? '<span class="badge bg-success ms-2">Cotejado</span>' : '<span class="badge bg-warning ms-2">Pendiente</span>'}
+            </div>
+            ${comp.texto_mensaje ? `<div class="mt-1"><small class="text-truncate d-block">${comp.texto_mensaje}</small></div>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Cargar pagos
+    async function loadPagos() {
+      try {
+        const res = await fetch(`/api/clientes/${clienteId}/pagos?limit=10`);
+        const data = await res.json();
+        
+        if (!data.success) {
+          showAlert('danger', data.error || 'Error al cargar pagos');
+          return;
+        }
+
+        renderPagos(data.data);
+        document.getElementById('pagosCount').textContent = data.data.length;
+      } catch (error) {
+        showAlert('danger', 'Error al cargar pagos');
+      }
+    }
+
+    // Renderizar pagos
+    function renderPagos(pagos) {
+      const container = document.getElementById('pagosContainer');
+      
+      if (pagos.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted">No hay pagos registrados</div>';
+        return;
+      }
+
+      container.innerHTML = pagos.map(pago => `
+        <div class="card mb-2">
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <strong>${pago.concepto}</strong>
+                <br>
+                <small class="text-muted">${pago.metodo_pago || 'Sin método'} • ${new Date(pago.fecha_pago).toLocaleDateString()}</small>
+              </div>
+              <div class="text-end">
+                <span class="badge bg-warning">$${pago.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                <button class="btn btn-sm btn-outline-danger ms-2" onclick="deletePago(${pago.id})" title="Eliminar pago">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+            ${pago.referencia ? `<div class="mt-1"><small class="text-muted">Ref: ${pago.referencia}</small></div>` : ''}
+            ${pago.observaciones ? `<div class="mt-1"><small class="text-muted">${pago.observaciones}</small></div>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Abrir modal de pago
+    function openPagoModal() {
+      document.getElementById('pagoForm').reset();
+      document.getElementById('clienteIdPago').value = clienteId;
+      document.getElementById('fechaPago').value = new Date().toISOString().slice(0, 16);
+      new bootstrap.Modal(document.getElementById('pagoModal')).show();
+    }
+
+    // Enviar formulario de pago
+    async function submitPagoForm(event) {
+      event.preventDefault();
+      
+      const body = {
+        id_cliente: parseInt(document.getElementById('clienteIdPago').value),
+        concepto: document.getElementById('concepto').value,
+        importe: parseFloat(document.getElementById('importe').value),
+        fecha_pago: document.getElementById('fechaPago').value,
+        metodo_pago: document.getElementById('metodoPago').value,
+        referencia: document.getElementById('referencia').value,
+        observaciones: document.getElementById('observacionesPago').value
+      };
+
+      try {
+        const res = await fetch('/api/pagos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          showAlert('success', data.message);
+          bootstrap.Modal.getInstance(document.getElementById('pagoModal')).hide();
+          loadClienteData(); // Recargar todo para actualizar saldo
+        } else {
+          showAlert('danger', data.error || data.message || 'Error al registrar pago');
+        }
+      } catch (error) {
+        showAlert('danger', 'Error al registrar pago');
+      }
+    }
+
+    // Eliminar pago
+    async function deletePago(id) {
+      if (!confirm('¿Seguro que deseas eliminar este pago?')) return;
+      
+      try {
+        const res = await fetch(`/api/pagos/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        
+        if (data.success) {
+          showAlert('success', data.message);
+          loadClienteData(); // Recargar todo para actualizar saldo
+        } else {
+          showAlert('danger', data.error || data.message || 'Error al eliminar pago');
+        }
+      } catch (error) {
+        showAlert('danger', 'Error al eliminar pago');
+      }
+    }
+
+    // Mostrar alerta
+    function showAlert(type, message) {
+      document.getElementById('alertContainer').innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      `;
+    }
+
+    // Inicializar
+    loadClienteData();
+  </script>
+</body>
+</html> 
