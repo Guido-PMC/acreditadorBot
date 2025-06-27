@@ -44,7 +44,10 @@
                 <h3 class="text-primary mb-0" id="saldoCliente">$0.00</h3>
                 <small class="text-muted">Saldo Actual</small>
                 <br>
-                <button class="btn btn-sm btn-outline-info mt-2" onclick="debugComprobantes()" title="Debug">
+                <button class="btn btn-sm btn-success me-2" onclick="openCreditoModal()" title="Nuevo Crédito">
+                  <i class="fas fa-plus me-1"></i>Nuevo Crédito
+                </button>
+                <button class="btn btn-sm btn-outline-info" onclick="debugComprobantes()" title="Debug">
                   <i class="fas fa-bug me-1"></i>Debug
                 </button>
               </div>
@@ -200,6 +203,60 @@
     </div>
   </div>
 
+  <!-- Modal Nuevo Crédito -->
+  <div class="modal fade" id="creditoModal" tabindex="-1" aria-labelledby="creditoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="creditoForm" onsubmit="submitCreditoForm(event)">
+          <div class="modal-header">
+            <h5 class="modal-title" id="creditoModalLabel">Nuevo Crédito</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="clienteIdCredito">
+            <div class="mb-3">
+              <label for="conceptoCredito" class="form-label">Concepto *</label>
+              <input type="text" class="form-control" id="conceptoCredito" required placeholder="Ej: Crédito por servicios prestados">
+            </div>
+            <div class="mb-3">
+              <label for="importeCredito" class="form-label">Importe *</label>
+              <input type="number" class="form-control" id="importeCredito" required step="0.01" min="0" placeholder="0.00">
+            </div>
+            <div class="mb-3">
+              <label for="fechaCredito" class="form-label">Fecha del Crédito</label>
+              <input type="datetime-local" class="form-control" id="fechaCredito">
+            </div>
+            <div class="mb-3">
+              <label for="metodoCredito" class="form-label">Método de Crédito</label>
+              <select class="form-select" id="metodoCredito">
+                <option value="">Seleccionar...</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="cheque">Cheque</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="referenciaCredito" class="form-label">Referencia</label>
+              <input type="text" class="form-control" id="referenciaCredito" placeholder="Número de comprobante, CBU, etc.">
+            </div>
+            <div class="mb-3">
+              <label for="observacionesCredito" class="form-label">Observaciones</label>
+              <textarea class="form-control" id="observacionesCredito" rows="3" placeholder="Detalles adicionales del crédito"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-success">
+              <i class="fas fa-plus me-1"></i>Registrar Crédito
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Nuevo Pago -->
   <div class="modal fade" id="pagoModal" tabindex="-1" aria-labelledby="pagoModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -308,6 +365,12 @@
       document.getElementById('totalImportePagos').textContent = `$${(resumen.pagos.total_importe_pagos || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
     }
 
+    // Función para limpiar CUIT (quitar guiones y dejar solo números)
+    function cleanCUIT(cuit) {
+      if (!cuit) return '';
+      return cuit.replace(/[^0-9]/g, '');
+    }
+
     // Cargar comprobantes
     async function loadComprobantes() {
       try {
@@ -358,7 +421,7 @@
               <div>
                 <strong>${comp.nombre_remitente || 'Sin nombre'}</strong>
                 <br>
-                <small class="text-muted">${comp.numero_telefono || 'Sin teléfono'}</small>
+                <small class="text-muted"><strong>CUIT:</strong> ${cleanCUIT(comp.cuit) || 'Sin CUIT'}</small>
               </div>
               <div class="text-end">
                 <span class="badge bg-primary">$${comp.importe?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || '0.00'}</span>
@@ -370,18 +433,25 @@
               </div>
             </div>
             <div class="mt-2">
-              <small class="text-muted">${new Date(comp.fecha_envio).toLocaleDateString()}</small>
+              <small class="text-muted"><strong>Fecha Envío:</strong> ${new Date(comp.fecha_envio).toLocaleDateString()} ${new Date(comp.fecha_envio).toLocaleTimeString()}</small>
+            </div>
+            <div class="mt-1">
+              <small class="text-muted"><strong>Fecha Recepción:</strong> ${new Date(comp.fecha_recepcion).toLocaleDateString()} ${new Date(comp.fecha_recepcion).toLocaleTimeString()}</small>
+            </div>
+            <div class="mt-1">
+              <small class="text-muted"><strong>Monto:</strong> $${comp.importe?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || '0.00'}</small>
+            </div>
+            <div class="mt-2">
               ${comp.id_acreditacion ? 
-                '<span class="badge bg-success ms-2">Asignado</span>' : 
-                '<span class="badge bg-warning ms-2">Sin Asignar</span>'
+                '<span class="badge bg-success me-2">Asignado</span>' : 
+                '<span class="badge bg-warning me-2">Sin Asignar</span>'
               }
               ${comp.cotejado ? 
-                '<span class="badge bg-info ms-2">Cotejado</span>' : 
-                '<span class="badge bg-secondary ms-2">Sin Cotejar</span>'
+                '<span class="badge bg-info me-2">Cotejado</span>' : 
+                '<span class="badge bg-secondary me-2">Sin Cotejar</span>'
               }
             </div>
-            ${comp.texto_mensaje ? `<div class="mt-1"><small class="text-truncate d-block">${comp.texto_mensaje}</small></div>` : ''}
-            ${comp.id_acreditacion ? `<div class="mt-1"><small class="text-muted">Acreditación: ${comp.id_acreditacion}</small></div>` : ''}
+            ${comp.id_acreditacion ? `<div class="mt-1"><small class="text-muted"><strong>Acreditación:</strong> ${comp.id_acreditacion}</small></div>` : ''}
           </div>
         </div>
       `).join('');
@@ -424,13 +494,16 @@
                 <small class="text-muted">${pago.metodo_pago || 'Sin método'} • ${new Date(pago.fecha_pago).toLocaleDateString()}</small>
               </div>
               <div class="text-end">
-                <span class="badge bg-warning">$${pago.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                <button class="btn btn-sm btn-outline-danger ms-2" onclick="deletePago(${pago.id})" title="Eliminar pago">
+                <span class="badge ${pago.tipo_pago === 'credito' ? 'bg-success' : 'bg-warning'}">$${pago.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                <button class="btn btn-sm btn-outline-danger ms-2" onclick="deletePago(${pago.id})" title="Eliminar ${pago.tipo_pago === 'credito' ? 'crédito' : 'pago'}">
                   <i class="fas fa-trash"></i>
                 </button>
               </div>
             </div>
-            ${pago.referencia ? `<div class="mt-1"><small class="text-muted">Ref: ${pago.referencia}</small></div>` : ''}
+            <div class="mt-1">
+              <span class="badge ${pago.tipo_pago === 'credito' ? 'bg-success' : 'bg-warning'} me-2">${pago.tipo_pago === 'credito' ? 'Crédito' : 'Pago'}</span>
+            </div>
+            ${pago.referencia ? `<div class="mt-1"><small class="text-muted"><strong>Ref:</strong> ${pago.referencia}</small></div>` : ''}
             ${pago.observaciones ? `<div class="mt-1"><small class="text-muted">${pago.observaciones}</small></div>` : ''}
           </div>
         </div>
@@ -443,6 +516,50 @@
       document.getElementById('clienteIdPago').value = clienteId;
       document.getElementById('fechaPago').value = new Date().toISOString().slice(0, 16);
       new bootstrap.Modal(document.getElementById('pagoModal')).show();
+    }
+
+    // Abrir modal de crédito
+    function openCreditoModal() {
+      document.getElementById('creditoForm').reset();
+      document.getElementById('clienteIdCredito').value = clienteId;
+      document.getElementById('fechaCredito').value = new Date().toISOString().slice(0, 16);
+      new bootstrap.Modal(document.getElementById('creditoModal')).show();
+    }
+
+    // Enviar formulario de crédito
+    async function submitCreditoForm(event) {
+      event.preventDefault();
+      
+      const body = {
+        id_cliente: parseInt(document.getElementById('clienteIdCredito').value),
+        concepto: document.getElementById('conceptoCredito').value,
+        importe: parseFloat(document.getElementById('importeCredito').value),
+        fecha_pago: document.getElementById('fechaCredito').value,
+        metodo_pago: document.getElementById('metodoCredito').value,
+        referencia: document.getElementById('referenciaCredito').value,
+        observaciones: document.getElementById('observacionesCredito').value,
+        tipo_pago: 'credito' // Marcar como crédito en lugar de pago
+      };
+
+      try {
+        const res = await fetch('/api/pagos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          showAlert('success', data.message);
+          bootstrap.Modal.getInstance(document.getElementById('creditoModal')).hide();
+          loadClienteData(); // Recargar todo para actualizar saldo
+        } else {
+          showAlert('danger', data.error || data.message || 'Error al registrar crédito');
+        }
+      } catch (error) {
+        showAlert('danger', 'Error al registrar crédito');
+      }
     }
 
     // Enviar formulario de pago
@@ -541,7 +658,7 @@
         // Verificar acreditaciones sin comprobante
         const acreditacionesRes = await fetch('/api/acreditaciones/sin-comprobante?limit=100');
         const acreditacionesData = await acreditacionesRes.json();
-        console.log('💰 Acreditaciones sin comprobante:', acreditacionesData.data);
+        console.log('�� Acreditaciones sin comprobante:', acreditacionesData.data);
         
         showAlert('info', 'Debug completado. Revisa la consola para más detalles.');
         
