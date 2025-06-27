@@ -198,7 +198,7 @@ router.get('/comprobantes', authenticateToken, async (req, res) => {
       estado = '' // 'cotejado', 'pendiente', o vacío para todos
     } = req.query;
 
-    const cliente_id = req.user.cliente_id;
+    const cliente_id = parseInt(req.user.cliente_id);
     const offset = (page - 1) * limit;
 
     // Validar parámetros de ordenamiento
@@ -310,7 +310,7 @@ router.get('/movimientos', authenticateToken, async (req, res) => {
       tipo = '' // 'pago', 'credito', o vacío para todos
     } = req.query;
 
-    const cliente_id = req.user.cliente_id;
+    const cliente_id = parseInt(req.user.cliente_id);
     const offset = (page - 1) * limit;
 
     // Validar parámetros de ordenamiento
@@ -389,7 +389,7 @@ router.get('/resumen', authenticateToken, async (req, res) => {
   const client = await db.getClient();
   
   try {
-    const cliente_id = req.user.cliente_id;
+    const cliente_id = parseInt(req.user.cliente_id);
 
     // Estadísticas de comprobantes
     const comprobantesStats = await client.query(`
