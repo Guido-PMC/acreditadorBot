@@ -1900,7 +1900,37 @@ router.post('/comprobantes/whatsapp', [
     }
 
     // Buscar acreditación que coincida
-    const fecha_envio_obj = new Date(fecha_envio);
+    let fecha_envio_obj;
+    
+    try {
+      // Intentar parsear la fecha en diferentes formatos
+      if (fecha_envio.includes('/')) {
+        // Formato DD/MM/YYYY
+        const [day, month, year] = fecha_envio.split('/');
+        fecha_envio_obj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      } else if (fecha_envio.includes('-')) {
+        // Formato YYYY-MM-DD o ISO
+        fecha_envio_obj = new Date(fecha_envio);
+      } else {
+        // Otros formatos
+        fecha_envio_obj = new Date(fecha_envio);
+      }
+      
+      // Verificar que la fecha sea válida
+      if (isNaN(fecha_envio_obj.getTime())) {
+        throw new Error('Fecha inválida');
+      }
+      
+      console.log('📅 Fecha parseada:', fecha_envio_obj.toISOString());
+      
+    } catch (error) {
+      console.error('❌ Error parseando fecha:', fecha_envio, error);
+      return res.status(400).json({
+        error: 'Formato de fecha inválido',
+        message: `La fecha '${fecha_envio}' no es válida. Use formato DD/MM/YYYY, YYYY-MM-DD o ISO 8601`
+      });
+    }
+
     const fecha_desde = new Date(fecha_envio_obj.getTime() - 24 * 60 * 60 * 1000); // 1 día antes
     const fecha_hasta = new Date(fecha_envio_obj.getTime() + 24 * 60 * 60 * 1000); // 1 día después
 

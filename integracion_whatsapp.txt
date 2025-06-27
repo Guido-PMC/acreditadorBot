@@ -1,0 +1,455 @@
+INTEGRACIÓN CON ACREDITADORBOT
+Sistema para enviar comprobantes de WhatsApp al endpoint de AcreditadorBot
+
+================================================================================
+CÓDIGO COMPLETO PARA INTEGRACIÓN
+================================================================================
+
+// INTEGRACIÓN CON ACREDITADORBOT
+// Sistema para enviar comprobantes de WhatsApp al endpoint de AcreditadorBot
+
+class AcreditadorBotIntegration {
+  constructor(baseUrl = 'https://tu-dominio.railway.app') {
+    this.baseUrl = baseUrl;
+    this.endpoint = `${baseUrl}/api/comprobantes/whatsapp`;
+  }
+
+  /**
+   * Envía un comprobante de WhatsApp al sistema AcreditadorBot
+   * @param {Object} comprobante - Datos del comprobante
+   * @param {string} comprobante.numero_telefono - Número de teléfono del remitente
+   * @param {string} comprobante.nombre_remitente - Nombre del remitente
+   * @param {number} comprobante.importe - Monto del comprobante
+   * @param {string} comprobante.fecha_envio - Fecha de envío (ISO 8601)
+   * @param {string} [comprobante.texto_mensaje] - Texto del mensaje (opcional)
+   * @param {string} [comprobante.archivo_url] - URL del archivo (opcional)
+   * @returns {Promise<Object>} Respuesta del servidor
+   */
+  async enviarComprobante(comprobante) {
+    try {
+      console.log('📱 Enviando comprobante a AcreditadorBot:', comprobante);
+
+      const response = await fetch(this.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(comprobante)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${data.error || data.message}`);
+      }
+
+      console.log('✅ Comprobante procesado exitosamente:', data);
+      return data;
+
+    } catch (error) {
+      console.error('❌ Error enviando comprobante:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Procesa múltiples comprobantes en lote
+   * @param {Array} comprobantes - Array de comprobantes
+   * @returns {Promise<Array>} Resultados de cada comprobante
+   */
+  async procesarLote(comprobantes) {
+    const resultados = [];
+    
+    for (const comprobante of comprobantes) {
+      try {
+        const resultado = await this.enviarComprobante(comprobante);
+        resultados.push({
+          success: true,
+          comprobante: comprobante,
+          resultado: resultado
+        });
+      } catch (error) {
+        resultados.push({
+          success: false,
+          comprobante: comprobante,
+          error: error.message
+        });
+      }
+      
+      // Pausa entre requests para no sobrecargar el servidor
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    return resultados;
+  }
+}
+
+// EJEMPLO DE USO
+async function ejemploUso() {
+  const acreditadorBot = new AcreditadorBotIntegration('https://tu-dominio.railway.app');
+
+  // Ejemplo de comprobante individual
+  const comprobante = {
+    numero_telefono: "1234567890",
+    nombre_remitente: "Juan Pérez",
+    importe: 50000.00,
+    fecha_envio: "2025-06-27T10:30:00.000Z",
+    texto_mensaje: "Pago realizado por transferencia",
+    archivo_url: "https://ejemplo.com/comprobante.jpg"
+  };
+
+  try {
+    const resultado = await acreditadorBot.enviarComprobante(comprobante);
+    
+    if (resultado.data.estado === 'cotejado') {
+      console.log('🎉 Comprobante cotejado automáticamente!');
+    } else {
+      console.log('⏳ Comprobante pendiente de cotejo manual');
+    }
+    
+  } catch (error) {
+    console.error('Error:', error.message);
+  }
+}
+
+// INTEGRACIÓN CON SISTEMA EXISTENTE
+// Reemplaza esta función con tu lógica actual de procesamiento de WhatsApp
+
+async function procesarMensajeWhatsApp(mensaje) {
+  // Tu lógica actual de extracción de datos del mensaje
+  const datosExtraidos = extraerDatosComprobante(mensaje);
+  
+  if (datosExtraidos) {
+    const acreditadorBot = new AcreditadorBotIntegration();
+    
+    try {
+      const resultado = await acreditadorBot.enviarComprobante({
+        numero_telefono: datosExtraidos.telefono,
+        nombre_remitente: datosExtraidos.nombre,
+        importe: datosExtraidos.importe,
+        fecha_envio: datosExtraidos.fecha,
+        texto_mensaje: datosExtraidos.texto,
+        archivo_url: datosExtraidos.archivo
+      });
+      
+      // Manejar respuesta según el estado
+      if (resultado.data.estado === 'cotejado') {
+        // Notificar al usuario que el pago fue verificado
+        await enviarMensajeConfirmacion(mensaje.chatId, '✅ Pago verificado automáticamente');
+      } else {
+        // Notificar que está pendiente de verificación
+        await enviarMensajeConfirmacion(mensaje.chatId, '⏳ Pago recibido, pendiente de verificación');
+      }
+      
+    } catch (error) {
+      console.error('Error procesando comprobante:', error);
+      await enviarMensajeConfirmacion(mensaje.chatId, '❌ Error procesando el comprobante');
+    }
+  }
+}
+
+// FUNCIÓN DE EXTRACCIÓN DE DATOS (ADAPTAR A TU SISTEMA)
+function extraerDatosComprobante(mensaje) {
+  // Implementar según tu lógica de extracción
+  // Ejemplo básico:
+  return {
+    telefono: mensaje.from,
+    nombre: mensaje.senderName,
+    importe: parseFloat(mensaje.amount),
+    fecha: mensaje.timestamp,
+    texto: mensaje.text,
+    archivo: mensaje.attachmentUrl
+  };
+}
+
+// CONFIGURACIÓN
+const CONFIG = {
+  // URL de tu instancia de AcreditadorBot
+  ACREDITADOR_BOT_URL: 'https://tu-dominio.railway.app',
+  
+  // Configuración de reintentos
+  MAX_RETRIES: 3,
+  RETRY_DELAY: 1000,
+  
+  // Configuración de lotes
+  BATCH_SIZE: 10,
+  BATCH_DELAY: 500
+};
+
+// EXPORTAR PARA USO EN OTROS MÓDULOS
+module.exports = {
+  AcreditadorBotIntegration,
+  procesarMensajeWhatsApp,
+  CONFIG
+};
+
+================================================================================
+INSTRUCCIONES DE INTEGRACIÓN
+================================================================================
+
+1. CONFIGURACIÓN INICIAL:
+   - Reemplaza 'https://tu-dominio.railway.app' con tu URL real de AcreditadorBot
+   - Asegúrate de que tu sistema tenga acceso a internet para hacer las peticiones HTTP
+
+2. INTEGRACIÓN EN TU SISTEMA EXISTENTE:
+   ```javascript
+   const { AcreditadorBotIntegration } = require('./acreditadorBotIntegration');
+   
+   const acreditadorBot = new AcreditadorBotIntegration(ACREDITADOR_BOT_URL);
+   
+   // Cuando recibas un comprobante
+   await acreditadorBot.enviarComprobante({
+     numero_telefono: mensaje.from,
+     nombre_remitente: mensaje.senderName,
+     importe: mensaje.amount,
+     fecha_envio: mensaje.timestamp,
+     texto_mensaje: mensaje.text,
+     archivo_url: mensaje.attachmentUrl
+   });
+   ```
+
+3. MANEJO DE RESPUESTAS:
+   ```javascript
+   // Verificar el estado de la respuesta
+   if (resultado.data.estado === 'cotejado') {
+     // Comprobante vinculado automáticamente
+     console.log('✅ Pago verificado automáticamente');
+   } else {
+     // Pendiente de verificación manual
+     console.log('⏳ Pendiente de verificación manual');
+   }
+   ```
+
+4. MANEJO DE ERRORES:
+   ```javascript
+   try {
+     await acreditadorBot.enviarComprobante(comprobante);
+   } catch (error) {
+     console.error('Error enviando comprobante:', error.message);
+     // Implementar lógica de reintento si es necesario
+   }
+   ```
+
+================================================================================
+FORMATO DE DATOS REQUERIDO
+================================================================================
+
+El endpoint espera recibir un JSON con la siguiente estructura:
+
+{
+  "numero_telefono": "1234567890",           // REQUERIDO - Número de teléfono
+  "nombre_remitente": "Juan Pérez",          // REQUERIDO - Nombre del remitente
+  "importe": 50000.00,                       // REQUERIDO - Monto (número)
+  "fecha_envio": "2025-06-27T10:30:00.000Z", // REQUERIDO - Fecha ISO 8601
+  "texto_mensaje": "Pago realizado",         // OPCIONAL - Texto del mensaje
+  "archivo_url": "https://ejemplo.com/img"   // OPCIONAL - URL del archivo
+}
+
+================================================================================
+RESPUESTA DEL ENDPOINT
+================================================================================
+
+Respuesta exitosa:
+{
+  "success": true,
+  "message": "Comprobante procesado exitosamente",
+  "data": {
+    "comprobante_id": 123,
+    "id_comprobante": "WH_1234567890_abc123",
+    "cliente": {
+      "id": 5,
+      "creado": true,
+      "nombre": "Juan Pérez"
+    },
+    "acreditacion": {
+      "id": 45,
+      "encontrada": true,
+      "cotejado": true
+    },
+    "estado": "cotejado"
+  }
+}
+
+Estados posibles:
+- "cotejado": Se encontró y vinculó acreditación automáticamente
+- "pendiente": No se encontró acreditación coincidente
+
+================================================================================
+FUNCIONALIDADES AUTOMÁTICAS
+================================================================================
+
+1. CREACIÓN AUTOMÁTICA DE CLIENTES:
+   - Si el cliente no existe, se crea automáticamente
+   - Se busca por número de teléfono o nombre
+   - Se asigna al cliente existente si se encuentra
+
+2. BÚSQUEDA INTELIGENTE DE ACREDITACIONES:
+   - Monto exacto
+   - Fecha dentro de ±24 horas
+   - Nombre del titular (búsqueda parcial) O CUIT exacto
+   - Solo acreditaciones no cotejadas y sin comprobante asignado
+
+3. COTEJO AUTOMÁTICO:
+   - Si encuentra coincidencia, vincula automáticamente
+   - Actualiza el estado de cotejo
+   - Registra la fecha de cotejo
+
+4. LOGGING COMPLETO:
+   - Registra todas las operaciones
+   - Incluye detalles de cliente creado/encontrado
+   - Incluye detalles de acreditación encontrada/no encontrada
+
+================================================================================
+EJEMPLOS DE USO PRÁCTICO
+================================================================================
+
+Ejemplo 1 - Comprobante con cotejo automático:
+```javascript
+const comprobante = {
+  numero_telefono: "1234567890",
+  nombre_remitente: "María González",
+  importe: 75000.00,
+  fecha_envio: "2025-06-27T14:30:00.000Z",
+  texto_mensaje: "Transferencia realizada"
+};
+
+const resultado = await acreditadorBot.enviarComprobante(comprobante);
+// Resultado: estado = "cotejado" (si encuentra acreditación coincidente)
+```
+
+Ejemplo 2 - Comprobante sin cotejo automático:
+```javascript
+const comprobante = {
+  numero_telefono: "9876543210",
+  nombre_remitente: "Carlos López",
+  importe: 25000.00,
+  fecha_envio: "2025-06-27T16:45:00.000Z"
+};
+
+const resultado = await acreditadorBot.enviarComprobante(comprobante);
+// Resultado: estado = "pendiente" (si no encuentra acreditación coincidente)
+```
+
+Ejemplo 3 - Procesamiento en lote:
+```javascript
+const comprobantes = [
+  { numero_telefono: "1111111111", nombre_remitente: "Ana", importe: 10000, fecha_envio: "2025-06-27T10:00:00.000Z" },
+  { numero_telefono: "2222222222", nombre_remitente: "Pedro", importe: 20000, fecha_envio: "2025-06-27T11:00:00.000Z" },
+  { numero_telefono: "3333333333", nombre_remitente: "Laura", importe: 30000, fecha_envio: "2025-06-27T12:00:00.000Z" }
+];
+
+const resultados = await acreditadorBot.procesarLote(comprobantes);
+// Procesa todos los comprobantes y devuelve resultados individuales
+```
+
+================================================================================
+MANEJO DE ERRORES
+================================================================================
+
+Errores comunes y cómo manejarlos:
+
+1. ERROR DE CONECTIVIDAD:
+   ```javascript
+   try {
+     await acreditadorBot.enviarComprobante(comprobante);
+   } catch (error) {
+     if (error.message.includes('fetch')) {
+       console.log('Error de conectividad, reintentando...');
+       // Implementar lógica de reintento
+     }
+   }
+   ```
+
+2. ERROR DE VALIDACIÓN:
+   ```javascript
+   // El servidor devuelve error 400 si los datos son inválidos
+   if (error.message.includes('400')) {
+     console.log('Datos del comprobante inválidos');
+     // Revisar formato de datos
+   }
+   ```
+
+3. ERROR DEL SERVIDOR:
+   ```javascript
+   // El servidor devuelve error 500 si hay problema interno
+   if (error.message.includes('500')) {
+     console.log('Error interno del servidor');
+     // Implementar lógica de reintento con delay
+   }
+   ```
+
+================================================================================
+CONFIGURACIÓN AVANZADA
+================================================================================
+
+Para configuraciones más avanzadas, puedes modificar la clase:
+
+```javascript
+class AcreditadorBotIntegration {
+  constructor(baseUrl, options = {}) {
+    this.baseUrl = baseUrl;
+    this.endpoint = `${baseUrl}/api/comprobantes/whatsapp`;
+    this.options = {
+      timeout: options.timeout || 30000,
+      retries: options.retries || 3,
+      retryDelay: options.retryDelay || 1000,
+      ...options
+    };
+  }
+
+  async enviarComprobanteConReintento(comprobante) {
+    let lastError;
+    
+    for (let i = 0; i < this.options.retries; i++) {
+      try {
+        return await this.enviarComprobante(comprobante);
+      } catch (error) {
+        lastError = error;
+        if (i < this.options.retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, this.options.retryDelay));
+        }
+      }
+    }
+    
+    throw lastError;
+  }
+}
+```
+
+================================================================================
+NOTAS IMPORTANTES
+================================================================================
+
+1. SEGURIDAD:
+   - El endpoint no requiere autenticación por defecto
+   - Considera implementar autenticación si es necesario
+   - Usa HTTPS para todas las comunicaciones
+
+2. RENDIMIENTO:
+   - No envíes más de 10 comprobantes por segundo
+   - Implementa delays entre requests si procesas muchos
+   - Usa el método procesarLote() para múltiples comprobantes
+
+3. MONITOREO:
+   - Revisa los logs del servidor AcreditadorBot
+   - Monitorea las respuestas de tu sistema
+   - Implementa alertas para errores frecuentes
+
+4. MANTENIMIENTO:
+   - Actualiza la URL del servidor si cambia
+   - Revisa periódicamente el estado de la integración
+   - Mantén backups de los datos importantes
+
+================================================================================
+CONTACTO Y SOPORTE
+================================================================================
+
+Para soporte técnico o consultas sobre la integración:
+- Revisa los logs del servidor AcreditadorBot
+- Verifica la conectividad de red
+- Confirma que la URL del endpoint sea correcta
+- Valida el formato de los datos enviados
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================ 
