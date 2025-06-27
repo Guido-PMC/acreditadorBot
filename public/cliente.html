@@ -162,7 +162,7 @@
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
-              <i class="fas fa-receipt me-2"></i>Comprobantes de WhatsApp
+              <i class="fas fa-receipt me-2"></i>Comprobantes de WhatsApp (Entradas)
             </h5>
             <div>
               <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadClienteData()" title="Recargar datos">
@@ -184,7 +184,7 @@
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
-              <i class="fas fa-credit-card me-2"></i>Pagos Realizados
+              <i class="fas fa-credit-card me-2"></i>Pagos Realizados (Salidas)
             </h5>
             <div>
               <button class="btn btn-sm btn-success" onclick="openPagoModal()">
@@ -196,6 +196,30 @@
           <div class="card-body">
             <div id="pagosContainer">
               <div class="text-center text-muted">Cargando pagos...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vista Unificada de Movimientos -->
+    <div class="row mt-4">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+              <i class="fas fa-list me-2"></i>Vista Unificada de Movimientos
+            </h5>
+            <div>
+              <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadMovimientosUnificados()" title="Recargar movimientos">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+              <span class="badge bg-info" id="movimientosCount">0</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="movimientosContainer">
+              <div class="text-center text-muted">Cargando movimientos...</div>
             </div>
           </div>
         </div>
@@ -339,6 +363,7 @@
         renderClienteInfo(data.data);
         loadComprobantes();
         loadPagos();
+        loadMovimientosUnificados();
       } catch (error) {
         showAlert('danger', 'Error al cargar datos del cliente');
       }
@@ -633,6 +658,159 @@
       } catch (error) {
         showAlert('danger', 'Error al desasignar comprobante');
       }
+    }
+
+    // Cargar movimientos unificados (comprobantes + pagos)
+    async function loadMovimientosUnificados() {
+      try {
+        // Cargar comprobantes y pagos en paralelo
+        const [comprobantesRes, pagosRes] = await Promise.all([
+          fetch(`/api/clientes/${clienteId}/comprobantes?limit=100`),
+          fetch(`/api/clientes/${clienteId}/pagos?limit=100`)
+        ]);
+
+        const [comprobantesData, pagosData] = await Promise.all([
+          comprobantesRes.json(),
+          pagosRes.json()
+        ]);
+
+        if (!comprobantesData.success || !pagosData.success) {
+          showAlert('danger', 'Error al cargar movimientos');
+          return;
+        }
+
+        // Combinar y ordenar movimientos
+        const movimientos = [];
+        
+        // Agregar comprobantes como entradas
+        comprobantesData.data.forEach(comp => {
+          movimientos.push({
+            id: `comp_${comp.id}`,
+            tipo: 'comprobante',
+            concepto: `Comprobante: ${comp.nombre_remitente || 'Sin nombre'}`,
+            importe: comp.importe,
+            fecha: comp.fecha_envio,
+            fecha_recepcion: comp.fecha_recepcion,
+            cuit: comp.cuit,
+            estado: comp.cotejado ? 'Cotejado' : 'Pendiente',
+            id_acreditacion: comp.id_acreditacion,
+            es_entrada: true
+          });
+        });
+
+        // Agregar pagos como salidas
+        pagosData.data.forEach(pago => {
+          movimientos.push({
+            id: `pago_${pago.id}`,
+            tipo: 'pago',
+            concepto: pago.concepto,
+            importe: pago.importe,
+            fecha: pago.fecha_pago,
+            metodo_pago: pago.metodo_pago,
+            referencia: pago.referencia,
+            observaciones: pago.observaciones,
+            tipo_pago: pago.tipo_pago,
+            es_entrada: pago.tipo_pago === 'credito'
+          });
+        });
+
+        // Ordenar por fecha (más reciente primero)
+        movimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+        renderMovimientosUnificados(movimientos);
+        document.getElementById('movimientosCount').textContent = movimientos.length;
+      } catch (error) {
+        console.error('Error cargando movimientos unificados:', error);
+        showAlert('danger', 'Error al cargar movimientos unificados');
+      }
+    }
+
+    // Renderizar movimientos unificados
+    function renderMovimientosUnificados(movimientos) {
+      const container = document.getElementById('movimientosContainer');
+      
+      if (movimientos.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted">No hay movimientos registrados</div>';
+        return;
+      }
+
+      container.innerHTML = movimientos.map(mov => {
+        const isEntrada = mov.es_entrada;
+        const badgeClass = isEntrada ? 'bg-success' : 'bg-danger';
+        const badgeText = isEntrada ? 'Entrada' : 'Salida';
+        const icon = isEntrada ? 'fas fa-arrow-down' : 'fas fa-arrow-up';
+        const importeClass = isEntrada ? 'text-success' : 'text-danger';
+        const importeSign = isEntrada ? '+' : '-';
+
+        return `
+          <div class="card mb-2">
+            <div class="card-body p-3">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                  <div class="d-flex align-items-center mb-1">
+                    <i class="${icon} me-2 ${importeClass}"></i>
+                    <strong>${mov.concepto}</strong>
+                    <span class="badge ${badgeClass} ms-2">${badgeText}</span>
+                    ${mov.tipo === 'comprobante' ? 
+                      `<span class="badge bg-primary ms-1">Comprobante</span>` : 
+                      `<span class="badge bg-warning ms-1">${mov.tipo_pago === 'credito' ? 'Crédito' : 'Pago'}</span>`
+                    }
+                  </div>
+                  
+                  <div class="row">
+                    <div class="col-md-6">
+                      <small class="text-muted">
+                        <strong>Fecha:</strong> ${new Date(mov.fecha).toLocaleDateString()} ${new Date(mov.fecha).toLocaleTimeString()}
+                      </small>
+                      ${mov.fecha_recepcion ? `
+                        <br><small class="text-muted">
+                          <strong>Recepción:</strong> ${new Date(mov.fecha_recepcion).toLocaleDateString()} ${new Date(mov.fecha_recepcion).toLocaleTimeString()}
+                        </small>
+                      ` : ''}
+                    </div>
+                    <div class="col-md-6">
+                      ${mov.cuit ? `<small class="text-muted"><strong>CUIT:</strong> ${cleanCUIT(mov.cuit)}</small><br>` : ''}
+                      ${mov.metodo_pago ? `<small class="text-muted"><strong>Método:</strong> ${mov.metodo_pago}</small><br>` : ''}
+                      ${mov.referencia ? `<small class="text-muted"><strong>Ref:</strong> ${mov.referencia}</small><br>` : ''}
+                      ${mov.estado ? `<small class="text-muted"><strong>Estado:</strong> ${mov.estado}</small>` : ''}
+                    </div>
+                  </div>
+                  
+                  ${mov.observaciones ? `
+                    <div class="mt-1">
+                      <small class="text-muted"><strong>Observaciones:</strong> ${mov.observaciones}</small>
+                    </div>
+                  ` : ''}
+                  
+                  ${mov.id_acreditacion ? `
+                    <div class="mt-1">
+                      <small class="text-muted"><strong>Acreditación:</strong> ${mov.id_acreditacion}</small>
+                    </div>
+                  ` : ''}
+                </div>
+                
+                <div class="text-end ms-3">
+                  <div class="h5 mb-0 ${importeClass}">
+                    ${importeSign}$${mov.importe?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || '0.00'}
+                  </div>
+                  
+                  ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `
+                    <button class="btn btn-sm btn-outline-warning mt-1" onclick="desasignarComprobante(${mov.id.replace('comp_', '')})" title="Desasignar comprobante">
+                      <i class="fas fa-unlink"></i>
+                    </button>
+                  ` : ''}
+                  
+                  ${mov.tipo === 'pago' ? `
+                    <button class="btn btn-sm btn-outline-danger mt-1" onclick="deletePago(${mov.id.replace('pago_', '')})" title="Eliminar ${mov.tipo_pago === 'credito' ? 'crédito' : 'pago'}">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     // Función de debug para verificar estado de la base de datos
