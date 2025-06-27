@@ -133,7 +133,7 @@
 
         <!-- Resumen de estadísticas -->
         <div class="row mb-4" id="statsRow">
-            <div class="col-md-2 mb-3">
+            <div class="col-md-4 mb-3">
                 <div class="card stats-card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -148,52 +148,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-2 mb-3">
-                <div class="card stats-card success">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="card-title">Cotejados</h6>
-                                <h3 id="comprobantesCotejados">-</h3>
-                            </div>
-                            <div class="align-self-center">
-                                <i class="fas fa-check-circle fa-2x"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-2 mb-3">
-                <div class="card stats-card warning">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="card-title">Pendientes</h6>
-                                <h3 id="comprobantesPendientes">-</h3>
-                            </div>
-                            <div class="align-self-center">
-                                <i class="fas fa-clock fa-2x"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-2 mb-3">
-                <div class="card stats-card info">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="card-title">Saldo Actual</h6>
-                                <h3 id="saldoActual">-</h3>
-                            </div>
-                            <div class="align-self-center">
-                                <i class="fas fa-wallet fa-2x"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-2 mb-3">
+            <div class="col-md-4 mb-3">
                 <div class="card stats-card warning">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -208,16 +163,16 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-2 mb-3">
-                <div class="card stats-card primary">
+            <div class="col-md-4 mb-3">
+                <div class="card stats-card info">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
                             <div>
-                                <h6 class="card-title">Saldo Total</h6>
-                                <h3 id="saldoTotal">-</h3>
+                                <h6 class="card-title">Saldo Actual</h6>
+                                <h3 id="saldoActual">-</h3>
                             </div>
                             <div class="align-self-center">
-                                <i class="fas fa-calculator fa-2x"></i>
+                                <i class="fas fa-wallet fa-2x"></i>
                             </div>
                         </div>
                     </div>
@@ -471,8 +426,6 @@
                     const data = result.data;
                     
                     document.getElementById('totalComprobantes').textContent = data.comprobantes.total_comprobantes || 0;
-                    document.getElementById('comprobantesCotejados').textContent = data.comprobantes.comprobantes_cotejados || 0;
-                    document.getElementById('comprobantesPendientes').textContent = data.comprobantes.comprobantes_pendientes || 0;
                     
                     // Saldo actual (solo comprobantes cotejados + créditos - pagos)
                     const saldoActual = data.saldo_actual || 0;
@@ -497,14 +450,6 @@
                         style: 'currency',
                         currency: 'ARS'
                     }).format(saldoPendiente);
-                    
-                    // Saldo total (actual + pendiente)
-                    const saldoTotal = data.saldo_total || 0;
-                    const saldoTotalElement = document.getElementById('saldoTotal');
-                    saldoTotalElement.textContent = new Intl.NumberFormat('es-AR', {
-                        style: 'currency',
-                        currency: 'ARS'
-                    }).format(saldoTotal);
                 }
             } catch (error) {
                 console.error('Error cargando resumen:', error);
