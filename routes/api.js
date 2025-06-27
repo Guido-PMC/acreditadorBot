@@ -1409,8 +1409,8 @@ router.post('/comprobantes', [
         nombre_remitente,
         importe,
         fecha_envio,
-        archivo_url,
         texto_mensaje,
+        archivo_url,
         id_cliente
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id, id_comprobante
@@ -1420,8 +1420,8 @@ router.post('/comprobantes', [
       nombre_remitente || null,
       importe,
       fecha_envio,
-      archivo_url || null,
       texto_mensaje || null,
+      archivo_url || null,
       id_cliente || null
     ]);
 
@@ -1829,12 +1829,9 @@ router.delete('/pagos/:id', async (req, res) => {
 
 // POST /api/comprobantes/whatsapp - Endpoint para sistema de WhatsApp
 router.post('/comprobantes/whatsapp', [
-  body('numero_telefono').notEmpty().withMessage('Número de teléfono es requerido'),
   body('nombre_remitente').notEmpty().withMessage('Nombre del remitente es requerido'),
   body('importe').isNumeric().withMessage('Importe debe ser numérico'),
   body('fecha_envio').notEmpty().withMessage('Fecha de envío es requerida'),
-  body('texto_mensaje').optional(),
-  body('archivo_url').optional(),
   body('cuit').optional()
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -1850,12 +1847,9 @@ router.post('/comprobantes/whatsapp', [
   
   try {
     const {
-      numero_telefono,
       nombre_remitente,
       importe,
       fecha_envio,
-      texto_mensaje,
-      archivo_url,
       cuit
     } = req.body;
 
@@ -1864,21 +1858,18 @@ router.post('/comprobantes/whatsapp', [
     console.log('📱 POST RECIBIDO EN /api/comprobantes/whatsapp');
     console.log('='.repeat(80));
     console.log('📋 DATOS RECIBIDOS:');
-    console.log('   numero_telefono:', numero_telefono);
     console.log('   nombre_remitente:', nombre_remitente);
     console.log('   importe:', importe, '(tipo:', typeof importe, ')');
     console.log('   fecha_envio:', fecha_envio, '(tipo:', typeof fecha_envio, ')');
-    console.log('   texto_mensaje:', texto_mensaje);
-    console.log('   archivo_url:', archivo_url);
     console.log('   cuit:', cuit);
     console.log('📋 BODY COMPLETO:', JSON.stringify(req.body, null, 2));
     console.log('='.repeat(80));
 
     console.log('📱 Recibiendo comprobante de WhatsApp:', {
-      numero_telefono,
       nombre_remitente,
       importe,
-      fecha_envio
+      fecha_envio,
+      cuit
     });
 
     // Generar ID único para el comprobante
@@ -1886,8 +1877,8 @@ router.post('/comprobantes/whatsapp', [
 
     // Buscar o crear cliente
     let cliente = await client.query(
-      'SELECT id, nombre, apellido FROM clientes WHERE numero_telefono = $1 OR nombre = $2',
-      [numero_telefono, nombre_remitente]
+      'SELECT id, nombre, apellido FROM clientes WHERE nombre = $1',
+      [nombre_remitente]
     );
 
     let cliente_id;
@@ -1904,7 +1895,7 @@ router.post('/comprobantes/whatsapp', [
       `, [
         nombre_remitente,
         null, // apellido
-        `Cliente creado automáticamente desde WhatsApp. Tel: ${numero_telefono}`,
+        `Cliente creado automáticamente desde WhatsApp`,
         'activo'
       ]);
 
@@ -1977,7 +1968,7 @@ router.post('/comprobantes/whatsapp', [
       paramIndex += 2;
     } else {
       whereConditions.push(`(titular ILIKE $${paramIndex} OR cuit = $${paramIndex + 1})`);
-      params.push(`%${nombre_remitente}%`, numero_telefono);
+      params.push(`%${nombre_remitente}%`, nombre_remitente);
       paramIndex += 2;
     }
     
@@ -2022,12 +2013,12 @@ router.post('/comprobantes/whatsapp', [
       RETURNING id, id_comprobante, cotejado, id_acreditacion
     `, [
       id_comprobante,
-      numero_telefono,
+      null, // numero_telefono
       nombre_remitente,
       parseFloat(importe),
       fecha_envio_obj,
-      texto_mensaje || null,
-      archivo_url || null,
+      null, // texto_mensaje
+      null, // archivo_url
       cliente_id,
       acreditacion_id,
       acreditacion_encontrada, // cotejado
