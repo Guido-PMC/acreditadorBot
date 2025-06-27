@@ -1041,6 +1041,8 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
     const { id } = req.params;
     const { id_acreditacion } = req.body;
 
+    console.log('🚀 Iniciando asignación de comprobante:', { comprobante_id: id, acreditacion_id: id_acreditacion });
+
     if (!id_acreditacion) {
       return res.status(400).json({
         error: 'ID de acreditación requerido',
@@ -1055,11 +1057,21 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
     );
 
     if (comprobante.rows.length === 0) {
+      console.log('❌ Comprobante no encontrado:', id);
       return res.status(404).json({
         error: 'Comprobante no encontrado',
         message: 'El comprobante especificado no existe'
       });
     }
+
+    console.log('📋 Estado ANTES de asignación - Comprobante:', {
+      id: comprobante.rows[0].id,
+      nombre: comprobante.rows[0].nombre_remitente,
+      importe: comprobante.rows[0].importe,
+      cotejado: comprobante.rows[0].cotejado,
+      id_acreditacion: comprobante.rows[0].id_acreditacion,
+      fecha_cotejo: comprobante.rows[0].fecha_cotejo
+    });
 
     // Verificar que la acreditación existe
     const acreditacion = await client.query(
@@ -1068,11 +1080,21 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
     );
 
     if (acreditacion.rows.length === 0) {
+      console.log('❌ Acreditación no encontrada:', id_acreditacion);
       return res.status(404).json({
         error: 'Acreditación no encontrada',
         message: 'La acreditación especificada no existe'
       });
     }
+
+    console.log('💰 Estado ANTES de asignación - Acreditación:', {
+      id: acreditacion.rows[0].id,
+      titular: acreditacion.rows[0].titular,
+      importe: acreditacion.rows[0].importe,
+      cotejado: acreditacion.rows[0].cotejado,
+      id_comprobante_whatsapp: acreditacion.rows[0].id_comprobante_whatsapp,
+      fecha_cotejo: acreditacion.rows[0].fecha_cotejo
+    });
 
     // Verificar que la acreditación no esté ya asignada
     const acreditacionAsignada = await client.query(
@@ -1081,11 +1103,14 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
     );
 
     if (acreditacionAsignada.rows.length > 0) {
+      console.log('❌ Acreditación ya asignada a otro comprobante:', id_acreditacion);
       return res.status(409).json({
         error: 'Acreditación ya asignada',
         message: 'Esta acreditación ya está asignada a otro comprobante'
       });
     }
+
+    console.log('✅ Iniciando actualización de base de datos...');
 
     // Actualizar el comprobante
     await client.query(`
@@ -1094,12 +1119,45 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
       WHERE id = $2
     `, [id_acreditacion, id]);
 
+    console.log('✅ Comprobante actualizado');
+
     // Actualizar la acreditación
     await client.query(`
       UPDATE acreditaciones 
       SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP
       WHERE id = $2
     `, [comprobante.rows[0].id_comprobante, id_acreditacion]);
+
+    console.log('✅ Acreditación actualizada');
+
+    // Verificar estado DESPUÉS de la asignación
+    const comprobanteDespues = await client.query(
+      'SELECT * FROM comprobantes_whatsapp WHERE id = $1',
+      [id]
+    );
+
+    console.log('📋 Estado DESPUÉS de asignación - Comprobante:', {
+      id: comprobanteDespues.rows[0].id,
+      nombre: comprobanteDespues.rows[0].nombre_remitente,
+      importe: comprobanteDespues.rows[0].importe,
+      cotejado: comprobanteDespues.rows[0].cotejado,
+      id_acreditacion: comprobanteDespues.rows[0].id_acreditacion,
+      fecha_cotejo: comprobanteDespues.rows[0].fecha_cotejo
+    });
+
+    const acreditacionDespues = await client.query(
+      'SELECT * FROM acreditaciones WHERE id = $1',
+      [id_acreditacion]
+    );
+
+    console.log('💰 Estado DESPUÉS de asignación - Acreditación:', {
+      id: acreditacionDespues.rows[0].id,
+      titular: acreditacionDespues.rows[0].titular,
+      importe: acreditacionDespues.rows[0].importe,
+      cotejado: acreditacionDespues.rows[0].cotejado,
+      id_comprobante_whatsapp: acreditacionDespues.rows[0].id_comprobante_whatsapp,
+      fecha_cotejo: acreditacionDespues.rows[0].fecha_cotejo
+    });
 
     // Registrar log
     await client.query(`
@@ -1112,13 +1170,15 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
       'exitoso'
     ]);
 
+    console.log('✅ Log registrado');
+
     res.json({
       success: true,
       message: 'Comprobante asignado exitosamente'
     });
 
   } catch (error) {
-    console.error('Error asignando comprobante:', error);
+    console.error('💥 Error asignando comprobante:', error);
     res.status(500).json({
       error: 'Error interno del servidor',
       message: 'No se pudo asignar el comprobante'
