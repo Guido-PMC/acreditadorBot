@@ -96,6 +96,7 @@ class Database {
           id SERIAL PRIMARY KEY,
           id_comprobante VARCHAR(50) UNIQUE NOT NULL,
           nombre_remitente VARCHAR(200),
+          cuit VARCHAR(20),
           importe DECIMAL(15,2),
           fecha_envio TIMESTAMP,
           fecha_recepcion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -150,9 +151,8 @@ class Database {
         CREATE INDEX IF NOT EXISTS idx_acreditaciones_fuente ON acreditaciones(fuente);
         CREATE INDEX IF NOT EXISTS idx_acreditaciones_cliente ON acreditaciones(id_cliente);
         CREATE INDEX IF NOT EXISTS idx_comprobantes_fecha ON comprobantes_whatsapp(fecha_envio);
-        CREATE INDEX IF NOT EXISTS idx_comprobantes_telefono ON comprobantes_whatsapp(numero_telefono);
+        CREATE INDEX IF NOT EXISTS idx_comprobantes_cuit ON comprobantes_whatsapp(cuit);
         CREATE INDEX IF NOT EXISTS idx_comprobantes_cliente ON comprobantes_whatsapp(id_cliente);
-        CREATE INDEX IF NOT EXISTS idx_clientes_cuit ON clientes(cuit);
         CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes(nombre);
         CREATE INDEX IF NOT EXISTS idx_logs_fecha ON logs_procesamiento(fecha);
         CREATE INDEX IF NOT EXISTS idx_pagos_cliente ON pagos(id_cliente);
@@ -200,6 +200,21 @@ class Database {
         await client.query(`
           ALTER TABLE comprobantes_whatsapp 
           ADD COLUMN id_cliente INTEGER REFERENCES clientes(id)
+        `);
+      }
+
+      // Verificar si la columna cuit existe en comprobantes_whatsapp
+      const comprobantesCUITColumns = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'comprobantes_whatsapp' AND column_name = 'cuit'
+      `);
+      
+      if (comprobantesCUITColumns.rows.length === 0) {
+        console.log('Agregando columna cuit a tabla comprobantes_whatsapp...');
+        await client.query(`
+          ALTER TABLE comprobantes_whatsapp 
+          ADD COLUMN cuit VARCHAR(20)
         `);
       }
 
