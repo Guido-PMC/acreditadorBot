@@ -1142,6 +1142,8 @@ router.get('/acreditaciones/sin-comprobante', async (req, res) => {
   const client = await db.getClient();
   
   try {
+    console.log('Iniciando consulta de acreditaciones sin comprobante...');
+    
     const { 
       page = 1, 
       limit = 50,
@@ -1151,6 +1153,8 @@ router.get('/acreditaciones/sin-comprobante', async (req, res) => {
       fecha_desde,
       fecha_hasta
     } = req.query;
+
+    console.log('Parámetros recibidos:', { page, limit, search, importe_min, importe_max, fecha_desde, fecha_hasta });
 
     let whereConditions = ['a.id_comprobante_whatsapp IS NULL'];
     let params = [];
@@ -1196,10 +1200,16 @@ router.get('/acreditaciones/sin-comprobante', async (req, res) => {
     const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
     const offset = (page - 1) * limit;
 
+    console.log('WHERE clause:', whereClause);
+    console.log('Parámetros:', params);
+
     // Query para contar total
     const countQuery = `SELECT COUNT(*) FROM acreditaciones a ${whereClause}`;
+    console.log('Count query:', countQuery);
+    
     const countResult = await client.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
+    console.log('Total encontrado:', total);
 
     // Query para obtener datos
     const dataQuery = `
@@ -1215,7 +1225,11 @@ router.get('/acreditaciones/sin-comprobante', async (req, res) => {
     `;
     
     params.push(parseInt(limit), offset);
+    console.log('Data query:', dataQuery);
+    console.log('Parámetros finales:', params);
+    
     const dataResult = await client.query(dataQuery, params);
+    console.log('Datos obtenidos:', dataResult.rows.length);
 
     res.json({
       success: true,
@@ -1230,6 +1244,7 @@ router.get('/acreditaciones/sin-comprobante', async (req, res) => {
 
   } catch (error) {
     console.error('Error obteniendo acreditaciones sin comprobante:', error);
+    console.error('Stack trace:', error.stack);
     res.status(500).json({
       error: 'Error interno del servidor',
       message: 'No se pudieron obtener las acreditaciones'
