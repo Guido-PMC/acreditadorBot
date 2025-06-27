@@ -1002,7 +1002,7 @@ router.get('/clientes/:id/comprobantes', async (req, res) => {
         a.importe as acreditacion_importe,
         a.fecha_hora as acreditacion_fecha
       FROM comprobantes_whatsapp c
-      LEFT JOIN acreditaciones a ON c.id_acreditacion = a.id
+      LEFT JOIN acreditaciones a ON c.id_acreditacion::integer = a.id
       WHERE c.id_cliente = $1
       ORDER BY c.fecha_recepcion DESC
       LIMIT $2 OFFSET $3
