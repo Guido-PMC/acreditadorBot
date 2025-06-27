@@ -1,0 +1,60 @@
+Notificaciones de Transferencias entrantes
+
+En virtud de la necesidad de los clientes de estar notificados, en forma inmediata, toda vez que reciben una transferencia, hemos disponibilizado un sistema de notificaciones que consiste en:
+
+Algunos casos de uso
+Integración a un backend ERP, CRM, etc en tiempo real para procesar los ingresos.
+Realizar pagos o entrega de un producto o servicio a partir de saber que los fondos de una transferencia fueron recibidos.
+Informar a operadores sin necesidad de estar observando Quikipay, en forma humana o por un bot.
+
+
+
+Al momento en el que recibimos la notificación de RedLink realizamos un POST a la URL destino que el cliente nos indique.
+
+Nuestro sistema soporta que se defina una URL para un cvu, varios cvus o todos los cvus de una cuenta.
+De este modo, el cliente puede solicitar el envio de las notificaciones de transferencias entrantes de un CVU a una URL A, las de otro CVU a una URL B, a la misma A o eventualmente recibir las notificaciones de todos sus CVUs en una unica URL.
+
+
+
+Ejemplo del json contenido en el POST
+
+{
+  "cvu": {
+    "id": 1068,
+    "cvu": "0000156006309819363747"
+  },
+  "origin": {
+    "name": "Amancio Higinio Pidre",
+    "taxId": "20186259107",
+    "account": "0000003100119194948789"
+  },
+  "coelsa_id": "WY7ZEPN6QWP4M3L4NQ0M51",
+  "status": "Pending",
+  "amount": "500000",
+  "type": "PI",
+  "id": 20486078
+}
+
+En el cuerpo del mensaje está el CVU que recibió la transferencia.
+El origin refiere a el Originante del envío: nombre, uit y cuenta desde la cual se hizo la transferencia.
+ID Coelsa: nro. de transacción único designado por Coelsa.
+id es el nro. de transacción único designado por Quikipay.
+Amount es el importe recibido. Importante: no contiene separadores de miles ni decimales y siempre refiere a 2 posiciones decimales. En el ejemplo el importe es 5000 pesos.
+
+No deben utilizar los campos type y status ya que:
+type: aunque actualmente no posteamos otro tipo de transacciones, existen otros. PI refiere a Transferencia Entrante.
+status: un proceso del sistema pasa las transferencias a Completed pero es posterior al envio de la notificación. Esto no afecta en nada a que puedan procesar el evento ya que un PI no puede ser cancelado ni rechazado más adelante, lo que significa que pueden continuar con el flujo interno que precisen implementar.
+
+No personalizamos los POST: actualmente no podemos agregar valores en el header o body a pedido del cliente.
+
+Desarrollo continuo: Quikipay podrá agregar información en los posts que surja del requerimiento de varios clientes incorporando el pedido al backlog de desarrollo de producto. 
+
+Es importante comprender que se trata de un POST de nuestro sistema a la aplicación cliente y que el cliente no precisa hacer una consulta GET a nuestro sistema. 
+
+Este POST no es un sistema de webhook con reintentos; si por problemas de conectividad de su red o servidor, si su servidor no está disponible o si el cliente tiene un programa que da error y retornase 500, el POST no es reenviado y no en consecuencia no tendrán registrada la operación.
+Se espera que el cliente responda con un codigo de estado 200 confirmando la recepción.
+Tener presente que, todas las transferencias pueden ser consultadas en Quikipay y que estos POST buscan solo agilizar el procesamiento de sus transferencias pero, en caso de no disponilidad, tanto del lado del sistema de envios o de la aplicación del cliente, pueden recurrir a la consulta de transacciones de CVU en Quikipay.
+
+
+A efectos de implementar estos POST, favor de indicar, a nuestros Representantes de Atención al Cliente, el par:  CVU - URL
+Si la URL es la misma para todos los CVUs de un cliente entonces solo se precisa la URL.
