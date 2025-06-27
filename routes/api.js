@@ -1356,4 +1356,113 @@ router.get('/comprobantes/sin-acreditacion', async (req, res) => {
   }
 });
 
+// POST /api/comprobantes - Crear nuevo comprobante de WhatsApp
+router.post('/comprobantes', [
+  body('id_comprobante').notEmpty().withMessage('ID del comprobante es requerido'),
+  body('importe').isNumeric().withMessage('Importe debe ser numérico'),
+  body('fecha_envio').isISO8601().withMessage('Fecha de envío debe ser válida')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      error: 'Datos inválidos', 
+      details: errors.array() 
+    });
+  }
+
+  const client = await db.getClient();
+  
+  try {
+    const {
+      id_comprobante,
+      numero_telefono,
+      nombre_remitente,
+      importe,
+      fecha_envio,
+      archivo_url,
+      texto_mensaje,
+      id_cliente
+    } = req.body;
+
+    // Verificar si el comprobante ya existe
+    const existingComprobante = await client.query(
+      'SELECT id FROM comprobantes_whatsapp WHERE id_comprobante = $1',
+      [id_comprobante]
+    );
+
+    if (existingComprobante.rows.length > 0) {
+      return res.status(409).json({
+        error: 'Comprobante duplicado',
+        message: 'Este comprobante ya existe en el sistema'
+      });
+    }
+
+    // Insertar nuevo comprobante
+    const result = await client.query(`
+      INSERT INTO comprobantes_whatsapp (
+        id_comprobante,
+        numero_telefono,
+        nombre_remitente,
+        importe,
+        fecha_envio,
+        archivo_url,
+        texto_mensaje,
+        id_cliente
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, id_comprobante
+    `, [
+      id_comprobante,
+      numero_telefono || null,
+      nombre_remitente || null,
+      importe,
+      fecha_envio,
+      archivo_url || null,
+      texto_mensaje || null,
+      id_cliente || null
+    ]);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'comprobante_creado',
+      `Nuevo comprobante creado: ${id_comprobante}`,
+      JSON.stringify(req.body),
+      'exitoso'
+    ]);
+
+    res.status(201).json({
+      success: true,
+      message: 'Comprobante creado exitosamente',
+      data: {
+        id: result.rows[0].id,
+        id_comprobante: result.rows[0].id_comprobante
+      }
+    });
+
+  } catch (error) {
+    console.error('Error creando comprobante:', error);
+    
+    // Registrar error en logs
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado, error)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [
+      'comprobante_creado',
+      `Error creando comprobante: ${req.body.id_comprobante}`,
+      JSON.stringify(req.body),
+      'error',
+      error.message
+    ]);
+
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo crear el comprobante'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 
