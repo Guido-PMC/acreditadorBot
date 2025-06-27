@@ -998,11 +998,11 @@ router.get('/clientes/:id/comprobantes', async (req, res) => {
     const dataQuery = `
       SELECT 
         c.*,
-        a.id_transaccion,
+        a.id as acreditacion_id,
         a.importe as acreditacion_importe,
         a.fecha_hora as acreditacion_fecha
       FROM comprobantes_whatsapp c
-      LEFT JOIN acreditaciones a ON c.id_acreditacion = a.id_transaccion
+      LEFT JOIN acreditaciones a ON c.id_acreditacion = a.id
       WHERE c.id_cliente = $1
       ORDER BY c.fecha_recepcion DESC
       LIMIT $2 OFFSET $3
