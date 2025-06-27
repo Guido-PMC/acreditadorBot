@@ -176,8 +176,7 @@ router.get('/acreditaciones/sin-comprobante', async (req, res) => {
     if (search) {
       whereConditions.push(`(
         a.titular ILIKE $${paramIndex} OR 
-        a.cuit ILIKE $${paramIndex} OR
-        a.concepto ILIKE $${paramIndex}
+        a.cuit ILIKE $${paramIndex}
       )`);
       params.push(`%${search}%`);
       paramIndex++;
@@ -519,7 +518,7 @@ router.post('/notifications', [
         fuente,
         procesado,
         id_cliente
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING id
     `, [
       id_transaccion,
@@ -1281,8 +1280,7 @@ router.get('/comprobantes/sin-acreditacion', async (req, res) => {
     if (search) {
       whereConditions.push(`(
         c.nombre_remitente ILIKE $${paramIndex} OR 
-        c.numero_telefono ILIKE $${paramIndex} OR
-        c.texto_mensaje ILIKE $${paramIndex}
+        c.cuit ILIKE $${paramIndex}
       )`);
       params.push(`%${search}%`);
       paramIndex++;
@@ -1379,12 +1377,9 @@ router.post('/comprobantes', [
   try {
     const {
       id_comprobante,
-      numero_telefono,
       nombre_remitente,
       importe,
       fecha_envio,
-      archivo_url,
-      texto_mensaje,
       id_cliente
     } = req.body;
 
@@ -1405,23 +1400,17 @@ router.post('/comprobantes', [
     const result = await client.query(`
       INSERT INTO comprobantes_whatsapp (
         id_comprobante,
-        numero_telefono,
         nombre_remitente,
         importe,
         fecha_envio,
-        texto_mensaje,
-        archivo_url,
         id_cliente
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      ) VALUES ($1, $2, $3, $4, $5)
       RETURNING id, id_comprobante
     `, [
       id_comprobante,
-      numero_telefono || null,
       nombre_remitente || null,
       importe,
       fecha_envio,
-      texto_mensaje || null,
-      archivo_url || null,
       id_cliente || null
     ]);
 
@@ -2066,27 +2055,21 @@ router.post('/comprobantes/whatsapp', [
     const comprobanteResult = await client.query(`
       INSERT INTO comprobantes_whatsapp (
         id_comprobante,
-        numero_telefono,
         nombre_remitente,
         importe,
         fecha_envio,
-        texto_mensaje,
-        archivo_url,
         id_cliente,
         id_acreditacion,
         cotejado,
         fecha_cotejo,
         estado
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING id, id_comprobante, cotejado, id_acreditacion
     `, [
       id_comprobante,
-      null, // numero_telefono
       nombre_remitente,
       parseFloat(monto),
       fecha_envio_obj,
-      null, // texto_mensaje
-      null, // archivo_url
       cliente_id,
       acreditacion_id,
       acreditacion_encontrada, // cotejado

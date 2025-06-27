@@ -211,15 +211,20 @@
               <div>
                 <strong>${comprobante.nombre_remitente || 'Sin nombre'}</strong>
                 <br>
-                <small class="text-muted">${comprobante.numero_telefono || 'Sin teléfono'}</small>
+                <small class="text-muted"><strong>CUIT:</strong> ${comprobante.cuit || 'Sin CUIT'}</small>
+                <br>
+                <small class="text-info"><strong>Cliente:</strong> ${comprobante.cliente_nombre ? `${comprobante.cliente_nombre} ${comprobante.cliente_apellido || ''}` : 'Sin cliente asignado'}</small>
               </div>
               <span class="badge bg-primary">$${comprobante.importe?.toLocaleString() || '0'}</span>
             </div>
             <div class="mt-1">
-              <small class="text-muted">${new Date(comprobante.fecha_envio).toLocaleDateString()}</small>
+              <small class="text-muted"><strong>Fecha Envío:</strong> ${new Date(comprobante.fecha_envio).toLocaleDateString()} ${new Date(comprobante.fecha_envio).toLocaleTimeString()}</small>
             </div>
             <div class="mt-1">
-              <small class="text-truncate d-block">${comprobante.texto_mensaje || 'Sin mensaje'}</small>
+              <small class="text-muted"><strong>Fecha Recepción:</strong> ${new Date(comprobante.fecha_recepcion).toLocaleDateString()} ${new Date(comprobante.fecha_recepcion).toLocaleTimeString()}</small>
+            </div>
+            <div class="mt-1">
+              <small class="text-muted"><strong>Monto:</strong> $${comprobante.importe?.toLocaleString() || '0'}</small>
             </div>
           </div>
         `;
@@ -331,15 +336,20 @@
         <div class="row">
           <div class="col-md-6">
             <strong>Comprobante:</strong><br>
-            ${currentComprobante.nombre_remitente}<br>
-            $${currentComprobante.importe}<br>
-            ${new Date(currentComprobante.fecha_envio).toLocaleDateString()}
+            <strong>Remitente:</strong> ${currentComprobante.nombre_remitente}<br>
+            <strong>Cliente:</strong> ${currentComprobante.cliente_nombre ? `${currentComprobante.cliente_nombre} ${currentComprobante.cliente_apellido || ''}` : 'Sin cliente asignado'}<br>
+            <strong>CUIT:</strong> ${currentComprobante.cuit || 'Sin CUIT'}<br>
+            <strong>Monto:</strong> $${currentComprobante.importe}<br>
+            <strong>Fecha Envío:</strong> ${new Date(currentComprobante.fecha_envio).toLocaleDateString()}<br>
+            <strong>Fecha Recepción:</strong> ${new Date(currentComprobante.fecha_recepcion).toLocaleDateString()}
           </div>
           <div class="col-md-6">
             <strong>Acreditación:</strong><br>
-            ${currentAcreditacion.titular}<br>
-            $${currentAcreditacion.importe}<br>
-            ${new Date(currentAcreditacion.fecha_hora).toLocaleDateString()}
+            <strong>Titular:</strong> ${currentAcreditacion.titular}<br>
+            <strong>CUIT:</strong> ${currentAcreditacion.cuit || 'Sin CUIT'}<br>
+            <strong>Monto:</strong> $${currentAcreditacion.importe}<br>
+            <strong>Fecha:</strong> ${new Date(currentAcreditacion.fecha_hora).toLocaleDateString()}<br>
+            <strong>Concepto:</strong> ${currentAcreditacion.concepto || 'Sin concepto'}
           </div>
         </div>
       `;

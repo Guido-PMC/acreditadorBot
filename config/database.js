@@ -95,19 +95,15 @@ class Database {
         CREATE TABLE IF NOT EXISTS comprobantes_whatsapp (
           id SERIAL PRIMARY KEY,
           id_comprobante VARCHAR(50) UNIQUE NOT NULL,
-          numero_telefono VARCHAR(20),
           nombre_remitente VARCHAR(200),
           importe DECIMAL(15,2),
           fecha_envio TIMESTAMP,
           fecha_recepcion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           estado VARCHAR(20) DEFAULT 'pendiente',
-          archivo_url TEXT,
-          texto_mensaje TEXT,
           procesado BOOLEAN DEFAULT FALSE,
           cotejado BOOLEAN DEFAULT FALSE,
           id_acreditacion VARCHAR(50),
           fecha_cotejo TIMESTAMP,
-          observaciones TEXT,
           id_cliente INTEGER REFERENCES clientes(id)
         )
       `);
