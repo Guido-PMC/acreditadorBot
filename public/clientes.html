@@ -17,9 +17,10 @@
         <ul class="navbar-nav">
           <li class="nav-item"><a class="nav-link" href="/dashboard.html">Dashboard</a></li>
           <li class="nav-item"><a class="nav-link active" href="/clientes.html">Clientes</a></li>
+          <li class="nav-item"><a class="nav-link" href="/asignacion.html">Asignación</a></li>
           <li class="nav-item"><a class="nav-link" href="/upload.html">Subir CSV</a></li>
           <li class="nav-item"><a class="nav-link" href="/logs.html">Logs</a></li>
-          <li class="nav-item"><a class="nav-link" href="/asignacion.html">Asignación</a></li>
+          <li class="nav-item"><a class="nav-link" href="/acreditaciones.html">Acreditaciones</a></li>
         </ul>
       </div>
     </div>
@@ -209,7 +210,7 @@
     }
 
     async function editCliente(id) {
-      const res = await fetch(`/api/clientes?page=1&limit=1&search=${id}`);
+      const res = await fetch(`/api/clientes?page=1&limit=1000`);
       const data = await res.json();
       const cliente = data.data.find(c => c.id == id);
       if (!cliente) return showAlert('danger', 'Cliente no encontrado');
