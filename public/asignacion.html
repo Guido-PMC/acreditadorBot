@@ -145,6 +145,12 @@
     let comprobantesPage = 1;
     let acreditacionesPage = 1;
 
+    // Función para limpiar CUIT (quitar guiones y dejar solo números)
+    function cleanCUIT(cuit) {
+      if (!cuit) return '';
+      return cuit.replace(/[^0-9]/g, '');
+    }
+
     function showAlert(type, message) {
       document.getElementById('alertContainer').innerHTML = 
         `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
@@ -211,7 +217,7 @@
               <div>
                 <strong>${comprobante.nombre_remitente || 'Sin nombre'}</strong>
                 <br>
-                <small class="text-muted"><strong>CUIT:</strong> ${comprobante.cuit || 'Sin CUIT'}</small>
+                <small class="text-muted"><strong>CUIT:</strong> ${cleanCUIT(comprobante.cuit) || 'Sin CUIT'}</small>
                 <br>
                 <small class="text-info"><strong>Cliente:</strong> ${comprobante.cliente_nombre ? `${comprobante.cliente_nombre} ${comprobante.cliente_apellido || ''}` : 'Sin cliente asignado'}</small>
               </div>
@@ -246,7 +252,7 @@
               <div>
                 <strong>${acreditacion.titular || 'Sin titular'}</strong>
                 <br>
-                <small class="text-muted">${acreditacion.cuit || 'Sin CUIT'}</small>
+                <small class="text-muted">${cleanCUIT(acreditacion.cuit) || 'Sin CUIT'}</small>
               </div>
               <span class="badge bg-success">$${acreditacion.importe?.toLocaleString() || '0'}</span>
             </div>
@@ -338,7 +344,7 @@
             <strong>Comprobante:</strong><br>
             <strong>Remitente:</strong> ${currentComprobante.nombre_remitente}<br>
             <strong>Cliente:</strong> ${currentComprobante.cliente_nombre ? `${currentComprobante.cliente_nombre} ${currentComprobante.cliente_apellido || ''}` : 'Sin cliente asignado'}<br>
-            <strong>CUIT:</strong> ${currentComprobante.cuit || 'Sin CUIT'}<br>
+            <strong>CUIT:</strong> ${cleanCUIT(currentComprobante.cuit) || 'Sin CUIT'}<br>
             <strong>Monto:</strong> $${currentComprobante.importe}<br>
             <strong>Fecha Envío:</strong> ${new Date(currentComprobante.fecha_envio).toLocaleDateString()}<br>
             <strong>Fecha Recepción:</strong> ${new Date(currentComprobante.fecha_recepcion).toLocaleDateString()}
@@ -346,7 +352,7 @@
           <div class="col-md-6">
             <strong>Acreditación:</strong><br>
             <strong>Titular:</strong> ${currentAcreditacion.titular}<br>
-            <strong>CUIT:</strong> ${currentAcreditacion.cuit || 'Sin CUIT'}<br>
+            <strong>CUIT:</strong> ${cleanCUIT(currentAcreditacion.cuit) || 'Sin CUIT'}<br>
             <strong>Monto:</strong> $${currentAcreditacion.importe}<br>
             <strong>Fecha:</strong> ${new Date(currentAcreditacion.fecha_hora).toLocaleDateString()}<br>
             <strong>Concepto:</strong> ${currentAcreditacion.concepto || 'Sin concepto'}

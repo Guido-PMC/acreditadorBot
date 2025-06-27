@@ -59,6 +59,38 @@ async function updateDatabase() {
       console.log('ℹ️ Columna CUIT ya existe');
     }
     
+    // Limpiar CUIT existente en comprobantes_whatsapp (quitar guiones)
+    console.log('🧹 Limpiando CUIT existente en comprobantes_whatsapp...');
+    const comprobantesWithCUIT = await client.query(`
+      SELECT id, cuit FROM comprobantes_whatsapp WHERE cuit IS NOT NULL AND cuit != ''
+    `);
+    
+    for (const comprobante of comprobantesWithCUIT.rows) {
+      const cuitLimpio = comprobante.cuit.replace(/[^0-9]/g, '');
+      if (cuitLimpio !== comprobante.cuit) {
+        await client.query(`
+          UPDATE comprobantes_whatsapp SET cuit = $1 WHERE id = $2
+        `, [cuitLimpio, comprobante.id]);
+        console.log(`✅ CUIT limpiado para comprobante ${comprobante.id}: ${comprobante.cuit} → ${cuitLimpio}`);
+      }
+    }
+    
+    // Limpiar CUIT existente en acreditaciones (quitar guiones)
+    console.log('🧹 Limpiando CUIT existente en acreditaciones...');
+    const acreditacionesWithCUIT = await client.query(`
+      SELECT id, cuit FROM acreditaciones WHERE cuit IS NOT NULL AND cuit != ''
+    `);
+    
+    for (const acreditacion of acreditacionesWithCUIT.rows) {
+      const cuitLimpio = acreditacion.cuit.replace(/[^0-9]/g, '');
+      if (cuitLimpio !== acreditacion.cuit) {
+        await client.query(`
+          UPDATE acreditaciones SET cuit = $1 WHERE id = $2
+        `, [cuitLimpio, acreditacion.id]);
+        console.log(`✅ CUIT limpiado para acreditación ${acreditacion.id}: ${acreditacion.cuit} → ${cuitLimpio}`);
+      }
+    }
+    
     console.log('✅ Actualización de la base de datos completada');
     
   } catch (error) {

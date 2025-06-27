@@ -1866,7 +1866,13 @@ router.delete('/comprobantes/limpiar-todos', async (req, res) => {
   }
 });
 
-// POST /api/comprobantes/whatsapp - Endpoint para sistema de WhatsApp
+// Función para limpiar CUIT (quitar guiones y dejar solo números)
+function cleanCUIT(cuit) {
+  if (!cuit) return null;
+  return cuit.replace(/[^0-9]/g, '');
+}
+
+// POST /api/comprobantes/whatsapp - Endpoint para recibir comprobantes de WhatsApp
 router.post('/comprobantes/whatsapp', [
   body('nombre_remitente').notEmpty().withMessage('Nombre del remitente es requerido'),
   body('cuit').notEmpty().withMessage('CUIT es requerido'),
@@ -1896,13 +1902,17 @@ router.post('/comprobantes/whatsapp', [
       cliente
     } = req.body;
 
+    // Limpiar CUIT (quitar guiones y dejar solo números)
+    const cuit_limpio = cleanCUIT(cuit);
+
     // LOGGING DETALLADO DE LO QUE SE RECIBE
     console.log('='.repeat(80));
     console.log('📱 POST RECIBIDO EN /api/comprobantes/whatsapp');
     console.log('='.repeat(80));
     console.log('📋 DATOS RECIBIDOS:');
     console.log('   nombre_remitente:', nombre_remitente);
-    console.log('   cuit:', cuit);
+    console.log('   cuit original:', cuit);
+    console.log('   cuit limpio:', cuit_limpio);
     console.log('   fecha:', fecha);
     console.log('   hora:', hora);
     console.log('   monto:', monto, '(tipo:', typeof monto, ')');
@@ -2019,9 +2029,9 @@ router.post('/comprobantes/whatsapp', [
     let paramIndex = 4;
     
     // Agregar condición de búsqueda por nombre o CUIT
-    if (cuit && cuit.trim()) {
+    if (cuit_limpio && cuit_limpio.trim()) {
       whereConditions.push(`(titular ILIKE $${paramIndex} OR cuit = $${paramIndex + 1})`);
-      params.push(`%${nombre_remitente}%`, cuit.trim());
+      params.push(`%${nombre_remitente}%`, cuit_limpio.trim());
       paramIndex += 2;
     } else {
       whereConditions.push(`(titular ILIKE $${paramIndex} OR cuit = $${paramIndex + 1})`);
@@ -2056,6 +2066,7 @@ router.post('/comprobantes/whatsapp', [
       INSERT INTO comprobantes_whatsapp (
         id_comprobante,
         nombre_remitente,
+        cuit,
         importe,
         fecha_envio,
         id_cliente,
@@ -2063,11 +2074,12 @@ router.post('/comprobantes/whatsapp', [
         cotejado,
         fecha_cotejo,
         estado
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING id, id_comprobante, cotejado, id_acreditacion
     `, [
       id_comprobante,
       nombre_remitente,
+      cuit_limpio,
       parseFloat(monto),
       fecha_envio_obj,
       cliente_id,
@@ -2085,7 +2097,7 @@ router.post('/comprobantes/whatsapp', [
         UPDATE acreditaciones 
         SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP
         WHERE id = $2
-      `, [id_comprobante, acreditacion_id]);
+      `, [comprobante.id_comprobante, acreditacion_id]);
 
       console.log('✅ Acreditación actualizada con comprobante');
     }
