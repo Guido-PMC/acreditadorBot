@@ -1330,11 +1330,11 @@ router.get('/clientes/:id/comprobantes', async (req, res) => {
     const dataQuery = `
       SELECT 
         c.*,
-        a.id as acreditacion_id,
+        a.id as id_acreditacion,
         a.importe as acreditacion_importe,
         a.fecha_hora as acreditacion_fecha
       FROM comprobantes_whatsapp c
-      LEFT JOIN acreditaciones a ON c.acreditacion_id::integer = a.id
+      LEFT JOIN acreditaciones a ON c.id_acreditacion::integer = a.id
       WHERE c.id_cliente = $1
       ORDER BY c.fecha_recepcion DESC
       LIMIT $2 OFFSET $3
@@ -1371,11 +1371,11 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
   
   try {
     const { id } = req.params;
-    const { acreditacion_id } = req.body;
+    const { id_acreditacion } = req.body;
 
-    console.log('🚀 Iniciando asignación de comprobante:', { comprobante_id: id, acreditacion_id: acreditacion_id });
+    console.log('🚀 Iniciando asignación de comprobante:', { comprobante_id: id, id_acreditacion: id_acreditacion });
 
-    if (!acreditacion_id) {
+    if (!id_acreditacion) {
       return res.status(400).json({
         error: 'ID de acreditación requerido',
         message: 'Debe especificar el ID de la acreditación'
@@ -1384,7 +1384,7 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
 
     // Verificar que el comprobante existe
     const comprobante = await client.query(
-      'SELECT * FROM comprobantes_whatsapp WHERE id = $1',
+      'SELECT id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id = $1',
       [id]
     );
 
@@ -1401,18 +1401,19 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
       nombre: comprobante.rows[0].nombre_remitente,
       importe: comprobante.rows[0].importe,
       cotejado: comprobante.rows[0].cotejado,
-      acreditacion_id: comprobante.rows[0].acreditacion_id,
+      id_acreditacion: comprobante.rows[0].id_acreditacion,
+      id_acreditacion: comprobante.rows[0].id_acreditacion,
       fecha_cotejo: comprobante.rows[0].fecha_cotejo
     });
 
     // Verificar que la acreditación existe
     const acreditacion = await client.query(
       'SELECT * FROM acreditaciones WHERE id = $1',
-      [acreditacion_id]
+      [id_acreditacion]
     );
 
     if (acreditacion.rows.length === 0) {
-      console.log('❌ Acreditación no encontrada:', acreditacion_id);
+      console.log('❌ Acreditación no encontrada:', id_acreditacion);
       return res.status(404).json({
         error: 'Acreditación no encontrada',
         message: 'La acreditación especificada no existe'
@@ -1430,12 +1431,12 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
 
     // Verificar que la acreditación no esté ya asignada
     const acreditacionAsignada = await client.query(
-      'SELECT id FROM comprobantes_whatsapp WHERE acreditacion_id = $1 AND id != $2',
-      [acreditacion_id, id]
+      'SELECT id FROM comprobantes_whatsapp WHERE id_acreditacion = $1 AND id != $2',
+      [id_acreditacion, id]
     );
 
     if (acreditacionAsignada.rows.length > 0) {
-      console.log('❌ Acreditación ya asignada a otro comprobante:', acreditacion_id);
+      console.log('❌ Acreditación ya asignada a otro comprobante:', id_acreditacion);
       return res.status(409).json({
         error: 'Acreditación ya asignada',
         message: 'Esta acreditación ya está asignada a otro comprobante'
@@ -1447,9 +1448,9 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
     // Actualizar el comprobante
     await client.query(`
       UPDATE comprobantes_whatsapp 
-      SET acreditacion_id = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP
+      SET id_acreditacion = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP
       WHERE id = $2
-    `, [acreditacion_id, id]);
+    `, [id_acreditacion, id]);
 
     console.log('✅ Comprobante actualizado');
 
@@ -1458,7 +1459,7 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
       UPDATE acreditaciones 
       SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP, id_cliente = $2
       WHERE id = $3
-    `, [comprobante.rows[0].id_comprobante, comprobante.rows[0].id_cliente, acreditacion_id]);
+    `, [comprobante.rows[0].id_comprobante, comprobante.rows[0].id_cliente, id_acreditacion]);
 
     console.log('✅ Acreditación actualizada');
 
@@ -1473,13 +1474,13 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
       nombre: comprobanteDespues.rows[0].nombre_remitente,
       importe: comprobanteDespues.rows[0].importe,
       cotejado: comprobanteDespues.rows[0].cotejado,
-      acreditacion_id: comprobanteDespues.rows[0].acreditacion_id,
+      id_acreditacion: comprobanteDespues.rows[0].id_acreditacion,
       fecha_cotejo: comprobanteDespues.rows[0].fecha_cotejo
     });
 
     const acreditacionDespues = await client.query(
       'SELECT * FROM acreditaciones WHERE id = $1',
-      [acreditacion_id]
+      [id_acreditacion]
     );
 
     console.log('💰 Estado DESPUÉS de asignación - Acreditación:', {
@@ -1497,8 +1498,8 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
       VALUES ($1, $2, $3, $4)
     `, [
       'comprobante_asignado',
-      `Comprobante ${comprobante.rows[0].id_comprobante} asignado a acreditación ${acreditacion_id}`,
-      JSON.stringify({ comprobante_id: id, acreditacion_id: acreditacion_id }),
+      `Comprobante ${comprobante.rows[0].id_comprobante} asignado a acreditación ${id_acreditacion}`,
+      JSON.stringify({ comprobante_id: id, id_acreditacion: id_acreditacion }),
       'exitoso'
     ]);
 
@@ -1529,7 +1530,7 @@ router.put('/comprobantes/:id/desasignar', async (req, res) => {
 
     // Verificar que el comprobante existe y está asignado
     const comprobante = await client.query(
-      'SELECT id_comprobante, acreditacion_id FROM comprobantes_whatsapp WHERE id = $1',
+      'SELECT id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id = $1',
       [id]
     );
 
@@ -1540,19 +1541,19 @@ router.put('/comprobantes/:id/desasignar', async (req, res) => {
       });
     }
 
-    if (!comprobante.rows[0].acreditacion_id) {
+    if (!comprobante.rows[0].id_acreditacion) {
       return res.status(400).json({
         error: 'Comprobante no asignado',
         message: 'Este comprobante no está asignado a ninguna acreditación'
       });
     }
 
-    const acreditacion_id = comprobante.rows[0].acreditacion_id;
+    const id_acreditacion = comprobante.rows[0].id_acreditacion;
 
     // Desasignar el comprobante
     await client.query(`
       UPDATE comprobantes_whatsapp 
-      SET acreditacion_id = NULL, cotejado = false, fecha_cotejo = NULL
+      SET id_acreditacion = NULL, cotejado = false, fecha_cotejo = NULL
       WHERE id = $1
     `, [id]);
 
@@ -1561,7 +1562,7 @@ router.put('/comprobantes/:id/desasignar', async (req, res) => {
       UPDATE acreditaciones 
       SET id_comprobante_whatsapp = NULL, cotejado = false, fecha_cotejo = NULL, id_cliente = NULL
       WHERE id = $1
-    `, [acreditacion_id]);
+    `, [id_acreditacion]);
 
     // Registrar log
     await client.query(`
@@ -1569,8 +1570,8 @@ router.put('/comprobantes/:id/desasignar', async (req, res) => {
       VALUES ($1, $2, $3, $4)
     `, [
       'comprobante_desasignado',
-      `Comprobante ${comprobante.rows[0].id_comprobante} desasignado de acreditación ${acreditacion_id}`,
-      JSON.stringify({ comprobante_id: id, acreditacion_id: acreditacion_id }),
+      `Comprobante ${comprobante.rows[0].id_comprobante} desasignado de acreditación ${id_acreditacion}`,
+      JSON.stringify({ comprobante_id: id, id_acreditacion: id_acreditacion }),
       'exitoso'
     ]);
 
@@ -1625,7 +1626,7 @@ router.get('/comprobantes/sin-acreditacion', async (req, res) => {
       });
     }
 
-    let whereConditions = ['c.acreditacion_id IS NULL'];
+    let whereConditions = ['c.id_acreditacion IS NULL'];
     let params = [];
     let paramIndex = 1;
 
@@ -1856,7 +1857,7 @@ router.delete('/comprobantes/:id', async (req, res) => {
 
     // Verificar que el comprobante existe
     const comprobante = await client.query(
-      'SELECT id_comprobante, acreditacion_id FROM comprobantes_whatsapp WHERE id = $1',
+      'SELECT id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id = $1',
       [id]
     );
 
@@ -1868,7 +1869,7 @@ router.delete('/comprobantes/:id', async (req, res) => {
     }
 
     // Verificar si está asignado a una acreditación
-    if (comprobante.rows[0].acreditacion_id) {
+    if (comprobante.rows[0].id_acreditacion) {
       return res.status(400).json({
         error: 'Comprobante asignado',
         message: 'No se puede eliminar un comprobante que está asignado a una acreditación'
@@ -1935,8 +1936,8 @@ router.get('/clientes/:id/resumen', async (req, res) => {
         SUM(importe) as total_importe_comprobantes,
         COUNT(CASE WHEN cotejado = true THEN 1 END) as comprobantes_cotejados,
         COUNT(CASE WHEN cotejado = false THEN 1 END) as comprobantes_pendientes,
-        COUNT(CASE WHEN acreditacion_id IS NOT NULL THEN 1 END) as comprobantes_asignados,
-        COUNT(CASE WHEN acreditacion_id IS NULL THEN 1 END) as comprobantes_sin_asignar,
+        COUNT(CASE WHEN id_acreditacion IS NOT NULL THEN 1 END) as comprobantes_asignados,
+        COUNT(CASE WHEN id_acreditacion IS NULL THEN 1 END) as comprobantes_sin_asignar,
         SUM(CASE WHEN cotejado = true THEN importe ELSE 0 END) as total_importe_cotejados
       FROM comprobantes_whatsapp 
       WHERE id_cliente = $1
@@ -2525,7 +2526,7 @@ router.post('/comprobantes/whatsapp', [
       });
     }
 
-    let acreditacion_id = null;
+    let id_acreditacion = null;
     let acreditacion_encontrada = false;
     let mejor_coincidencia = null;
     let mejor_score = 0;
@@ -2612,7 +2613,7 @@ router.post('/comprobantes/whatsapp', [
         if (score > mejor_score) {
           mejor_score = score;
           mejor_coincidencia = acreditacion;
-          acreditacion_id = acreditacion.id;
+          id_acreditacion = acreditacion.id;
           acreditacion_encontrada = true;
           console.log(`   🏆 ¡Nueva mejor coincidencia! (Score: ${score}, Coincidencias requeridas: ✅)`);
         } else {
@@ -2643,13 +2644,13 @@ router.post('/comprobantes/whatsapp', [
       console.log(`   Mejor score obtenido: ${mejor_score}`);
       console.log(`   Umbral mínimo requerido: 50 puntos`);
       console.log(`   Requisito adicional: Al menos coincidencia de nombre O CUIT`);
-      acreditacion_id = null;
+      id_acreditacion = null;
       acreditacion_encontrada = false;
     }
 
     console.log('\n💾 Guardando comprobante en base de datos...');
     console.log(`   acreditacion_encontrada: ${acreditacion_encontrada}`);
-    console.log(`   acreditacion_id: ${acreditacion_id}`);
+    console.log(`   id_acreditacion: ${id_acreditacion}`);
     console.log(`   cotejado: ${acreditacion_encontrada}`);
     console.log(`   estado: ${acreditacion_encontrada ? 'cotejado' : 'pendiente'}`);
 
@@ -2662,12 +2663,12 @@ router.post('/comprobantes/whatsapp', [
         importe,
         fecha_envio,
         id_cliente,
-        acreditacion_id,
+        id_acreditacion,
         cotejado,
         fecha_cotejo,
         estado
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING id, id_comprobante, cotejado, acreditacion_id
+      RETURNING id, id_comprobante, cotejado, id_acreditacion
     `, [
       id_comprobante,
       nombre_remitente,
@@ -2675,7 +2676,7 @@ router.post('/comprobantes/whatsapp', [
       parseFloat(monto),
       fecha_envio_obj,
       cliente_id,
-      acreditacion_id,
+      id_acreditacion,
       acreditacion_encontrada, // cotejado
       acreditacion_encontrada ? new Date() : null, // fecha_cotejo
       acreditacion_encontrada ? 'cotejado' : 'pendiente'
@@ -2684,12 +2685,12 @@ router.post('/comprobantes/whatsapp', [
     const comprobante = comprobanteResult.rows[0];
 
     // Si se encontró acreditación, actualizarla
-    if (acreditacion_encontrada && acreditacion_id) {
+    if (acreditacion_encontrada && id_acreditacion) {
       await client.query(`
         UPDATE acreditaciones 
         SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP, id_cliente = $2
         WHERE id = $3
-      `, [comprobante.id_comprobante, comprobante.id_cliente, acreditacion_id]);
+      `, [comprobante.id_comprobante, comprobante.id_cliente, id_acreditacion]);
 
       console.log('✅ Acreditación actualizada con comprobante');
     }
@@ -2707,7 +2708,7 @@ router.post('/comprobantes/whatsapp', [
         cliente_id,
         cliente_creado,
         acreditacion_encontrada,
-        acreditacion_id
+        id_acreditacion
       }),
       'exitoso'
     ]);
@@ -2736,7 +2737,7 @@ router.post('/comprobantes/whatsapp', [
           nombre: nombre_remitente
         },
         acreditacion: acreditacion_encontrada ? {
-          id: acreditacion_id,
+          id: id_acreditacion,
           encontrada: true,
           cotejado: true
         } : {
@@ -3179,6 +3180,107 @@ router.delete('/portal-users/:id', async (req, res) => {
     res.status(500).json({
       error: 'Error interno del servidor',
       message: 'No se pudo eliminar el usuario del portal'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/diagnostico - Endpoint de diagnóstico para verificar estado de BD
+router.get('/diagnostico', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    console.log('🔍 Iniciando diagnóstico de base de datos...');
+    
+    const diagnostico = {
+      timestamp: new Date().toISOString(),
+      conexion: 'OK',
+      tablas: {},
+      errores: []
+    };
+
+    // Verificar conexión
+    try {
+      await client.query('SELECT 1 as test');
+      console.log('✅ Conexión a BD exitosa');
+    } catch (error) {
+      diagnostico.conexion = 'ERROR';
+      diagnostico.errores.push(`Error de conexión: ${error.message}`);
+      console.error('❌ Error de conexión:', error);
+    }
+
+    // Verificar tablas principales
+    const tablas = ['comprobantes_whatsapp', 'acreditaciones', 'clientes', 'logs_procesamiento'];
+    
+    for (const tabla of tablas) {
+      try {
+        const tableExists = await client.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = $1
+          );
+        `, [tabla]);
+
+        if (tableExists.rows[0].exists) {
+          // Contar registros
+          const countResult = await client.query(`SELECT COUNT(*) FROM ${tabla}`);
+          const count = parseInt(countResult.rows[0].count);
+          
+          diagnostico.tablas[tabla] = {
+            existe: true,
+            registros: count
+          };
+          console.log(`✅ Tabla ${tabla}: existe con ${count} registros`);
+        } else {
+          diagnostico.tablas[tabla] = {
+            existe: false,
+            registros: 0
+          };
+          console.log(`❌ Tabla ${tabla}: NO existe`);
+        }
+      } catch (error) {
+        diagnostico.tablas[tabla] = {
+          existe: false,
+          error: error.message
+        };
+        diagnostico.errores.push(`Error verificando tabla ${tabla}: ${error.message}`);
+        console.error(`❌ Error verificando tabla ${tabla}:`, error);
+      }
+    }
+
+    // Verificar estructura de tabla comprobantes_whatsapp si existe
+    if (diagnostico.tablas.comprobantes_whatsapp?.existe) {
+      try {
+        const columns = await client.query(`
+          SELECT column_name, data_type, is_nullable
+          FROM information_schema.columns 
+          WHERE table_name = 'comprobantes_whatsapp'
+          ORDER BY ordinal_position;
+        `);
+        
+        diagnostico.tablas.comprobantes_whatsapp.columnas = columns.rows;
+        console.log(`✅ Columnas de comprobantes_whatsapp:`, columns.rows.map(c => c.column_name));
+      } catch (error) {
+        diagnostico.errores.push(`Error obteniendo columnas de comprobantes_whatsapp: ${error.message}`);
+        console.error('❌ Error obteniendo columnas:', error);
+      }
+    }
+
+    console.log('📊 Diagnóstico completado:', diagnostico);
+
+    res.json({
+      success: true,
+      diagnostico
+    });
+
+  } catch (error) {
+    console.error('💥 Error en diagnóstico:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo completar el diagnóstico',
+      details: error.message
     });
   } finally {
     client.release();
