@@ -307,6 +307,16 @@
             document.getElementById('idHeader').addEventListener('click', sortById);
             document.getElementById('dateHeader').addEventListener('click', sortByDate);
             
+            // Event delegation para botones de eliminar comprobante
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.delete-comprobante-btn')) {
+                    const button = e.target.closest('.delete-comprobante-btn');
+                    const acreditacionId = button.getAttribute('data-acreditacion-id');
+                    const comprobanteId = button.getAttribute('data-comprobante-id');
+                    eliminarComprobante(acreditacionId, comprobanteId);
+                }
+            });
+            
             loadStats();
             loadAcreditaciones();
         });
@@ -414,7 +424,10 @@
                                 </button>
                             ` : ''}
                             ${acred.id_comprobante_whatsapp ? `
-                                <button class="btn btn-outline-danger" onclick="eliminarComprobante(${acred.id}, '${acred.id_comprobante_whatsapp}')" title="Eliminar comprobante">
+                                <button class="btn btn-outline-danger delete-comprobante-btn" 
+                                        data-acreditacion-id="${acred.id}" 
+                                        data-comprobante-id="${acred.id_comprobante_whatsapp}" 
+                                        title="Eliminar comprobante">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             ` : ''}
