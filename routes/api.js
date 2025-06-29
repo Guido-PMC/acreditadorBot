@@ -1421,9 +1421,9 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
     // Actualizar la acreditación
     await client.query(`
       UPDATE acreditaciones 
-      SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP
-      WHERE id = $2
-    `, [comprobante.rows[0].id_comprobante, id_acreditacion]);
+      SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP, id_cliente = $2
+      WHERE id = $3
+    `, [comprobante.rows[0].id_comprobante, comprobante.rows[0].id_cliente, id_acreditacion]);
 
     console.log('✅ Acreditación actualizada');
 
@@ -1524,7 +1524,7 @@ router.put('/comprobantes/:id/desasignar', async (req, res) => {
     // Desasignar la acreditación
     await client.query(`
       UPDATE acreditaciones 
-      SET id_comprobante_whatsapp = NULL, cotejado = false, fecha_cotejo = NULL
+      SET id_comprobante_whatsapp = NULL, cotejado = false, fecha_cotejo = NULL, id_cliente = NULL
       WHERE id = $1
     `, [id_acreditacion]);
 
@@ -2606,9 +2606,9 @@ router.post('/comprobantes/whatsapp', [
     if (acreditacion_encontrada && acreditacion_id) {
       await client.query(`
         UPDATE acreditaciones 
-        SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [comprobante.id_comprobante, acreditacion_id]);
+        SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP, id_cliente = $2
+        WHERE id = $3
+      `, [comprobante.id_comprobante, comprobante.id_cliente, id_acreditacion]);
 
       console.log('✅ Acreditación actualizada con comprobante');
     }
