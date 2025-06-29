@@ -186,6 +186,7 @@
                             <button type="button" class="btn btn-outline-info" onclick="filterMovimientos('credito')">Créditos</button>
                             <button type="button" class="btn btn-outline-danger" onclick="filterMovimientos('pago')">Pagos</button>
                         </div>
+                        <span class="badge bg-info ms-2" id="movimientosCount">0</span>
                     </div>
                 </div>
             </div>
@@ -493,7 +494,10 @@
             }).join('');
 
             // Actualizar contador de movimientos
-            document.getElementById('movimientosCount').textContent = movimientosFiltrados.length;
+            const movimientosCountElement = document.getElementById('movimientosCount');
+            if (movimientosCountElement) {
+                movimientosCountElement.textContent = movimientosFiltrados.length;
+            }
         }
 
         // Actualizar paginación de movimientos

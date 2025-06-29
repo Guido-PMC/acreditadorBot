@@ -63,6 +63,7 @@ router.get('/api/dashboard-stats', async (req, res) => {
     // Últimas 5 acreditaciones
     const ultimas = await client.query(`
       SELECT 
+        id,
         id_transaccion,
         titular,
         importe,
