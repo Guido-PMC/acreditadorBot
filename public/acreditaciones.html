@@ -194,7 +194,9 @@
                                 <th>Titular</th>
                                 <th>CUIT</th>
                                 <th>Importe</th>
-                                <th>Fecha</th>
+                                <th style="cursor: pointer;" onclick="sortByDate()">
+                                    Fecha <i class="fas fa-sort" id="dateSortIcon"></i>
+                                </th>
                                 <th>Fuente</th>
                                 <th>Estado</th>
                                 <th>Cotejo</th>
@@ -293,6 +295,7 @@
         let totalPages = 1;
         let currentAcreditacionId = null;
         let cotejoModal;
+        let sortOrder = 'desc'; // desc = newest first, asc = oldest first
 
         document.addEventListener('DOMContentLoaded', function() {
             cotejoModal = new bootstrap.Modal(document.getElementById('cotejoModal'));
@@ -322,7 +325,9 @@
             try {
                 const params = new URLSearchParams({
                     page: page,
-                    limit: 20
+                    limit: 20,
+                    ordenar_por: 'fecha_hora',
+                    orden: sortOrder.toUpperCase()
                 });
 
                 // Add filters
@@ -367,7 +372,7 @@
                     <td>${acred.titular || 'N/A'}</td>
                     <td>${acred.cuit || 'N/A'}</td>
                     <td><strong>$${parseFloat(acred.importe).toLocaleString()}</strong></td>
-                    <td><small>${new Date(acred.fecha_hora).toLocaleDateString()}</small></td>
+                    <td><small>${new Date(acred.fecha_hora).toLocaleString('es-AR')}</small></td>
                     <td>
                         <span class="badge ${acred.fuente === 'api' ? 'bg-primary' : 'bg-success'} badge-fuente">
                             ${acred.fuente.toUpperCase()}
@@ -574,6 +579,22 @@
                 console.error('Error eliminando comprobante:', error);
                 showAlert('Error al procesar la solicitud', 'danger');
             }
+        }
+
+        function sortByDate() {
+            // Cambiar el orden de clasificación
+            sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+            
+            // Actualizar el ícono
+            const icon = document.getElementById('dateSortIcon');
+            if (sortOrder === 'desc') {
+                icon.className = 'fas fa-sort-down';
+            } else {
+                icon.className = 'fas fa-sort-up';
+            }
+            
+            // Recargar las acreditaciones con el nuevo orden
+            loadAcreditaciones(currentPage);
         }
     </script>
 </body>
