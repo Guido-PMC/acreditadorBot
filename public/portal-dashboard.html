@@ -429,21 +429,39 @@
 
         // Mostrar movimientos unificados
         function displayMovimientosUnificados(movimientos) {
+            // Aplicar filtro si está activo
+            let movimientosFiltrados = movimientos;
+            if (movimientosFilter) {
+                switch (movimientosFilter) {
+                    case 'comprobante':
+                        movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'comprobante');
+                        break;
+                    case 'credito':
+                        movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'movimiento' && mov.tipo_pago === 'credito');
+                        break;
+                    case 'pago':
+                        movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'movimiento' && mov.tipo_pago === 'egreso');
+                        break;
+                    default:
+                        movimientosFiltrados = movimientos;
+                }
+            }
+
             const tbody = document.getElementById('movimientosUnificadosTableBody');
             
-            if (movimientos.length === 0) {
+            if (movimientosFiltrados.length === 0) {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="6" class="text-center py-4 text-muted">
                             <i class="fas fa-inbox fa-2x mb-2"></i><br>
-                            No se encontraron movimientos
+                            ${movimientosFilter ? `No se encontraron movimientos de tipo "${movimientosFilter}"` : 'No se encontraron movimientos'}
                         </td>
                     </tr>
                 `;
                 return;
             }
 
-            tbody.innerHTML = movimientos.map(mov => {
+            tbody.innerHTML = movimientosFiltrados.map(mov => {
                 const isEntrada = mov.es_entrada;
                 const importeClass = isEntrada ? 'text-success' : 'text-danger';
                 const importeSign = isEntrada ? '+' : '-';
@@ -473,6 +491,9 @@
                     </tr>
                 `;
             }).join('');
+
+            // Actualizar contador de movimientos
+            document.getElementById('movimientosCount').textContent = movimientosFiltrados.length;
         }
 
         // Actualizar paginación de movimientos
@@ -526,6 +547,21 @@
         // Filtrar movimientos
         function filterMovimientos(tipo) {
             movimientosFilter = tipo;
+            
+            // Actualizar estado visual de los botones
+            const buttons = document.querySelectorAll('.btn-group .btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.add('btn-outline-primary', 'btn-outline-success', 'btn-outline-info', 'btn-outline-danger');
+            });
+            
+            // Activar el botón seleccionado
+            const activeButton = event.target;
+            if (activeButton) {
+                activeButton.classList.remove('btn-outline-primary', 'btn-outline-success', 'btn-outline-info', 'btn-outline-danger');
+                activeButton.classList.add('active');
+            }
+            
             loadMovimientosUnificados();
         }
 
