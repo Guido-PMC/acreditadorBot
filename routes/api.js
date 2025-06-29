@@ -530,7 +530,7 @@ router.get('/acreditaciones/:id', async (req, res) => {
   }
 });
 
-// GET /api/acreditaciones - Obtener acreditaciones
+// GET /api/acreditaciones - Obtener acreditaciones con filtros y ordenamiento
 router.get('/acreditaciones', async (req, res) => {
   const client = await db.getClient();
   
@@ -538,6 +538,10 @@ router.get('/acreditaciones', async (req, res) => {
     const { 
       page = 1, 
       limit = 50, 
+      search,
+      cliente,
+      ordenar_por = 'fecha_hora',
+      orden = 'DESC',
       fecha_desde, 
       fecha_hasta, 
       cuit, 
@@ -549,67 +553,85 @@ router.get('/acreditaciones', async (req, res) => {
     let params = [];
     let paramIndex = 1;
 
+    // Filtro de búsqueda general
+    if (search) {
+      whereConditions.push(`(
+        a.id_transaccion ILIKE $${paramIndex} OR 
+        a.titular ILIKE $${paramIndex} OR 
+        a.cuit ILIKE $${paramIndex} OR
+        a.origen ILIKE $${paramIndex}
+      )`);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Filtro por cliente
+    if (cliente) {
+      whereConditions.push(`a.id_cliente = $${paramIndex}`);
+      params.push(parseInt(cliente));
+      paramIndex++;
+    }
+
+    // Filtros adicionales
     if (fecha_desde) {
-      whereConditions.push(`fecha_hora >= $${paramIndex}`);
+      whereConditions.push(`a.fecha_hora >= $${paramIndex}`);
       params.push(fecha_desde);
       paramIndex++;
     }
 
     if (fecha_hasta) {
-      whereConditions.push(`fecha_hora <= $${paramIndex}`);
+      whereConditions.push(`a.fecha_hora <= $${paramIndex}`);
       params.push(fecha_hasta);
       paramIndex++;
     }
 
     if (cuit) {
-      whereConditions.push(`cuit = $${paramIndex}`);
+      whereConditions.push(`a.cuit = $${paramIndex}`);
       params.push(cuit);
       paramIndex++;
     }
 
     if (estado) {
-      whereConditions.push(`estado = $${paramIndex}`);
+      whereConditions.push(`a.estado = $${paramIndex}`);
       params.push(estado);
       paramIndex++;
     }
 
     if (fuente) {
-      whereConditions.push(`fuente = $${paramIndex}`);
+      whereConditions.push(`a.fuente = $${paramIndex}`);
       params.push(fuente);
       paramIndex++;
     }
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
-    
     const offset = (page - 1) * limit;
-    
+
+    // Validar campo de ordenamiento
+    const camposPermitidos = ['id', 'fecha_hora', 'importe', 'titular', 'cuit', 'estado', 'fecha_carga'];
+    const ordenPermitido = orden.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const campoOrden = camposPermitidos.includes(ordenar_por) ? ordenar_por : 'fecha_hora';
+
     // Query para contar total
-    const countQuery = `SELECT COUNT(*) FROM acreditaciones ${whereClause}`;
+    const countQuery = `
+      SELECT COUNT(*) 
+      FROM acreditaciones a 
+      LEFT JOIN clientes c ON a.id_cliente = c.id 
+      ${whereClause}
+    `;
     const countResult = await client.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
 
-    // Query para obtener datos
+    // Query para obtener datos con JOIN a clientes
     const dataQuery = `
       SELECT 
-        id,
-        id_transaccion,
-        tipo,
-        concepto,
-        importe,
-        estado,
-        titular,
-        cuit,
-        origen,
-        fecha_hora,
-        cvu,
-        coelsa_id,
-        fuente,
-        procesado,
-        cotejado,
-        fecha_carga
-      FROM acreditaciones 
+        a.*,
+        c.nombre as cliente_nombre,
+        c.apellido as cliente_apellido,
+        c.cuit as cliente_cuit
+      FROM acreditaciones a
+      LEFT JOIN clientes c ON a.id_cliente = c.id
       ${whereClause}
-      ORDER BY fecha_hora DESC
+      ORDER BY a.${campoOrden} ${ordenPermitido}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     
@@ -830,7 +852,12 @@ router.get('/acreditaciones', async (req, res) => {
       search,
       cliente,
       ordenar_por = 'fecha_hora',
-      orden = 'DESC'
+      orden = 'DESC',
+      fecha_desde, 
+      fecha_hasta, 
+      cuit, 
+      estado,
+      fuente 
     } = req.query;
 
     let whereConditions = [];
@@ -853,6 +880,37 @@ router.get('/acreditaciones', async (req, res) => {
     if (cliente) {
       whereConditions.push(`a.id_cliente = $${paramIndex}`);
       params.push(parseInt(cliente));
+      paramIndex++;
+    }
+
+    // Filtros adicionales
+    if (fecha_desde) {
+      whereConditions.push(`a.fecha_hora >= $${paramIndex}`);
+      params.push(fecha_desde);
+      paramIndex++;
+    }
+
+    if (fecha_hasta) {
+      whereConditions.push(`a.fecha_hora <= $${paramIndex}`);
+      params.push(fecha_hasta);
+      paramIndex++;
+    }
+
+    if (cuit) {
+      whereConditions.push(`a.cuit = $${paramIndex}`);
+      params.push(cuit);
+      paramIndex++;
+    }
+
+    if (estado) {
+      whereConditions.push(`a.estado = $${paramIndex}`);
+      params.push(estado);
+      paramIndex++;
+    }
+
+    if (fuente) {
+      whereConditions.push(`a.fuente = $${paramIndex}`);
+      params.push(fuente);
       paramIndex++;
     }
 

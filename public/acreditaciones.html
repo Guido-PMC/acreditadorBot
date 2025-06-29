@@ -32,7 +32,7 @@
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm mb-4">
         <div class="container">
             <a class="navbar-brand fw-bold" href="/">
                 <i class="fas fa-university me-2"></i>AcreditadorBot
@@ -41,13 +41,14 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
+                <ul class="navbar-nav ms-auto">
                     <li class="nav-item"><a class="nav-link" href="/dashboard.html">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/acreditaciones.html">Acreditaciones</a></li>
                     <li class="nav-item"><a class="nav-link" href="/clientes.html">Clientes</a></li>
                     <li class="nav-item"><a class="nav-link" href="/asignacion.html">Asignación</a></li>
                     <li class="nav-item"><a class="nav-link" href="/upload.html">Subir CSV</a></li>
                     <li class="nav-item"><a class="nav-link" href="/logs.html">Logs</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="/acreditaciones.html">Acreditaciones</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/portal-users.html">Portal Usuarios</a></li>
                 </ul>
             </div>
         </div>
@@ -151,8 +152,8 @@
                             <input type="date" class="form-control" id="fechaHastaFilter">
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label">Estado</label>
-                            <select class="form-select" id="estadoFilter">
+                            <label class="form-label">Cotejado</label>
+                            <select class="form-select" id="cotejadoFilter">
                                 <option value="">Todos</option>
                                 <option value="Completed">Completed</option>
                                 <option value="Pending">Pending</option>
@@ -200,7 +201,6 @@
                                     Fecha <i class="fas fa-sort" id="dateSortIcon"></i>
                                 </th>
                                 <th>Fuente</th>
-                                <th>Estado</th>
                                 <th>Cotejo</th>
                                 <th>Acciones</th>
                             </tr>
@@ -355,13 +355,13 @@
                 const importe = document.getElementById('importeFilter').value;
                 const fechaDesde = document.getElementById('fechaDesdeFilter').value;
                 const fechaHasta = document.getElementById('fechaHastaFilter').value;
-                const estado = document.getElementById('estadoFilter').value;
+                const cotejado = document.getElementById('cotejadoFilter').value;
 
                 if (cuit) params.append('cuit', cuit);
                 if (importe) params.append('importe', importe);
                 if (fechaDesde) params.append('fecha_desde', fechaDesde);
                 if (fechaHasta) params.append('fecha_hasta', fechaHasta);
-                if (estado) params.append('estado', estado);
+                if (cotejado) params.append('cotejado', cotejado);
 
                 const url = `/api/acreditaciones?${params}`;
                 console.log(`🌐 URL de la petición: ${url}`);
@@ -401,11 +401,6 @@
                     <td>
                         <span class="badge ${acred.fuente === 'api' ? 'bg-primary' : 'bg-success'} badge-fuente">
                             ${acred.fuente.toUpperCase()}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="badge ${acred.estado === 'Completed' ? 'bg-success' : acred.estado === 'Pending' ? 'bg-warning' : 'bg-danger'}">
-                            ${acred.estado}
                         </span>
                     </td>
                     <td>
@@ -492,7 +487,7 @@
             document.getElementById('importeFilter').value = '';
             document.getElementById('fechaDesdeFilter').value = '';
             document.getElementById('fechaHastaFilter').value = '';
-            document.getElementById('estadoFilter').value = '';
+            document.getElementById('cotejadoFilter').value = '';
             currentPage = 1;
             loadAcreditaciones();
         }
