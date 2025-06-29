@@ -393,6 +393,11 @@
                                     <i class="fas fa-check"></i>
                                 </button>
                             ` : ''}
+                            ${acred.id_comprobante_whatsapp ? `
+                                <button class="btn btn-outline-danger" onclick="eliminarComprobante(${acred.id}, '${acred.id_comprobante_whatsapp}')" title="Eliminar comprobante">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : ''}
                         </div>
                     </td>
                 </tr>
@@ -544,6 +549,31 @@
                     alertDiv.remove();
                 }
             }, 5000);
+        }
+
+        async function eliminarComprobante(idAcreditacion, idComprobante) {
+            if (!confirm(`¿Estás seguro de que quieres eliminar el comprobante ${idComprobante} de esta acreditación?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/comprobantes/${idComprobante}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('Comprobante eliminado exitosamente', 'success');
+                    loadStats();
+                    loadAcreditaciones(currentPage);
+                } else {
+                    showAlert(result.error || 'Error al eliminar el comprobante', 'danger');
+                }
+            } catch (error) {
+                console.error('Error eliminando comprobante:', error);
+                showAlert('Error al procesar la solicitud', 'danger');
+            }
         }
     </script>
 </body>
