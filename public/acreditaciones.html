@@ -410,9 +410,6 @@
                     </td>
                     <td>
                         <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-primary" onclick="verDetalle(${acred.id})" title="Ver detalle">
-                                <i class="fas fa-eye"></i>
-                            </button>
                             ${!acred.cotejado ? `
                                 <button class="btn btn-outline-success" onclick="abrirCotejo(${acred.id}, '${acred.id_transaccion}', '${acred.titular || ''}', '${acred.cuit || ''}', ${acred.importe}, '${acred.fecha_hora}')" title="Cotejar">
                                     <i class="fas fa-check"></i>
@@ -555,11 +552,6 @@
                 console.error('Error cotejando:', error);
                 showAlert('Error al procesar la solicitud', 'danger');
             }
-        }
-
-        function verDetalle(id) {
-            // Implementar vista detallada
-            alert(`Ver detalle de acreditación ID: ${id}`);
         }
 
         function showAlert(message, type) {

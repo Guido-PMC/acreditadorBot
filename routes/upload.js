@@ -54,6 +54,7 @@ router.post('/csv', upload.single('file'), async (req, res) => {
     const errors = [];
     let processedCount = 0;
     let skippedCount = 0;
+    let skippedTipoCount = 0; // Contador de filas ignoradas por tipo
 
     // Procesar el archivo CSV
     await new Promise((resolve, reject) => {
@@ -89,6 +90,7 @@ router.post('/csv', upload.single('file'), async (req, res) => {
         // Validar que sea una transferencia entrante
         if (row.Tipo !== 'Transferencia entrante') {
           skippedCount++;
+          skippedTipoCount++;
           continue; // Saltar transferencias salientes y otros tipos
         }
 
@@ -196,6 +198,7 @@ router.post('/csv', upload.single('file'), async (req, res) => {
         total_filas: results.length,
         procesadas: processedCount,
         omitidas: skippedCount,
+        omitidas_por_tipo: skippedTipoCount,
         errores: errors.length
       }),
       errors.length === 0 ? 'exitoso' : 'parcial'
@@ -212,6 +215,7 @@ router.post('/csv', upload.single('file'), async (req, res) => {
         total_filas: results.length,
         procesadas: processedCount,
         omitidas: skippedCount,
+        omitidas_por_tipo: skippedTipoCount,
         errores: errors.length,
         errores_detalle: errors
       }
