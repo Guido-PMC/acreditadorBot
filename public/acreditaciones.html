@@ -190,13 +190,13 @@
                     <table class="table table-hover">
                         <thead class="table-light">
                             <tr>
-                                <th style="cursor: pointer;" onclick="sortById()">
+                                <th style="cursor: pointer;" id="idHeader">
                                     ID <i class="fas fa-sort" id="idSortIcon"></i>
                                 </th>
                                 <th>Titular</th>
                                 <th>CUIT</th>
                                 <th>Importe</th>
-                                <th style="cursor: pointer;" onclick="sortByDate()">
+                                <th style="cursor: pointer;" id="dateHeader">
                                     Fecha <i class="fas fa-sort" id="dateSortIcon"></i>
                                 </th>
                                 <th>Fuente</th>
@@ -302,6 +302,11 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             cotejoModal = new bootstrap.Modal(document.getElementById('cotejoModal'));
+            
+            // Agregar event listeners para ordenamiento
+            document.getElementById('idHeader').addEventListener('click', sortById);
+            document.getElementById('dateHeader').addEventListener('click', sortByDate);
+            
             loadStats();
             loadAcreditaciones();
         });
