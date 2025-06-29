@@ -416,7 +416,8 @@ router.get('/acreditaciones/sin-comprobante', async (req, res) => {
 
     // Filtro por cliente
     if (cliente_id) {
-      whereConditions.push(`a.id_cliente = $${paramIndex}`);
+      // Si se selecciona un cliente específico, mostrar acreditaciones de ese cliente O sin cliente asignado
+      whereConditions.push(`(a.id_cliente = $${paramIndex} OR a.id_cliente IS NULL)`);
       params.push(parseInt(cliente_id));
       paramIndex++;
     }
