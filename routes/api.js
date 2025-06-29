@@ -400,6 +400,23 @@ router.get('/acreditaciones/sin-comprobante', async (req, res) => {
 
     console.log('Parámetros recibidos:', { page, limit, search, importe_min, importe_max, fecha_desde, fecha_hasta, cliente_id });
 
+    // Verificar que la tabla existe
+    const tableExists = await client.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'acreditaciones'
+      );
+    `);
+
+    if (!tableExists.rows[0].exists) {
+      console.error('❌ Tabla acreditaciones no existe');
+      return res.status(500).json({
+        error: 'Error de configuración',
+        message: 'La tabla acreditaciones no existe en la base de datos'
+      });
+    }
+
     let whereConditions = ['a.id_comprobante_whatsapp IS NULL'];
     let params = [];
     let paramIndex = 1;
@@ -451,36 +468,36 @@ router.get('/acreditaciones/sin-comprobante', async (req, res) => {
     const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
     const offset = (page - 1) * limit;
 
-    console.log('WHERE clause:', whereClause);
-    console.log('Parámetros:', params);
-
+    console.log('🔍 Ejecutando query de conteo...');
     // Query para contar total
     const countQuery = `SELECT COUNT(*) FROM acreditaciones a ${whereClause}`;
-    console.log('Count query:', countQuery);
+    console.log('📊 Count query:', countQuery);
+    console.log('📊 Params:', params);
     
     const countResult = await client.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
-    console.log('Total encontrado:', total);
 
+    console.log('🔍 Ejecutando query de datos...');
     // Query para obtener datos
     const dataQuery = `
       SELECT 
         a.*,
-        c.nombre as cliente_nombre,
-        c.apellido as cliente_apellido
+        cli.nombre as cliente_nombre,
+        cli.apellido as cliente_apellido
       FROM acreditaciones a
-      LEFT JOIN clientes c ON a.id_cliente = c.id
+      LEFT JOIN clientes cli ON a.id_cliente = cli.id
       ${whereClause}
       ORDER BY a.fecha_hora DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     
-    params.push(parseInt(limit), offset);
-    console.log('Data query:', dataQuery);
-    console.log('Parámetros finales:', params);
+    const finalParams = [...params, parseInt(limit), offset];
+    console.log('📊 Data query:', dataQuery);
+    console.log('📊 Final params:', finalParams);
     
-    const dataResult = await client.query(dataQuery, params);
-    console.log('Datos obtenidos:', dataResult.rows.length);
+    const dataResult = await client.query(dataQuery, finalParams);
+
+    console.log(`✅ Query exitoso. Total: ${total}, Resultados: ${dataResult.rows.length}`);
 
     res.json({
       success: true,
@@ -494,11 +511,29 @@ router.get('/acreditaciones/sin-comprobante', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error obteniendo acreditaciones sin comprobante:', error);
-    console.error('Stack trace:', error.stack);
+    console.error('💥 Error obteniendo acreditaciones sin comprobante:', error);
+    console.error('💥 Stack trace:', error.stack);
+    
+    // Registrar error en logs si es posible
+    try {
+      await client.query(`
+        INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado, error)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [
+        'error_acreditaciones_sin_comprobante',
+        'Error obteniendo acreditaciones sin comprobante',
+        JSON.stringify(req.query),
+        'error',
+        error.message
+      ]);
+    } catch (logError) {
+      console.error('💥 Error registrando log:', logError);
+    }
+
     res.status(500).json({
       error: 'Error interno del servidor',
-      message: 'No se pudieron obtener las acreditaciones'
+      message: 'No se pudieron obtener las acreditaciones',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   } finally {
     client.release();
@@ -1573,6 +1608,23 @@ router.get('/comprobantes/sin-acreditacion', async (req, res) => {
 
     console.log('Parámetros recibidos:', { page, limit, search, importe_min, importe_max, fecha_desde, fecha_hasta, cliente_id });
 
+    // Verificar que la tabla existe
+    const tableExists = await client.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'comprobantes_whatsapp'
+      );
+    `);
+
+    if (!tableExists.rows[0].exists) {
+      console.error('❌ Tabla comprobantes_whatsapp no existe');
+      return res.status(500).json({
+        error: 'Error de configuración',
+        message: 'La tabla comprobantes_whatsapp no existe en la base de datos'
+      });
+    }
+
     let whereConditions = ['c.acreditacion_id IS NULL'];
     let params = [];
     let paramIndex = 1;
@@ -1623,11 +1675,16 @@ router.get('/comprobantes/sin-acreditacion', async (req, res) => {
     const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
     const offset = (page - 1) * limit;
 
+    console.log('🔍 Ejecutando query de conteo...');
     // Query para contar total
     const countQuery = `SELECT COUNT(*) FROM comprobantes_whatsapp c ${whereClause}`;
+    console.log('📊 Count query:', countQuery);
+    console.log('📊 Params:', params);
+    
     const countResult = await client.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
 
+    console.log('🔍 Ejecutando query de datos...');
     // Query para obtener datos
     const dataQuery = `
       SELECT 
@@ -1641,8 +1698,13 @@ router.get('/comprobantes/sin-acreditacion', async (req, res) => {
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     
-    params.push(parseInt(limit), offset);
-    const dataResult = await client.query(dataQuery, params);
+    const finalParams = [...params, parseInt(limit), offset];
+    console.log('📊 Data query:', dataQuery);
+    console.log('📊 Final params:', finalParams);
+    
+    const dataResult = await client.query(dataQuery, finalParams);
+
+    console.log(`✅ Query exitoso. Total: ${total}, Resultados: ${dataResult.rows.length}`);
 
     res.json({
       success: true,
@@ -1656,10 +1718,29 @@ router.get('/comprobantes/sin-acreditacion', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error obteniendo comprobantes sin acreditación:', error);
+    console.error('💥 Error obteniendo comprobantes sin acreditación:', error);
+    console.error('💥 Stack trace:', error.stack);
+    
+    // Registrar error en logs si es posible
+    try {
+      await client.query(`
+        INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado, error)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [
+        'error_comprobantes_sin_acreditacion',
+        'Error obteniendo comprobantes sin acreditación',
+        JSON.stringify(req.query),
+        'error',
+        error.message
+      ]);
+    } catch (logError) {
+      console.error('💥 Error registrando log:', logError);
+    }
+
     res.status(500).json({
       error: 'Error interno del servidor',
-      message: 'No se pudieron obtener los comprobantes'
+      message: 'No se pudieron obtener los comprobantes',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   } finally {
     client.release();
