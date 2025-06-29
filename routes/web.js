@@ -124,7 +124,8 @@ router.get('/api/acreditaciones-pendientes', async (req, res) => {
         importe,
         fecha_hora,
         fuente,
-        observaciones
+        observaciones,
+        id_comprobante_whatsapp
       FROM acreditaciones 
       WHERE cotejado = false
       ORDER BY fecha_hora DESC 
