@@ -311,7 +311,7 @@
             if (data.ultimas_acreditaciones.length > 0) {
                 ultimasContainer.innerHTML = data.ultimas_acreditaciones.map(acred => `
                     <tr>
-                        <td><code>${acred.id_transaccion}</code></td>
+                        <td><code>${acred.id}</code></td>
                         <td>${acred.titular || 'N/A'}</td>
                         <td><strong>$${parseFloat(acred.importe).toLocaleString()}</strong></td>
                         <td>
@@ -324,7 +324,7 @@
                                 ${acred.cotejado ? 'Cotejada' : 'Pendiente'}
                             </span>
                         </td>
-                        <td><small>${new Date(acred.fecha_hora).toLocaleDateString()}</small></td>
+                        <td><small>${new Date(acred.fecha_hora).toLocaleString('es-AR')}</small></td>
                     </tr>
                 `).join('');
             } else {
