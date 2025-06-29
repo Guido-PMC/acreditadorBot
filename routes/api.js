@@ -2148,7 +2148,14 @@ router.post('/comprobantes/whatsapp', [
     console.log('   hora:', hora);
     console.log('   monto:', monto, '(tipo:', typeof monto, ')');
     console.log('   cliente:', cliente);
-    console.log('📋 BODY COMPLETO:', JSON.stringify(req.body, null, 2));
+    console.log('📋 DATOS PROCESADOS:', JSON.stringify({
+      nombre_remitente,
+      cuit: cuit_limpio,
+      fecha,
+      hora,
+      monto,
+      cliente
+    }, null, 2));
     console.log('='.repeat(80));
 
     console.log('📱 Recibiendo comprobante de WhatsApp:', {

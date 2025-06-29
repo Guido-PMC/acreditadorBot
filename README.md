@@ -365,24 +365,24 @@ Content-Type: application/json
 **Body:**
 ```json
 {
-  "numero_telefono": "1234567890",
   "nombre_remitente": "Juan Pérez",
-  "importe": 50000.00,
-  "fecha_envio": "2025-06-27T10:30:00.000Z",
-  "texto_mensaje": "Pago realizado",
-  "archivo_url": "https://ejemplo.com/comprobante.jpg"
+  "cuit": "20396565154",
+  "fecha": "2025-06-27T10:30:00.000Z",
+  "hora": "15:30",
+  "monto": 50000,
+  "cliente": "cripto"
 }
 ```
 
 **Campos requeridos:**
-- `numero_telefono`: Número de teléfono del remitente
 - `nombre_remitente`: Nombre del remitente
-- `importe`: Monto del comprobante (numérico)
-- `fecha_envio`: Fecha y hora del envío (ISO 8601)
+- `cuit`: CUIT del remitente
+- `fecha`: Fecha del comprobante (ISO 8601 o DD/MM/YYYY)
+- `monto`: Monto del comprobante (numérico)
+- `cliente`: Cliente al que pertenece el comprobante
 
 **Campos opcionales:**
-- `texto_mensaje`: Texto del mensaje de WhatsApp
-- `archivo_url`: URL del archivo adjunto
+- `hora`: Hora del comprobante (formato HH:MM)
 
 **Respuesta exitosa:**
 ```json
