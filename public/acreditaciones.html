@@ -196,6 +196,7 @@
                                 </th>
                                 <th>Titular</th>
                                 <th>CUIT</th>
+                                <th>Cliente</th>
                                 <th>Importe</th>
                                 <th style="cursor: pointer;" id="dateHeader">
                                     Fecha <i class="fas fa-sort" id="dateSortIcon"></i>
@@ -207,7 +208,7 @@
                         </thead>
                         <tbody id="acreditacionesTable">
                             <tr>
-                                <td colspan="9" class="text-center">Cargando...</td>
+                                <td colspan="10" class="text-center">Cargando...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -379,7 +380,7 @@
             } catch (error) {
                 console.error('Error cargando acreditaciones:', error);
                 document.getElementById('acreditacionesTable').innerHTML = 
-                    '<tr><td colspan="9" class="text-center text-danger">Error al cargar datos</td></tr>';
+                    '<tr><td colspan="10" class="text-center text-danger">Error al cargar datos</td></tr>';
             }
         }
 
@@ -387,7 +388,7 @@
             const tbody = document.getElementById('acreditacionesTable');
             
             if (acreditaciones.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-center">No se encontraron acreditaciones</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center">No se encontraron acreditaciones</td></tr>';
                 return;
             }
 
@@ -396,6 +397,7 @@
 
             tbody.innerHTML = acreditaciones.map(acred => {
                 const hasComprobante = acred.id_comprobante_whatsapp && acred.id_comprobante_whatsapp !== null;
+                const clienteNombre = acred.cliente_nombre ? `${acred.cliente_nombre} ${acred.cliente_apellido || ''}`.trim() : 'Sin cliente';
                 console.log(`📊 Acreditación ${acred.id}: tiene comprobante = ${hasComprobante}, id_comprobante = ${acred.id_comprobante_whatsapp}`);
                 
                 return `
@@ -403,6 +405,7 @@
                     <td><code>${acred.id}</code></td>
                     <td>${acred.titular || 'N/A'}</td>
                     <td>${acred.cuit || 'N/A'}</td>
+                    <td><small>${clienteNombre}</small></td>
                     <td><strong>$${parseFloat(acred.importe).toLocaleString()}</strong></td>
                     <td><small>${new Date(acred.fecha_hora).toLocaleString('es-AR')}</small></td>
                     <td>
@@ -498,16 +501,24 @@
 
         async function loadPendientes() {
             try {
+                console.log('🔍 Cargando acreditaciones pendientes (no cotejadas)...');
                 const response = await fetch('/api/acreditaciones-pendientes?limit=50');
                 const data = await response.json();
 
                 if (data.success) {
+                    console.log(`📊 Acreditaciones pendientes cargadas: ${data.data.length}`);
+                    console.log('📋 Primera acreditación pendiente:', data.data[0]);
+                    
                     displayAcreditaciones(data.data);
                     document.getElementById('resultCount').textContent = data.data.length;
                     document.getElementById('paginationContainer').style.display = 'none';
+                    
+                    // Mostrar mensaje explicativo
+                    showAlert('Mostrando acreditaciones pendientes (sin cotejar). El botón de eliminar solo aparece en acreditaciones cotejadas con comprobante asignado.', 'info');
                 }
             } catch (error) {
                 console.error('Error cargando pendientes:', error);
+                showAlert('Error al cargar acreditaciones pendientes', 'danger');
             }
         }
 
