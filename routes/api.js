@@ -1299,7 +1299,7 @@ router.get('/clientes/:id/comprobantes', async (req, res) => {
         a.importe as acreditacion_importe,
         a.fecha_hora as acreditacion_fecha
       FROM comprobantes_whatsapp c
-      LEFT JOIN acreditaciones a ON c.id_acreditacion::integer = a.id
+      LEFT JOIN acreditaciones a ON c.acreditacion_id::integer = a.id
       WHERE c.id_cliente = $1
       ORDER BY c.fecha_recepcion DESC
       LIMIT $2 OFFSET $3
@@ -1336,11 +1336,11 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
   
   try {
     const { id } = req.params;
-    const { id_acreditacion } = req.body;
+    const { acreditacion_id } = req.body;
 
-    console.log('🚀 Iniciando asignación de comprobante:', { comprobante_id: id, acreditacion_id: id_acreditacion });
+    console.log('🚀 Iniciando asignación de comprobante:', { comprobante_id: id, acreditacion_id: acreditacion_id });
 
-    if (!id_acreditacion) {
+    if (!acreditacion_id) {
       return res.status(400).json({
         error: 'ID de acreditación requerido',
         message: 'Debe especificar el ID de la acreditación'
@@ -1366,18 +1366,18 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
       nombre: comprobante.rows[0].nombre_remitente,
       importe: comprobante.rows[0].importe,
       cotejado: comprobante.rows[0].cotejado,
-      id_acreditacion: comprobante.rows[0].id_acreditacion,
+      acreditacion_id: comprobante.rows[0].acreditacion_id,
       fecha_cotejo: comprobante.rows[0].fecha_cotejo
     });
 
     // Verificar que la acreditación existe
     const acreditacion = await client.query(
       'SELECT * FROM acreditaciones WHERE id = $1',
-      [id_acreditacion]
+      [acreditacion_id]
     );
 
     if (acreditacion.rows.length === 0) {
-      console.log('❌ Acreditación no encontrada:', id_acreditacion);
+      console.log('❌ Acreditación no encontrada:', acreditacion_id);
       return res.status(404).json({
         error: 'Acreditación no encontrada',
         message: 'La acreditación especificada no existe'
@@ -1395,12 +1395,12 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
 
     // Verificar que la acreditación no esté ya asignada
     const acreditacionAsignada = await client.query(
-      'SELECT id FROM comprobantes_whatsapp WHERE id_acreditacion = $1 AND id != $2',
-      [id_acreditacion, id]
+      'SELECT id FROM comprobantes_whatsapp WHERE acreditacion_id = $1 AND id != $2',
+      [acreditacion_id, id]
     );
 
     if (acreditacionAsignada.rows.length > 0) {
-      console.log('❌ Acreditación ya asignada a otro comprobante:', id_acreditacion);
+      console.log('❌ Acreditación ya asignada a otro comprobante:', acreditacion_id);
       return res.status(409).json({
         error: 'Acreditación ya asignada',
         message: 'Esta acreditación ya está asignada a otro comprobante'
@@ -1412,9 +1412,9 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
     // Actualizar el comprobante
     await client.query(`
       UPDATE comprobantes_whatsapp 
-      SET id_acreditacion = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP
+      SET acreditacion_id = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP
       WHERE id = $2
-    `, [id_acreditacion, id]);
+    `, [acreditacion_id, id]);
 
     console.log('✅ Comprobante actualizado');
 
@@ -1423,7 +1423,7 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
       UPDATE acreditaciones 
       SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP, id_cliente = $2
       WHERE id = $3
-    `, [comprobante.rows[0].id_comprobante, comprobante.rows[0].id_cliente, id_acreditacion]);
+    `, [comprobante.rows[0].id_comprobante, comprobante.rows[0].id_cliente, acreditacion_id]);
 
     console.log('✅ Acreditación actualizada');
 
@@ -1438,13 +1438,13 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
       nombre: comprobanteDespues.rows[0].nombre_remitente,
       importe: comprobanteDespues.rows[0].importe,
       cotejado: comprobanteDespues.rows[0].cotejado,
-      id_acreditacion: comprobanteDespues.rows[0].id_acreditacion,
+      acreditacion_id: comprobanteDespues.rows[0].acreditacion_id,
       fecha_cotejo: comprobanteDespues.rows[0].fecha_cotejo
     });
 
     const acreditacionDespues = await client.query(
       'SELECT * FROM acreditaciones WHERE id = $1',
-      [id_acreditacion]
+      [acreditacion_id]
     );
 
     console.log('💰 Estado DESPUÉS de asignación - Acreditación:', {
@@ -1462,8 +1462,8 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
       VALUES ($1, $2, $3, $4)
     `, [
       'comprobante_asignado',
-      `Comprobante ${comprobante.rows[0].id_comprobante} asignado a acreditación ${id_acreditacion}`,
-      JSON.stringify({ comprobante_id: id, acreditacion_id: id_acreditacion }),
+      `Comprobante ${comprobante.rows[0].id_comprobante} asignado a acreditación ${acreditacion_id}`,
+      JSON.stringify({ comprobante_id: id, acreditacion_id: acreditacion_id }),
       'exitoso'
     ]);
 
@@ -1494,7 +1494,7 @@ router.put('/comprobantes/:id/desasignar', async (req, res) => {
 
     // Verificar que el comprobante existe y está asignado
     const comprobante = await client.query(
-      'SELECT id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id = $1',
+      'SELECT id_comprobante, acreditacion_id FROM comprobantes_whatsapp WHERE id = $1',
       [id]
     );
 
@@ -1505,19 +1505,19 @@ router.put('/comprobantes/:id/desasignar', async (req, res) => {
       });
     }
 
-    if (!comprobante.rows[0].id_acreditacion) {
+    if (!comprobante.rows[0].acreditacion_id) {
       return res.status(400).json({
         error: 'Comprobante no asignado',
         message: 'Este comprobante no está asignado a ninguna acreditación'
       });
     }
 
-    const id_acreditacion = comprobante.rows[0].id_acreditacion;
+    const acreditacion_id = comprobante.rows[0].acreditacion_id;
 
     // Desasignar el comprobante
     await client.query(`
       UPDATE comprobantes_whatsapp 
-      SET id_acreditacion = NULL, cotejado = false, fecha_cotejo = NULL
+      SET acreditacion_id = NULL, cotejado = false, fecha_cotejo = NULL
       WHERE id = $1
     `, [id]);
 
@@ -1526,7 +1526,7 @@ router.put('/comprobantes/:id/desasignar', async (req, res) => {
       UPDATE acreditaciones 
       SET id_comprobante_whatsapp = NULL, cotejado = false, fecha_cotejo = NULL, id_cliente = NULL
       WHERE id = $1
-    `, [id_acreditacion]);
+    `, [acreditacion_id]);
 
     // Registrar log
     await client.query(`
@@ -1534,8 +1534,8 @@ router.put('/comprobantes/:id/desasignar', async (req, res) => {
       VALUES ($1, $2, $3, $4)
     `, [
       'comprobante_desasignado',
-      `Comprobante ${comprobante.rows[0].id_comprobante} desasignado de acreditación ${id_acreditacion}`,
-      JSON.stringify({ comprobante_id: id, acreditacion_id: id_acreditacion }),
+      `Comprobante ${comprobante.rows[0].id_comprobante} desasignado de acreditación ${acreditacion_id}`,
+      JSON.stringify({ comprobante_id: id, acreditacion_id: acreditacion_id }),
       'exitoso'
     ]);
 
@@ -1573,7 +1573,7 @@ router.get('/comprobantes/sin-acreditacion', async (req, res) => {
 
     console.log('Parámetros recibidos:', { page, limit, search, importe_min, importe_max, fecha_desde, fecha_hasta, cliente_id });
 
-    let whereConditions = ['c.id_acreditacion IS NULL'];
+    let whereConditions = ['c.acreditacion_id IS NULL'];
     let params = [];
     let paramIndex = 1;
 
@@ -1775,7 +1775,7 @@ router.delete('/comprobantes/:id', async (req, res) => {
 
     // Verificar que el comprobante existe
     const comprobante = await client.query(
-      'SELECT id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id = $1',
+      'SELECT id_comprobante, acreditacion_id FROM comprobantes_whatsapp WHERE id = $1',
       [id]
     );
 
@@ -1787,7 +1787,7 @@ router.delete('/comprobantes/:id', async (req, res) => {
     }
 
     // Verificar si está asignado a una acreditación
-    if (comprobante.rows[0].id_acreditacion) {
+    if (comprobante.rows[0].acreditacion_id) {
       return res.status(400).json({
         error: 'Comprobante asignado',
         message: 'No se puede eliminar un comprobante que está asignado a una acreditación'
@@ -1854,8 +1854,8 @@ router.get('/clientes/:id/resumen', async (req, res) => {
         SUM(importe) as total_importe_comprobantes,
         COUNT(CASE WHEN cotejado = true THEN 1 END) as comprobantes_cotejados,
         COUNT(CASE WHEN cotejado = false THEN 1 END) as comprobantes_pendientes,
-        COUNT(CASE WHEN id_acreditacion IS NOT NULL THEN 1 END) as comprobantes_asignados,
-        COUNT(CASE WHEN id_acreditacion IS NULL THEN 1 END) as comprobantes_sin_asignar,
+        COUNT(CASE WHEN acreditacion_id IS NOT NULL THEN 1 END) as comprobantes_asignados,
+        COUNT(CASE WHEN acreditacion_id IS NULL THEN 1 END) as comprobantes_sin_asignar,
         SUM(CASE WHEN cotejado = true THEN importe ELSE 0 END) as total_importe_cotejados
       FROM comprobantes_whatsapp 
       WHERE id_cliente = $1
@@ -2581,12 +2581,12 @@ router.post('/comprobantes/whatsapp', [
         importe,
         fecha_envio,
         id_cliente,
-        id_acreditacion,
+        acreditacion_id,
         cotejado,
         fecha_cotejo,
         estado
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING id, id_comprobante, cotejado, id_acreditacion
+      RETURNING id, id_comprobante, cotejado, acreditacion_id
     `, [
       id_comprobante,
       nombre_remitente,
@@ -2608,7 +2608,7 @@ router.post('/comprobantes/whatsapp', [
         UPDATE acreditaciones 
         SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP, id_cliente = $2
         WHERE id = $3
-      `, [comprobante.id_comprobante, comprobante.id_cliente, id_acreditacion]);
+      `, [comprobante.id_comprobante, comprobante.id_cliente, acreditacion_id]);
 
       console.log('✅ Acreditación actualizada con comprobante');
     }
