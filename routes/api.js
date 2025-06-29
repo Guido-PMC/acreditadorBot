@@ -394,10 +394,11 @@ router.get('/acreditaciones/sin-comprobante', async (req, res) => {
       importe_min,
       importe_max,
       fecha_desde,
-      fecha_hasta
+      fecha_hasta,
+      cliente_id
     } = req.query;
 
-    console.log('Parámetros recibidos:', { page, limit, search, importe_min, importe_max, fecha_desde, fecha_hasta });
+    console.log('Parámetros recibidos:', { page, limit, search, importe_min, importe_max, fecha_desde, fecha_hasta, cliente_id });
 
     let whereConditions = ['a.id_comprobante_whatsapp IS NULL'];
     let params = [];
@@ -410,6 +411,13 @@ router.get('/acreditaciones/sin-comprobante', async (req, res) => {
         a.cuit ILIKE $${paramIndex}
       )`);
       params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Filtro por cliente
+    if (cliente_id) {
+      whereConditions.push(`a.id_cliente = $${paramIndex}`);
+      params.push(parseInt(cliente_id));
       paramIndex++;
     }
 
@@ -1558,8 +1566,11 @@ router.get('/comprobantes/sin-acreditacion', async (req, res) => {
       importe_min,
       importe_max,
       fecha_desde,
-      fecha_hasta
+      fecha_hasta,
+      cliente_id
     } = req.query;
+
+    console.log('Parámetros recibidos:', { page, limit, search, importe_min, importe_max, fecha_desde, fecha_hasta, cliente_id });
 
     let whereConditions = ['c.id_acreditacion IS NULL'];
     let params = [];
@@ -1572,6 +1583,13 @@ router.get('/comprobantes/sin-acreditacion', async (req, res) => {
         c.cuit ILIKE $${paramIndex}
       )`);
       params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Filtro por cliente
+    if (cliente_id) {
+      whereConditions.push(`c.id_cliente = $${paramIndex}`);
+      params.push(parseInt(cliente_id));
       paramIndex++;
     }
 

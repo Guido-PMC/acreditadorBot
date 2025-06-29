@@ -61,8 +61,13 @@
 
     <!-- Filtros -->
     <div class="row mb-3">
-      <div class="col-md-3">
+      <div class="col-md-2">
         <input type="text" id="searchInput" class="form-control" placeholder="Buscar..." oninput="applyFilters()">
+      </div>
+      <div class="col-md-2">
+        <select id="clienteFilter" class="form-control" onchange="applyFilters()">
+          <option value="">Todos los clientes</option>
+        </select>
       </div>
       <div class="col-md-2">
         <input type="number" id="importeMin" class="form-control" placeholder="Importe mínimo" oninput="applyFilters()">
@@ -417,6 +422,7 @@
 
     function getFilters() {
       const search = document.getElementById('searchInput').value;
+      const clienteFilter = document.getElementById('clienteFilter').value;
       const importeMin = document.getElementById('importeMin').value;
       const importeMax = document.getElementById('importeMax').value;
       const fechaDesde = document.getElementById('fechaDesde').value;
@@ -424,6 +430,7 @@
       
       let filters = '';
       if (search) filters += `&search=${encodeURIComponent(search)}`;
+      if (clienteFilter) filters += `&cliente_id=${clienteFilter}`;
       if (importeMin) filters += `&importe_min=${importeMin}`;
       if (importeMax) filters += `&importe_max=${importeMax}`;
       if (fechaDesde) filters += `&fecha_desde=${fechaDesde}`;
@@ -439,6 +446,7 @@
 
     function clearFilters() {
       document.getElementById('searchInput').value = '';
+      document.getElementById('clienteFilter').value = '';
       document.getElementById('importeMin').value = '';
       document.getElementById('importeMax').value = '';
       document.getElementById('fechaDesde').value = '';
@@ -472,7 +480,29 @@
       }
     }
 
+    async function loadClientes() {
+      try {
+        const res = await fetch('/api/clientes?limit=1000');
+        const data = await res.json();
+        
+        if (data.success) {
+          const select = document.getElementById('clienteFilter');
+          select.innerHTML = '<option value="">Todos los clientes</option>';
+          
+          data.data.forEach(cliente => {
+            const option = document.createElement('option');
+            option.value = cliente.id;
+            option.textContent = `${cliente.nombre} ${cliente.apellido || ''}`.trim();
+            select.appendChild(option);
+          });
+        }
+      } catch (error) {
+        console.error('Error al cargar clientes:', error);
+      }
+    }
+
     // Inicializar
+    loadClientes();
     loadComprobantes();
     loadAcreditaciones();
   </script>
