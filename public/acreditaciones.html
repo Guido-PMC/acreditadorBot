@@ -43,9 +43,9 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item"><a class="nav-link" href="/dashboard.html">Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="/acreditaciones.html">Acreditaciones</a></li>
                     <li class="nav-item"><a class="nav-link" href="/clientes.html">Clientes</a></li>
                     <li class="nav-item"><a class="nav-link" href="/asignacion.html">Asignación</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/acreditaciones.html">Comprobantes</a></li>
                     <li class="nav-item"><a class="nav-link" href="/upload.html">Subir CSV</a></li>
                     <li class="nav-item"><a class="nav-link" href="/logs.html">Logs</a></li>
                     <li class="nav-item"><a class="nav-link" href="/portal-users.html">Portal Usuarios</a></li>
@@ -391,7 +391,14 @@
                 return;
             }
 
-            tbody.innerHTML = acreditaciones.map(acred => `
+            console.log('🔍 Renderizando acreditaciones:', acreditaciones.length);
+            console.log('📋 Primera acreditación:', acreditaciones[0]);
+
+            tbody.innerHTML = acreditaciones.map(acred => {
+                const hasComprobante = acred.id_comprobante_whatsapp && acred.id_comprobante_whatsapp !== null;
+                console.log(`📊 Acreditación ${acred.id}: tiene comprobante = ${hasComprobante}, id_comprobante = ${acred.id_comprobante_whatsapp}`);
+                
+                return `
                 <tr>
                     <td><code>${acred.id}</code></td>
                     <td>${acred.titular || 'N/A'}</td>
@@ -415,7 +422,7 @@
                                     <i class="fas fa-check"></i>
                                 </button>
                             ` : ''}
-                            ${acred.id_comprobante_whatsapp ? `
+                            ${hasComprobante ? `
                                 <button class="btn btn-outline-danger delete-comprobante-btn" 
                                         data-acreditacion-id="${acred.id}" 
                                         data-comprobante-id="${acred.id_comprobante_whatsapp}" 
@@ -426,7 +433,7 @@
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
 
         function displayPagination(pagination) {
