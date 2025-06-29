@@ -86,6 +86,12 @@ router.post('/csv', upload.single('file'), async (req, res) => {
           continue;
         }
 
+        // Validar que sea una transferencia entrante
+        if (row.Tipo !== 'Transferencia entrante') {
+          skippedCount++;
+          continue; // Saltar transferencias salientes y otros tipos
+        }
+
         // Verificar si la transacción ya existe
         const existingTransaction = await client.query(
           'SELECT id FROM acreditaciones WHERE id_transaccion = $1',
