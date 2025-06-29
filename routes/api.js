@@ -860,7 +860,7 @@ router.get('/acreditaciones', async (req, res) => {
     const offset = (page - 1) * limit;
 
     // Validar campo de ordenamiento
-    const camposPermitidos = ['fecha_hora', 'importe', 'titular', 'cuit', 'estado', 'fecha_carga'];
+    const camposPermitidos = ['id', 'fecha_hora', 'importe', 'titular', 'cuit', 'estado', 'fecha_carga'];
     const ordenPermitido = orden.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const campoOrden = camposPermitidos.includes(ordenar_por) ? ordenar_por : 'fecha_hora';
 

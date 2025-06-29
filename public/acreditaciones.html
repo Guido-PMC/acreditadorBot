@@ -190,7 +190,9 @@
                     <table class="table table-hover">
                         <thead class="table-light">
                             <tr>
-                                <th>ID</th>
+                                <th style="cursor: pointer;" onclick="sortById()">
+                                    ID <i class="fas fa-sort" id="idSortIcon"></i>
+                                </th>
                                 <th>Titular</th>
                                 <th>CUIT</th>
                                 <th>Importe</th>
@@ -296,6 +298,7 @@
         let currentAcreditacionId = null;
         let cotejoModal;
         let sortOrder = 'desc'; // desc = newest first, asc = oldest first
+        let sortField = 'fecha_hora'; // campo por defecto para ordenar
 
         document.addEventListener('DOMContentLoaded', function() {
             cotejoModal = new bootstrap.Modal(document.getElementById('cotejoModal'));
@@ -326,7 +329,7 @@
                 const params = new URLSearchParams({
                     page: page,
                     limit: 20,
-                    ordenar_por: 'fecha_hora',
+                    ordenar_por: sortField,
                     orden: sortOrder.toUpperCase()
                 });
 
@@ -582,16 +585,48 @@
         }
 
         function sortByDate() {
+            // Cambiar el campo de ordenamiento a fecha
+            sortField = 'fecha_hora';
+            
             // Cambiar el orden de clasificación
             sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
             
-            // Actualizar el ícono
-            const icon = document.getElementById('dateSortIcon');
+            // Actualizar el ícono de fecha
+            const dateIcon = document.getElementById('dateSortIcon');
+            const idIcon = document.getElementById('idSortIcon');
+            
             if (sortOrder === 'desc') {
-                icon.className = 'fas fa-sort-down';
+                dateIcon.className = 'fas fa-sort-down';
             } else {
-                icon.className = 'fas fa-sort-up';
+                dateIcon.className = 'fas fa-sort-up';
             }
+            
+            // Resetear el ícono de ID
+            idIcon.className = 'fas fa-sort';
+            
+            // Recargar las acreditaciones con el nuevo orden
+            loadAcreditaciones(currentPage);
+        }
+
+        function sortById() {
+            // Cambiar el campo de ordenamiento a ID
+            sortField = 'id';
+            
+            // Cambiar el orden de clasificación
+            sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+            
+            // Actualizar el ícono de ID
+            const idIcon = document.getElementById('idSortIcon');
+            const dateIcon = document.getElementById('dateSortIcon');
+            
+            if (sortOrder === 'desc') {
+                idIcon.className = 'fas fa-sort-down';
+            } else {
+                idIcon.className = 'fas fa-sort-up';
+            }
+            
+            // Resetear el ícono de fecha
+            dateIcon.className = 'fas fa-sort';
             
             // Recargar las acreditaciones con el nuevo orden
             loadAcreditaciones(currentPage);
