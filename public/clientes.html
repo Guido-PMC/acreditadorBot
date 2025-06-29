@@ -19,7 +19,7 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item"><a class="nav-link" href="/dashboard.html">Dashboard</a></li>
-          <li class="nav-item"><a class="nav-link" href="/acreditaciones.html">Comprobantes</a></li>
+          <li class="nav-item"><a class="nav-link" href="/acreditaciones.html">Acreditaciones</a></li>
           <li class="nav-item"><a class="nav-link active" href="/clientes.html">Clientes</a></li>
           <li class="nav-item"><a class="nav-link" href="/asignacion.html">Asignación</a></li>
           <li class="nav-item"><a class="nav-link" href="/upload.html">Subir CSV</a></li>
@@ -45,6 +45,8 @@
             <th>Nombre</th>
             <th>Apellido</th>
             <th>Estado</th>
+            <th>Saldo Total</th>
+            <th>Saldo Pendiente</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -105,6 +107,41 @@
 
     async function loadClientes(page = 1) {
       currentPage = page;
+      currentSearch = document.getElementById("searchInput").value;
+      let url = `/api/clientes?page=${page}async function loadClientes(page = 1) {limit=10`;
+      if (currentSearch) url += `async function loadClientes(page = 1) {search=${encodeURIComponent(currentSearch)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!data.success) {
+        showAlert("danger", data.error || "Error al cargar clientes");
+        return;
+      }
+      
+      // Cargar saldos para cada cliente
+      const clientesConSaldos = await Promise.all(data.data.map(async (cliente) => {
+        try {
+          const saldoRes = await fetch(`/api/clientes/${cliente.id}/resumen`);
+          const saldoData = await saldoRes.json();
+          if (saldoData.success) {
+            return {
+              ...cliente,
+              saldo_total: saldoData.data.resumen.comprobantes.total_importe_cotejados || 0,
+              saldo_pendiente: saldoData.data.resumen.comprobantes.total_importe_comprobantes - (saldoData.data.resumen.comprobantes.total_importe_cotejados || 0)
+            };
+          }
+        } catch (error) {
+          console.error("Error cargando saldo para cliente:", cliente.id, error);
+        }
+        return {
+          ...cliente,
+          saldo_total: 0,
+          saldo_pendiente: 0
+        };
+      }));
+      
+      renderClientes(clientesConSaldos);
+      renderPagination(data.pagination);
+      currentPage = page;
       currentSearch = document.getElementById('searchInput').value;
       let url = `/api/clientes?page=${page}&limit=10`;
       if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
@@ -119,6 +156,33 @@
     }
 
     function renderClientes(clientes) {
+      const tbody = document.getElementById("clientesTableBody");
+      tbody.innerHTML = "";
+      clientes.forEach(cliente => {
+        const saldoTotal = parseFloat(cliente.saldo_total || 0).toLocaleString("es-AR", {
+          style: "currency",
+          currency: "ARS"
+        });
+        const saldoPendiente = parseFloat(cliente.saldo_pendiente || 0).toLocaleString("es-AR", {
+          style: "currency",
+          currency: "ARS"
+        });
+        
+        tbody.innerHTML += `
+          <tr>
+            <td>${cliente.nombre}</td>
+            <td>${cliente.apellido || ""}</td>
+            <td><span class="badge ${cliente.estado === "activo" ? "bg-success" : "bg-secondary"}">${cliente.estado}</span></td>
+            <td class="text-end fw-bold ${parseFloat(cliente.saldo_total || 0) > 0 ? "text-success" : "text-muted"}">${saldoTotal}</td>
+            <td class="text-end fw-bold ${parseFloat(cliente.saldo_pendiente || 0) > 0 ? "text-warning" : "text-muted"}">${saldoPendiente}</td>
+            <td>
+              <button class="btn btn-sm btn-info me-1" onclick="viewComprobantes(${cliente.id})">Comprobantes</button>
+              <button class="btn btn-sm btn-warning me-1" onclick="editCliente(${cliente.id})">Editar</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteCliente(${cliente.id})">Eliminar</button>
+            </td>
+          </tr>
+        `;
+      });
       const tbody = document.getElementById('clientesTableBody');
       tbody.innerHTML = '';
       clientes.forEach(cliente => {
