@@ -338,6 +338,8 @@
                     orden: sortOrder.toUpperCase()
                 });
 
+                console.log(`🔍 Cargando acreditaciones: página=${page}, campo=${sortField}, orden=${sortOrder.toUpperCase()}`);
+
                 // Add filters
                 const cuit = document.getElementById('cuitFilter').value;
                 const importe = document.getElementById('importeFilter').value;
@@ -351,8 +353,13 @@
                 if (fechaHasta) params.append('fecha_hasta', fechaHasta);
                 if (estado) params.append('estado', estado);
 
-                const response = await fetch(`/api/acreditaciones?${params}`);
+                const url = `/api/acreditaciones?${params}`;
+                console.log(`🌐 URL de la petición: ${url}`);
+
+                const response = await fetch(url);
                 const data = await response.json();
+
+                console.log(`📊 Respuesta recibida: ${data.data?.length || 0} acreditaciones`);
 
                 if (data.success) {
                     displayAcreditaciones(data.data);
@@ -376,7 +383,7 @@
 
             tbody.innerHTML = acreditaciones.map(acred => `
                 <tr>
-                    <td><code>${acred.id_transaccion}</code></td>
+                    <td><code>${acred.id}</code></td>
                     <td>${acred.titular || 'N/A'}</td>
                     <td>${acred.cuit || 'N/A'}</td>
                     <td><strong>$${parseFloat(acred.importe).toLocaleString()}</strong></td>
@@ -590,11 +597,15 @@
         }
 
         function sortByDate() {
+            console.log('🔍 Función sortByDate llamada');
+            
             // Cambiar el campo de ordenamiento a fecha
             sortField = 'fecha_hora';
             
             // Cambiar el orden de clasificación
             sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+            
+            console.log(`📊 Ordenamiento: campo=${sortField}, orden=${sortOrder}`);
             
             // Actualizar el ícono de fecha
             const dateIcon = document.getElementById('dateSortIcon');
@@ -614,11 +625,15 @@
         }
 
         function sortById() {
+            console.log('🔍 Función sortById llamada');
+            
             // Cambiar el campo de ordenamiento a ID
             sortField = 'id';
             
             // Cambiar el orden de clasificación
             sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+            
+            console.log(`📊 Ordenamiento: campo=${sortField}, orden=${sortOrder}`);
             
             // Actualizar el ícono de ID
             const idIcon = document.getElementById('idSortIcon');
