@@ -113,11 +113,17 @@
             <div class="card-body">
                 <div class="search-filters">
                     <div class="row g-3">
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label">CUIT</label>
                             <input type="text" class="form-control" id="cuitFilter" placeholder="Buscar por CUIT">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label class="form-label">Cliente</label>
+                            <select class="form-select" id="clienteFilter">
+                                <option value="">Todos los clientes</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label">Importe</label>
                             <input type="number" class="form-control" id="importeFilter" placeholder="Importe exacto">
                         </div>
@@ -140,7 +146,23 @@
                         </div>
                     </div>
                     <div class="row mt-3">
-                        <div class="col-12">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center">
+                                <label class="form-label me-2 mb-0">Ordenar por:</label>
+                                <select class="form-select me-2" id="ordenarPor" style="width: auto;">
+                                    <option value="fecha_hora">Fecha</option>
+                                    <option value="importe">Importe</option>
+                                    <option value="titular">Titular</option>
+                                    <option value="cuit">CUIT</option>
+                                    <option value="id">ID</option>
+                                </select>
+                                <select class="form-select" id="ordenDireccion" style="width: auto;">
+                                    <option value="DESC">Descendente</option>
+                                    <option value="ASC">Ascendente</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
                             <button class="btn btn-primary" onclick="searchAcreditaciones()">
                                 <i class="fas fa-search me-2"></i>Buscar
                             </button>
@@ -300,9 +322,33 @@
                 }
             });
             
+            // Cargar clientes para el filtro
+            loadClientes();
             loadStats();
             loadAcreditaciones();
         });
+
+        // Cargar clientes para el filtro
+        async function loadClientes() {
+            try {
+                const response = await fetch('/api/clientes?page=1&limit=1000');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const clienteFilter = document.getElementById('clienteFilter');
+                    clienteFilter.innerHTML = '<option value="">Todos los clientes</option>';
+                    
+                    data.data.forEach(cliente => {
+                        const option = document.createElement('option');
+                        option.value = cliente.id;
+                        option.textContent = `${cliente.nombre} ${cliente.apellido || ''}`.trim();
+                        clienteFilter.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error cargando clientes:', error);
+            }
+        }
 
         async function loadStats() {
             try {
@@ -324,23 +370,29 @@
 
         async function loadAcreditaciones(page = 1) {
             try {
+                // Obtener valores de ordenamiento del formulario
+                const ordenarPor = document.getElementById('ordenarPor').value;
+                const ordenDireccion = document.getElementById('ordenDireccion').value;
+                
                 const params = new URLSearchParams({
                     page: page,
                     limit: 20,
-                    ordenar_por: sortField,
-                    orden: sortOrder.toUpperCase()
+                    ordenar_por: ordenarPor,
+                    orden: ordenDireccion
                 });
 
-                console.log(`🔍 Cargando acreditaciones: página=${page}, campo=${sortField}, orden=${sortOrder.toUpperCase()}`);
+                console.log(`🔍 Cargando acreditaciones: página=${page}, campo=${ordenarPor}, orden=${ordenDireccion}`);
 
                 // Add filters
                 const cuit = document.getElementById('cuitFilter').value;
+                const cliente = document.getElementById('clienteFilter').value;
                 const importe = document.getElementById('importeFilter').value;
                 const fechaDesde = document.getElementById('fechaDesdeFilter').value;
                 const fechaHasta = document.getElementById('fechaHastaFilter').value;
                 const cotejado = document.getElementById('cotejadoFilter').value;
 
                 if (cuit) params.append('cuit', cuit);
+                if (cliente) params.append('cliente', cliente);
                 if (importe) params.append('importe', importe);
                 if (fechaDesde) params.append('fecha_desde', fechaDesde);
                 if (fechaHasta) params.append('fecha_hasta', fechaHasta);
@@ -362,7 +414,7 @@
             } catch (error) {
                 console.error('Error cargando acreditaciones:', error);
                 document.getElementById('acreditacionesTable').innerHTML = 
-                    '<tr><td colspan="10" class="text-center text-danger">Error al cargar datos</td></tr>';
+                    '<tr><td colspan="12" class="text-center text-danger">Error al cargar datos</td></tr>';
             }
         }
 
@@ -486,10 +538,13 @@
 
         function clearFilters() {
             document.getElementById('cuitFilter').value = '';
+            document.getElementById('clienteFilter').value = '';
             document.getElementById('importeFilter').value = '';
             document.getElementById('fechaDesdeFilter').value = '';
             document.getElementById('fechaHastaFilter').value = '';
             document.getElementById('cotejadoFilter').value = '';
+            document.getElementById('ordenarPor').value = 'fecha_hora';
+            document.getElementById('ordenDireccion').value = 'DESC';
             currentPage = 1;
             loadAcreditaciones();
         }
