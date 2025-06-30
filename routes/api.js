@@ -3330,4 +3330,129 @@ router.get('/comprobantes/stats', async (req, res) => {
   }
 });
 
+// GET /api/comprobantes - Listar comprobantes con paginación y filtros
+router.get('/comprobantes', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      sort = 'fecha_envio',
+      order = 'DESC',
+      search = '',
+      cotejado = '',
+      cliente_id = ''
+    } = req.query;
+
+    console.log('🔍 GET /api/comprobantes - Parámetros:', { page, limit, sort, order, search, cotejado, cliente_id });
+
+    // Validar parámetros
+    const validSortFields = ['id', 'fecha_envio', 'importe', 'nombre_remitente', 'cuit_remitente'];
+    const validOrders = ['ASC', 'DESC'];
+    
+    if (!validSortFields.includes(sort)) {
+      return res.status(400).json({
+        error: 'Campo de ordenamiento inválido',
+        validFields: validSortFields
+      });
+    }
+    
+    if (!validOrders.includes(order.toUpperCase())) {
+      return res.status(400).json({
+        error: 'Orden inválido',
+        validOrders: validOrders
+      });
+    }
+
+    // Construir query base
+    let whereConditions = [];
+    let queryParams = [];
+    let paramIndex = 1;
+
+    // Filtro de búsqueda
+    if (search) {
+      whereConditions.push(`(
+        nombre_remitente ILIKE $${paramIndex} OR 
+        cuit_remitente ILIKE $${paramIndex} OR 
+        numero_comprobante ILIKE $${paramIndex}
+      )`);
+      queryParams.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Filtro de cotejado
+    if (cotejado !== '') {
+      whereConditions.push(`cotejado = $${paramIndex}`);
+      queryParams.push(cotejado === 'true');
+      paramIndex++;
+    }
+
+    // Filtro de cliente
+    if (cliente_id) {
+      whereConditions.push(`id_cliente = $${paramIndex}`);
+      queryParams.push(cliente_id);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // Query para contar total
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM comprobantes_whatsapp
+      ${whereClause}
+    `;
+    
+    const countResult = await client.query(countQuery, queryParams);
+    const total = parseInt(countResult.rows[0].total);
+
+    // Calcular paginación
+    const offset = (page - 1) * limit;
+    const totalPages = Math.ceil(total / limit);
+
+    // Query principal con JOIN para obtener información del cliente
+    const mainQuery = `
+      SELECT 
+        cw.*,
+        c.nombre as cliente_nombre,
+        c.apellido as cliente_apellido
+      FROM comprobantes_whatsapp cw
+      LEFT JOIN clientes c ON cw.id_cliente = c.id
+      ${whereClause}
+      ORDER BY cw.${sort} ${order}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    
+    queryParams.push(parseInt(limit), offset);
+    
+    const result = await client.query(mainQuery, queryParams);
+    const comprobantes = result.rows;
+
+    console.log(`📊 Comprobantes encontrados: ${comprobantes.length} de ${total} total`);
+
+    res.json({
+      success: true,
+      data: comprobantes,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo comprobantes:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron obtener los comprobantes'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 
