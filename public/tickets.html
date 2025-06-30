@@ -223,17 +223,46 @@
         // Cargar estadísticas
         async function loadStats() {
             try {
+                console.log('📊 Cargando estadísticas de tickets...');
                 const res = await fetch('/api/comprobantes/stats');
                 const data = await res.json();
+                
+                console.log('📈 Respuesta del servidor:', data);
+                
                 if (data.success) {
-                    document.getElementById('totalTickets').textContent = data.data.total || 0;
-                    document.getElementById('totalCotejados').textContent = data.data.cotejados || 0;
-                    document.getElementById('totalPendientes').textContent = data.data.pendientes || 0;
-                    document.getElementById('importeTotal').textContent = 
-                        parseFloat(data.data.importe_total || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+                    const totalElement = document.getElementById('totalTickets');
+                    const cotejadosElement = document.getElementById('totalCotejados');
+                    const pendientesElement = document.getElementById('totalPendientes');
+                    const importeElement = document.getElementById('importeTotal');
+                    
+                    if (totalElement) {
+                        totalElement.textContent = data.data.total || 0;
+                        console.log('✅ Total actualizado:', data.data.total);
+                    }
+                    
+                    if (cotejadosElement) {
+                        cotejadosElement.textContent = data.data.cotejados || 0;
+                        console.log('✅ Cotejados actualizado:', data.data.cotejados);
+                    }
+                    
+                    if (pendientesElement) {
+                        pendientesElement.textContent = data.data.pendientes || 0;
+                        console.log('✅ Pendientes actualizado:', data.data.pendientes);
+                    }
+                    
+                    if (importeElement) {
+                        const importeFormateado = parseFloat(data.data.importe_total || 0).toLocaleString('es-AR', { 
+                            style: 'currency', 
+                            currency: 'ARS' 
+                        });
+                        importeElement.textContent = importeFormateado;
+                        console.log('✅ Importe actualizado:', importeFormateado);
+                    }
+                } else {
+                    console.error('❌ Error en respuesta:', data);
                 }
             } catch (error) {
-                console.error('Error cargando estadísticas:', error);
+                console.error('❌ Error cargando estadísticas:', error);
             }
         }
 
@@ -419,8 +448,17 @@ Acreditación ID: ${ticket.id_acreditacion || 'N/A'}
             }
         }
 
-        // Inicializar
+        // Inicializar cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 DOM cargado, inicializando tickets...');
+            loadStats();
+            loadClientes();
+            loadTickets();
+        });
+
+        // Backup para window.onload
         window.onload = () => {
+            console.log('🔄 Window.onload ejecutado como backup');
             loadStats();
             loadClientes();
             loadTickets();
