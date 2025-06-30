@@ -271,28 +271,38 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
 
     // Formatear respuesta según el formato solicitado
     if (format === 'csv') {
+      // Limpiar y formatear datos específicamente para Google Sheets
+      const cleanData = data.map(row => row.map(cell => {
+        let cellStr = String(cell || '');
+        // Remover caracteres problemáticos
+        cellStr = cellStr.replace(/[\r\n\t]/g, ' ');
+        // Escapar comillas dobles
+        if (cellStr.includes('"')) {
+          cellStr = cellStr.replace(/"/g, '""');
+        }
+        // Envolver en comillas si contiene comas, espacios o caracteres especiales
+        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes(' ')) {
+          cellStr = `"${cellStr}"`;
+        }
+        return cellStr;
+      }));
+
       const csvContent = [
         headers.join(','),
-        ...data.map(row => row.map(cell => {
-          // Escapar comillas y comas en CSV
-          const cellStr = String(cell || '');
-          if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
-            return `"${cellStr.replace(/"/g, '""')}"`;
-          }
-          return cellStr;
-        }).join(','))
-      ].join('\n');
+        ...cleanData.map(row => row.join(','))
+      ].join('\r\n'); // Usar CRLF para mejor compatibilidad
 
-      // Headers específicos para Google Sheets
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.setHeader('X-Content-Type-Options', 'nosniff');
+      // Headers ultra-compatibles con Google Sheets
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-cache');
       
       console.log(`✅ [${requestId}] Enviando CSV - ${data.length} filas de datos`);
       console.log(`✅ [${requestId}] Headers: ${headers.join(', ')}`);
+      console.log(`✅ [${requestId}] CSV preview: ${csvContent.substring(0, 200)}...`);
       console.log(`✅ [${requestId}] Tiempo total: ${Date.now() - startTime}ms`);
       console.log(`🔍 [${requestId}] === FIN REQUEST EXPORT ===`);
       
-      // No usar Content-Disposition para Google Sheets
       return res.send(csvContent);
     
     } else if (format === 'json') {
@@ -536,5 +546,31 @@ async function getClientMovimientos(client, cliente_id, fecha_desde, fecha_hasta
 
   return movimientos;
 }
+
+// GET /export/test/:cliente_id - Endpoint de prueba simple para Google Sheets
+router.get('/test/:cliente_id', async (req, res) => {
+  const requestId = Math.random().toString(36).substr(2, 9);
+  console.log(`🔍 [${requestId}] === TEST ENDPOINT ===`);
+  
+  try {
+    // Headers ultra-simples
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    
+    // CSV de prueba ultra-simple
+    const testCsv = [
+      'Fecha,Tipo,Importe',
+      '2025-01-01,Prueba,1000',
+      '2025-01-02,Test,2000'
+    ].join('\r\n');
+    
+    console.log(`✅ [${requestId}] Enviando CSV de prueba`);
+    return res.send(testCsv);
+    
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error en test:`, error);
+    res.status(500).send('Error');
+  }
+});
 
 module.exports = router; 
