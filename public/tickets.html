@@ -359,15 +359,64 @@
             loadTickets(1);
         }
 
-        function verTicket(id) {
-            // Implementar vista de detalles del ticket
-            alert('Ver ticket: ' + id);
+        async function verTicket(id) {
+            try {
+                const response = await fetch(`/api/comprobantes/${id}`);
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    const ticket = data.data;
+                    const detalles = `
+DETALLES DEL COMPROBANTE
+
+ID: ${ticket.id}
+ID Comprobante: ${ticket.id_comprobante || 'N/A'}
+Remitente: ${ticket.nombre_remitente || 'N/A'}
+CUIT: ${ticket.cuit || 'N/A'}
+Importe: ${parseFloat(ticket.importe || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+Fecha: ${ticket.fecha_envio ? new Date(ticket.fecha_envio).toLocaleString('es-AR') : 'N/A'}
+Estado: ${ticket.cotejado ? 'Cotejado' : 'Pendiente'}
+Cliente ID: ${ticket.id_cliente || 'N/A'}
+Acreditación ID: ${ticket.id_acreditacion || 'N/A'}
+                    `;
+                    alert(detalles);
+                } else {
+                    alert(`Error obteniendo detalles: ${data.message || data.error || 'Error desconocido'}`);
+                }
+            } catch (error) {
+                console.error('Error obteniendo detalles:', error);
+                alert('Error de conexión al obtener los detalles.');
+            }
         }
 
-        function eliminarTicket(id) {
-            if (!confirm('¿Seguro que deseas eliminar este ticket?')) return;
-            // Implementar eliminación del ticket
-            alert('Eliminar ticket: ' + id);
+        async function eliminarTicket(id) {
+            if (!confirm('¿Seguro que deseas eliminar este comprobante? Esta acción no se puede deshacer.')) return;
+            
+            try {
+                const response = await fetch(`/api/comprobantes/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Mostrar mensaje de éxito
+                    alert('Comprobante eliminado exitosamente');
+                    
+                    // Recargar la tabla y estadísticas
+                    await loadStats();
+                    await loadTickets(currentPage);
+                } else {
+                    // Mostrar error específico
+                    alert(`Error eliminando comprobante: ${data.message || data.error || 'Error desconocido'}`);
+                }
+            } catch (error) {
+                console.error('Error eliminando comprobante:', error);
+                alert('Error de conexión al eliminar el comprobante. Intenta nuevamente.');
+            }
         }
 
         // Inicializar
