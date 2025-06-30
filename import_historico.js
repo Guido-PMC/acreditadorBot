@@ -1,7 +1,8 @@
+require('dotenv').config();
 const fs = require('fs');
 const csv = require('csv-parser');
 const readline = require('readline');
-const db = require('./config/database');
+const fetch = require('node-fetch');
 
 // Configuración de la interfaz de línea de comandos
 const rl = readline.createInterface({
@@ -73,8 +74,8 @@ function parseFecha(fechaStr) {
     return new Date().toISOString();
 }
 
-// Función para crear una acreditación
-async function crearAcreditacion(client, datos) {
+// Función para crear una acreditación via HTTP
+async function crearAcreditacionHTTP(datos) {
     const {
         id_transaccion,
         importe,
@@ -87,46 +88,42 @@ async function crearAcreditacion(client, datos) {
     } = datos;
 
     try {
-        const result = await client.query(`
-            INSERT INTO acreditaciones (
+        const response = await fetch(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/notifications`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
                 id_transaccion,
                 importe,
                 titular,
-                cuit,
-                fecha_hora,
-                id_cliente,
+                cuit: cleanCUIT(cuit),
+                fecha_hora: parseFecha(fecha_comprob),
+                id_cliente: cliente_id,
                 comision,
                 importe_comision,
-                cotejado,
-                estado,
-                fuente,
-                fecha_carga
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            RETURNING id
-        `, [
-            id_transaccion,
-            importe,
-            titular,
-            cleanCUIT(cuit),
-            parseFecha(fecha_comprob),
-            cliente_id,
-            comision,
-            importe_comision,
-            true, // Ya está cotejado
-            'confirmado',
-            'historico',
-            new Date().toISOString()
-        ]);
+                tipo: 'Transferencia entrante',
+                estado: 'confirmado',
+                fuente: 'historico',
+                cotejado: true
+            })
+        });
 
-        return result.rows[0].id;
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
+        return result.data.id;
     } catch (error) {
-        console.error('Error creando acreditación:', error);
+        console.error('Error creando acreditación via HTTP:', error);
         throw error;
     }
 }
 
-// Función para crear un comprobante
-async function crearComprobante(client, datos, acreditacion_id) {
+// Función para crear un comprobante via HTTP
+async function crearComprobanteHTTP(datos, acreditacion_id) {
     const {
         id_transaccion,
         importe,
@@ -137,42 +134,40 @@ async function crearComprobante(client, datos, acreditacion_id) {
     } = datos;
 
     try {
-        const result = await client.query(`
-            INSERT INTO comprobantes_whatsapp (
+        const response = await fetch(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/comprobantes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
                 id_transaccion,
                 importe,
-                nombre_remitente,
-                cuit,
-                fecha_envio,
-                id_cliente,
-                cotejado,
-                id_acreditacion,
-                estado,
-                fecha_carga
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            RETURNING id
-        `, [
-            id_transaccion,
-            importe,
-            titular,
-            cleanCUIT(cuit),
-            parseFecha(fecha_comprob),
-            cliente_id,
-            true, // Ya está cotejado
-            acreditacion_id,
-            'confirmado',
-            new Date().toISOString()
-        ]);
+                nombre_remitente: titular,
+                cuit: cleanCUIT(cuit),
+                fecha_envio: parseFecha(fecha_comprob),
+                id_cliente: cliente_id,
+                cotejado: true,
+                id_acreditacion: acreditacion_id,
+                estado: 'confirmado',
+                fuente: 'historico'
+            })
+        });
 
-        return result.rows[0].id;
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
+        return result.data.id;
     } catch (error) {
-        console.error('Error creando comprobante:', error);
+        console.error('Error creando comprobante via HTTP:', error);
         throw error;
     }
 }
 
-// Función para crear un crédito
-async function crearCredito(client, datos) {
+// Función para crear un crédito via HTTP
+async function crearCreditoHTTP(datos) {
     const {
         importe,
         titular,
@@ -182,38 +177,38 @@ async function crearCredito(client, datos) {
     } = datos;
 
     try {
-        const result = await client.query(`
-            INSERT INTO pagos (
-                id_cliente,
-                concepto,
+        const response = await fetch(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/pagos`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id_cliente: cliente_id,
+                concepto: `Crédito histórico: ${titular}`,
                 importe,
-                fecha_pago,
-                tipo_pago,
+                fecha_pago: parseFecha(fecha_comprob),
+                tipo_pago: 'credito',
                 metodo_pago,
-                estado,
-                fecha_creacion
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING id
-        `, [
-            cliente_id,
-            `Crédito histórico: ${titular}`,
-            importe,
-            parseFecha(fecha_comprob),
-            'credito',
-            metodo_pago,
-            'confirmado',
-            new Date().toISOString()
-        ]);
+                estado: 'confirmado',
+                fuente: 'historico'
+            })
+        });
 
-        return result.rows[0].id;
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
+        return result.data.id;
     } catch (error) {
-        console.error('Error creando crédito:', error);
+        console.error('Error creando crédito via HTTP:', error);
         throw error;
     }
 }
 
-// Función para crear un pago
-async function crearPago(client, datos) {
+// Función para crear un pago via HTTP
+async function crearPagoHTTP(datos) {
     const {
         importe,
         titular,
@@ -223,70 +218,88 @@ async function crearPago(client, datos) {
     } = datos;
 
     try {
-        const result = await client.query(`
-            INSERT INTO pagos (
-                id_cliente,
-                concepto,
+        const response = await fetch(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/pagos`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id_cliente: cliente_id,
+                concepto: `Pago histórico: ${titular}`,
                 importe,
-                fecha_pago,
-                tipo_pago,
+                fecha_pago: parseFecha(fecha_comprob),
+                tipo_pago: 'egreso',
                 metodo_pago,
-                estado,
-                fecha_creacion
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING id
-        `, [
-            cliente_id,
-            `Pago histórico: ${titular}`,
-            importe,
-            parseFecha(fecha_comprob),
-            'egreso',
-            metodo_pago,
-            'confirmado',
-            new Date().toISOString()
-        ]);
+                estado: 'confirmado',
+                fuente: 'historico'
+            })
+        });
 
-        return result.rows[0].id;
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
+        return result.data.id;
     } catch (error) {
-        console.error('Error creando pago:', error);
+        console.error('Error creando pago via HTTP:', error);
+        throw error;
+    }
+}
+
+// Función para buscar o crear cliente via HTTP
+async function buscarOCrearClienteHTTP(nombreCliente) {
+    try {
+        // Primero intentar buscar el cliente
+        const searchResponse = await fetch(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/clientes?search=${encodeURIComponent(nombreCliente)}`);
+        
+        if (searchResponse.ok) {
+            const searchResult = await searchResponse.json();
+            if (searchResult.data && searchResult.data.length > 0) {
+                return searchResult.data[0];
+            }
+        }
+
+        // Si no existe, crear nuevo cliente
+        const createResponse = await fetch(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/clientes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                nombre: nombreCliente,
+                apellido: '',
+                estado: 'activo'
+            })
+        });
+
+        if (!createResponse.ok) {
+            const errorText = await createResponse.text();
+            throw new Error(`HTTP ${createResponse.status}: ${errorText}`);
+        }
+
+        const result = await createResponse.json();
+        return result.data;
+    } catch (error) {
+        console.error('Error buscando/creando cliente via HTTP:', error);
         throw error;
     }
 }
 
 // Función principal para procesar el CSV
 async function procesarCSV() {
-    const client = await db.getClient();
-    
     try {
         // Solicitar información al usuario
-        const nombreClienteCSV = await pregunta('Nombre del cliente en el CSV (columna I): ');
+        const nombreClienteCSV = await pregunta('Nombre del cliente en el CSV (columna CLIENTE): ');
         const nombreClienteSistema = await pregunta('Nombre del cliente en nuestro sistema: ');
         const rutaCSV = await pregunta('Ruta del archivo CSV: ');
 
         console.log('\n🔍 Buscando cliente en el sistema...');
         
-        // Buscar el cliente en el sistema
-        const clienteResult = await client.query(
-            'SELECT id, nombre, apellido FROM clientes WHERE LOWER(nombre) = LOWER($1) OR LOWER(apellido) = LOWER($1) OR LOWER(CONCAT(nombre, \' \', apellido)) = LOWER($1)',
-            [nombreClienteSistema]
-        );
-
-        if (clienteResult.rows.length === 0) {
-            console.log('❌ Cliente no encontrado en el sistema. Creando nuevo cliente...');
-            
-            // Crear nuevo cliente
-            const nuevoClienteResult = await client.query(`
-                INSERT INTO clientes (nombre, apellido, estado, fecha_registro)
-                VALUES ($1, $2, $3, $4)
-                RETURNING id, nombre, apellido
-            `, [nombreClienteSistema, '', 'activo', new Date().toISOString()]);
-            
-            var cliente = nuevoClienteResult.rows[0];
-            console.log(`✅ Cliente creado: ${cliente.nombre} (ID: ${cliente.id})`);
-        } else {
-            var cliente = clienteResult.rows[0];
-            console.log(`✅ Cliente encontrado: ${cliente.nombre} ${cliente.apellido} (ID: ${cliente.id})`);
-        }
+        // Buscar o crear el cliente en el sistema
+        const cliente = await buscarOCrearClienteHTTP(nombreClienteSistema);
+        console.log(`✅ Cliente: ${cliente.nombre} ${cliente.apellido} (ID: ${cliente.id})`);
 
         console.log('\n📊 Procesando CSV...');
         
@@ -299,8 +312,6 @@ async function procesarCSV() {
         };
 
         // Leer y procesar el CSV
-        const resultados = [];
-        
         return new Promise((resolve, reject) => {
             fs.createReadStream(rutaCSV)
                 .pipe(csv())
@@ -331,8 +342,8 @@ async function procesarCSV() {
                         switch (tipoOperacion.toLowerCase()) {
                             case 'transferencia entrante':
                                 // Crear acreditación y comprobante
-                                const acreditacionId = await crearAcreditacion(client, {
-                                    id_transaccion,
+                                const acreditacionId = await crearAcreditacionHTTP({
+                                    id_transaccion: idTransaccion,
                                     importe: monto,
                                     titular,
                                     cuit,
@@ -342,8 +353,8 @@ async function procesarCSV() {
                                     importe_comision: importeComision
                                 });
                                 
-                                await crearComprobante(client, {
-                                    id_transaccion,
+                                await crearComprobanteHTTP({
+                                    id_transaccion: idTransaccion,
                                     importe: monto,
                                     titular,
                                     cuit,
@@ -358,7 +369,7 @@ async function procesarCSV() {
                             case 'saldo anterior':
                             case 'deposito':
                                 // Crear crédito
-                                await crearCredito(client, {
+                                await crearCreditoHTTP({
                                     importe: monto,
                                     titular,
                                     fecha_comprob: fechaComprob,
@@ -371,7 +382,7 @@ async function procesarCSV() {
 
                             case 'transferencia saliente':
                                 // Crear pago
-                                await crearPago(client, {
+                                await crearPagoHTTP({
                                     importe: monto,
                                     titular,
                                     fecha_comprob: fechaComprob,
@@ -414,14 +425,13 @@ async function procesarCSV() {
         console.error('❌ Error en el procesamiento:', error);
         throw error;
     } finally {
-        client.release();
         rl.close();
     }
 }
 
 // Ejecutar el script
-console.log('🚀 Script de Importación de Histórico CSV');
-console.log('==========================================\n');
+console.log('🚀 Script de Importación de Histórico CSV (via HTTP)');
+console.log('==================================================\n');
 
 procesarCSV()
     .then(() => {
