@@ -129,8 +129,8 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
                             <div>
-                                <h6 class="card-title">Total Comprobantes</h6>
-                                <h3 id="totalComprobantes">-</h3>
+                                <h6 class="card-title">Total Acreditaciones</h6>
+                                <h3 id="totalAcreditaciones">-</h3>
                             </div>
                             <div class="align-self-center">
                                 <i class="fas fa-file-invoice-dollar fa-2x"></i>
@@ -357,9 +357,9 @@
                 if (result.success) {
                     const data = result.data;
                     
-                    document.getElementById('totalComprobantes').textContent = data.comprobantes.total_comprobantes || 0;
+                    document.getElementById('totalAcreditaciones').textContent = data.acreditaciones.total_acreditaciones || 0;
                     
-                    // Saldo actual (solo comprobantes cotejados + créditos - pagos)
+                    // Saldo actual (acreditaciones cotejadas - comisiones + créditos - pagos)
                     const saldoActual = data.saldo_actual || 0;
                     const saldoActualElement = document.getElementById('saldoActual');
                     saldoActualElement.textContent = new Intl.NumberFormat('es-AR', {
@@ -375,7 +375,7 @@
                         saldoActualElement.className = 'balance-zero';
                     }
                     
-                    // Saldo pendiente (comprobantes no cotejados)
+                    // Saldo pendiente (acreditaciones no cotejadas - comisiones)
                     const saldoPendiente = data.saldo_pendiente || 0;
                     const saldoPendienteElement = document.getElementById('saldoPendiente');
                     saldoPendienteElement.textContent = new Intl.NumberFormat('es-AR', {

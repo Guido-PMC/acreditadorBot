@@ -397,17 +397,20 @@ router.get('/resumen', authenticateToken, async (req, res) => {
 
     console.log('🔍 Debug - cliente_id:', cliente_id, 'tipo:', typeof cliente_id);
 
-    // Estadísticas de comprobantes
-    const comprobantesStats = await client.query(`
+    // Estadísticas de acreditaciones (considerando comisiones)
+    const acreditacionesStats = await client.query(`
       SELECT 
-        COUNT(*) as total_comprobantes,
-        COUNT(CASE WHEN cotejado = true THEN 1 END) as comprobantes_cotejados,
-        COUNT(CASE WHEN cotejado = false THEN 1 END) as comprobantes_pendientes,
-        SUM(importe) as total_importe_comprobantes,
-        SUM(CASE WHEN cotejado = true THEN importe ELSE 0 END) as total_importe_cotejados,
-        SUM(CASE WHEN cotejado = false THEN importe ELSE 0 END) as total_importe_pendientes
-      FROM comprobantes_whatsapp 
-      WHERE CAST(id_cliente AS INTEGER) = $1
+        COUNT(*) as total_acreditaciones,
+        COUNT(CASE WHEN cotejado = true THEN 1 END) as acreditaciones_cotejadas,
+        COUNT(CASE WHEN cotejado = false THEN 1 END) as acreditaciones_pendientes,
+        SUM(importe) as total_importe_acreditaciones,
+        SUM(CASE WHEN cotejado = true THEN importe ELSE 0 END) as total_importe_cotejadas,
+        SUM(CASE WHEN cotejado = false THEN importe ELSE 0 END) as total_importe_pendientes,
+        SUM(importe_comision) as total_comisiones,
+        SUM(CASE WHEN cotejado = true THEN importe_comision ELSE 0 END) as total_comisiones_cotejadas,
+        SUM(CASE WHEN cotejado = false THEN importe_comision ELSE 0 END) as total_comisiones_pendientes
+      FROM acreditaciones 
+      WHERE id_cliente = $1
     `, [cliente_id]);
 
     // Estadísticas de movimientos
@@ -422,18 +425,20 @@ router.get('/resumen', authenticateToken, async (req, res) => {
       WHERE CAST(id_cliente AS INTEGER) = $1
     `, [cliente_id]);
 
-    // Calcular saldo actual (solo comprobantes cotejados + créditos - pagos)
-    const saldo_actual = (comprobantesStats.rows[0].total_importe_cotejados || 0) + 
+    // Calcular saldo actual (acreditaciones cotejadas - comisiones + créditos - pagos)
+    const saldo_actual = (acreditacionesStats.rows[0].total_importe_cotejadas || 0) - 
+                         (acreditacionesStats.rows[0].total_comisiones_cotejadas || 0) + 
                          (movimientosStats.rows[0].total_importe_creditos || 0) - 
                          (movimientosStats.rows[0].total_importe_pagos || 0);
 
-    // Saldo pendiente (comprobantes no cotejados)
-    const saldo_pendiente = comprobantesStats.rows[0].total_importe_pendientes || 0;
+    // Saldo pendiente (acreditaciones no cotejadas - comisiones)
+    const saldo_pendiente = (acreditacionesStats.rows[0].total_importe_pendientes || 0) - 
+                           (acreditacionesStats.rows[0].total_comisiones_pendientes || 0);
 
     res.json({
       success: true,
       data: {
-        comprobantes: comprobantesStats.rows[0],
+        acreditaciones: acreditacionesStats.rows[0],
         movimientos: movimientosStats.rows[0],
         saldo_actual: saldo_actual,
         saldo_pendiente: saldo_pendiente,
