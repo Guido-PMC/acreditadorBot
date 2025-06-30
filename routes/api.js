@@ -1530,12 +1530,33 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
 
     console.log('✅ Comprobante actualizado');
 
-    // Actualizar la acreditación
+    // Obtener comisión del cliente
+    let comision = 0.00;
+    let importe_comision = 0.00;
+    
+    if (comprobante.rows[0].id_cliente) {
+      console.log('🔍 Obteniendo comisión del cliente ID:', comprobante.rows[0].id_cliente);
+      const clienteResult = await client.query('SELECT comision FROM clientes WHERE id = $1', [comprobante.rows[0].id_cliente]);
+      
+      if (clienteResult.rows.length > 0) {
+        comision = parseFloat(clienteResult.rows[0].comision) || 0.00;
+        
+        // Obtener importe de la acreditación para calcular comisión
+        const acreditacionResult = await client.query('SELECT importe FROM acreditaciones WHERE id = $1', [id_acreditacion]);
+        if (acreditacionResult.rows.length > 0) {
+          const importe = parseFloat(acreditacionResult.rows[0].importe);
+          importe_comision = (importe * comision / 100);
+          console.log(`💰 Aplicando comisión: ${comision}% sobre $${importe} = $${importe_comision.toFixed(2)}`);
+        }
+      }
+    }
+
+    // Actualizar la acreditación con comisión
     await client.query(`
       UPDATE acreditaciones 
-      SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP, id_cliente = $2
-      WHERE id = $3
-    `, [comprobante.rows[0].id_comprobante, comprobante.rows[0].id_cliente, id_acreditacion]);
+      SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP, id_cliente = $2, comision = $3, importe_comision = $4
+      WHERE id = $5
+    `, [comprobante.rows[0].id_comprobante, comprobante.rows[0].id_cliente, comision, importe_comision, id_acreditacion]);
 
     console.log('✅ Acreditación actualizada');
 
