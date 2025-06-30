@@ -15,6 +15,7 @@ function createNavbar(activePage = 'dashboard') {
                         <li class="nav-item"><a class="nav-link ${activePage === 'clientes' ? 'active' : ''}" href="/clientes.html">Clientes</a></li>
                         <li class="nav-item"><a class="nav-link ${activePage === 'asignacion' ? 'active' : ''}" href="/asignacion.html">Asignación</a></li>
                         <li class="nav-item"><a class="nav-link ${activePage === 'upload' ? 'active' : ''}" href="/upload.html">Subir CSV</a></li>
+                        <li class="nav-item"><a class="nav-link ${activePage === 'portal-users' ? 'active' : ''}" href="/portal-users.html">Portal Users</a></li>
                         <li class="nav-item"><a class="nav-link ${activePage === 'logs' ? 'active' : ''}" href="/logs.html">Logs</a></li>
                     </ul>
                 </div>
@@ -50,6 +51,7 @@ function detectActivePage() {
     if (path.includes('asignacion')) return 'asignacion';
     if (path.includes('tickets')) return 'tickets';
     if (path.includes('upload')) return 'upload';
+    if (path.includes('portal-users')) return 'portal-users';
     if (path.includes('logs')) return 'logs';
     if (path.includes('cliente')) return 'clientes';
     if (path === '/' || path === '/index.html') return 'dashboard';
