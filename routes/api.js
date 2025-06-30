@@ -290,20 +290,6 @@ router.post('/notification', validateNotification, async (req, res) => {
       });
     }
 
-    // Verificar si existe una acreditación con el mismo coelsa_id
-    if (coelsa_id) {
-      const existingCoelsaTransaction = await client.query(
-        'SELECT id FROM acreditaciones WHERE coelsa_id = $1',
-        [coelsa_id]
-      );
-      if (existingCoelsaTransaction.rows.length > 0) {
-        return res.status(409).json({
-          error: 'Acreditación duplicada',
-          message: `Ya existe una acreditación con coelsa_id '${coelsa_id}'`
-        });
-      }
-    }
-
     // Buscar comisión del cliente (si hay id_cliente)
     let comision = 0.00;
     let importe_comision = 0.00;
@@ -820,21 +806,6 @@ router.post('/notifications', [
         error: 'Transacción duplicada',
         message: 'Esta transacción ya existe en el sistema'
       });
-    }
-
-    // Verificar si existe una acreditación con el mismo coelsa_id
-    if (coelsa_id) {
-      const existingCoelsaTransaction = await client.query(
-        'SELECT id FROM acreditaciones WHERE coelsa_id = $1',
-        [coelsa_id]
-      );
-
-      if (existingCoelsaTransaction.rows.length > 0) {
-        return res.status(409).json({
-          error: 'Acreditación duplicada',
-          message: `Ya existe una acreditación con coelsa_id '${coelsa_id}'`
-        });
-      }
     }
 
     // Insertar nueva acreditación
@@ -2499,3 +2470,1045 @@ router.post('/comprobantes/whatsapp', [
 
     // Verificar si ya existe un comprobante similar (duplicado) - DESPUÉS DEL PARSING
     const comprobanteDuplicado = await client.query(`
+      SELECT id, id_comprobante, nombre_remitente, importe, fecha_envio, id_cliente
+      FROM comprobantes_whatsapp 
+      WHERE nombre_remitente = $1 
+        AND cuit = $2 
+        AND importe = $3 
+        AND fecha_envio BETWEEN $4 AND $5
+        AND id_cliente = $6
+    `, [
+      nombre_remitente,
+      cuit_limpio,
+      parseFloat(monto),
+      new Date(fecha_envio_obj.getTime() - 5 * 60 * 1000), // 5 minutos antes
+      new Date(fecha_envio_obj.getTime() + 5 * 60 * 1000), // 5 minutos después
+      cliente_id
+    ]);
+
+    if (comprobanteDuplicado.rows.length > 0) {
+      console.log('⚠️ Comprobante duplicado detectado:', comprobanteDuplicado.rows[0]);
+      
+      // Registrar log del intento de duplicado
+      await client.query(`
+        INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+        VALUES ($1, $2, $3, $4)
+      `, [
+        'comprobante_duplicado',
+        `Intento de crear comprobante duplicado: ${nombre_remitente} - $${monto}`,
+        JSON.stringify({
+          nombre_remitente,
+          cuit: cuit_limpio,
+          monto,
+          fecha: fecha_envio_obj,
+          cliente_id,
+          comprobante_existente: comprobanteDuplicado.rows[0].id_comprobante
+        }),
+        'advertencia'
+      ]);
+
+      return res.status(409).json({
+        error: 'Comprobante duplicado',
+        message: 'Este comprobante ya fue procesado anteriormente',
+        data: {
+          comprobante_existente: comprobanteDuplicado.rows[0].id_comprobante,
+          fecha_procesamiento: comprobanteDuplicado.rows[0].fecha_envio
+        }
+      });
+    }
+
+    const fecha_desde = new Date(fecha_envio_obj.getTime() - 24 * 60 * 60 * 1000); // 1 día antes
+    const fecha_hasta = new Date(fecha_envio_obj.getTime() + 24 * 60 * 60 * 1000); // 1 día después
+
+    console.log('🔍 Buscando acreditación coincidente con matching inteligente...');
+
+    // Buscar acreditaciones por importe y fecha primero
+    const acreditacionesCandidatas = await client.query(`
+      SELECT id, titular, cuit, importe, fecha_hora, cotejado
+      FROM acreditaciones 
+      WHERE importe = $1 
+        AND fecha_hora BETWEEN $2 AND $3
+        AND cotejado = false
+        AND id_comprobante_whatsapp IS NULL
+      ORDER BY ABS(EXTRACT(EPOCH FROM (fecha_hora - $4))) ASC
+      LIMIT 10
+    `, [
+      parseFloat(monto),
+      fecha_desde,
+      fecha_hasta,
+      fecha_envio_obj
+    ]);
+
+    console.log(`📊 Acreditaciones candidatas encontradas: ${acreditacionesCandidatas.rows.length}`);
+    if (acreditacionesCandidatas.rows.length === 0) {
+      console.log('❌ No hay acreditaciones candidatas que coincidan con importe y fecha');
+      console.log(`   Importe buscado: $${monto}`);
+      console.log(`   Fecha desde: ${fecha_desde.toISOString()}`);
+      console.log(`   Fecha hasta: ${fecha_hasta.toISOString()}`);
+    } else {
+      console.log('📋 Acreditaciones candidatas:');
+      acreditacionesCandidatas.rows.forEach((acred, index) => {
+        console.log(`   ${index + 1}. ID: ${acred.id}, Titular: "${acred.titular}", CUIT: "${acred.cuit}", Importe: $${acred.importe}, Fecha: ${acred.fecha_hora}`);
+      });
+    }
+
+    let id_acreditacion = null;
+    let acreditacion_encontrada = false;
+    let mejor_coincidencia = null;
+    let mejor_score = 0;
+
+    // Evaluar cada acreditación candidata con matching inteligente
+    for (const acreditacion of acreditacionesCandidatas.rows) {
+      console.log(`\n🔍 Evaluando acreditación ${acreditacion.id}:`);
+      console.log(`   Titular: "${acreditacion.titular}"`);
+      console.log(`   CUIT: "${acreditacion.cuit}"`);
+      console.log(`   Importe: $${acreditacion.importe}`);
+      console.log(`   Fecha: ${acreditacion.fecha_hora}`);
+      
+      let score = 0;
+      let coincidencias = [];
+
+      // Coincidencia de importe (ya filtrado, score base)
+      score += 30;
+      coincidencias.push('importe');
+      console.log(`   ✅ Importe coincidente: +30 puntos`);
+
+      // Coincidencia de fecha (más cercana = mejor score)
+      const diffHoras = Math.abs(acreditacion.fecha_hora - fecha_envio_obj) / (1000 * 60 * 60);
+      if (diffHoras <= 1) {
+        score += 25;
+        coincidencias.push('fecha_exacta');
+        console.log(`   ✅ Fecha exacta (${diffHoras.toFixed(2)}h): +25 puntos`);
+      } else if (diffHoras <= 6) {
+        score += 20;
+        coincidencias.push('fecha_cercana');
+        console.log(`   ✅ Fecha cercana (${diffHoras.toFixed(2)}h): +20 puntos`);
+      } else if (diffHoras <= 12) {
+        score += 15;
+        coincidencias.push('fecha_media');
+        console.log(`   ✅ Fecha media (${diffHoras.toFixed(2)}h): +15 puntos`);
+      } else {
+        score += 10;
+        coincidencias.push('fecha_lejana');
+        console.log(`   ✅ Fecha lejana (${diffHoras.toFixed(2)}h): +10 puntos`);
+      }
+
+      // Coincidencia de nombre
+      console.log(`\n   🔤 Evaluando nombre: "${nombre_remitente}" vs "${acreditacion.titular}"`);
+      if (namesMatch(nombre_remitente, acreditacion.titular)) {
+        score += 25;
+        coincidencias.push('nombre_exacto');
+        console.log(`   ✅ Nombre exacto: +25 puntos`);
+      } else if (namesMatch(nombre_remitente, acreditacion.titular, 0.6)) {
+        score += 15;
+        coincidencias.push('nombre_parcial');
+        console.log(`   ✅ Nombre parcial: +15 puntos`);
+      } else {
+        console.log(`   ❌ Nombre no coincide`);
+      }
+
+      // Coincidencia de CUIT
+      if (cuit_limpio && acreditacion.cuit) {
+        console.log(`\n   🔢 Evaluando CUIT: "${cuit_limpio}" vs "${acreditacion.cuit}"`);
+        if (cuitsMatch(cuit_limpio, acreditacion.cuit)) {
+          score += 20;
+          coincidencias.push('cuit_exacto');
+          console.log(`   ✅ CUIT exacto: +20 puntos`);
+        } else {
+          console.log(`   ❌ CUIT no coincide`);
+        }
+      } else {
+        console.log(`   ⚠️ No hay CUIT para comparar`);
+      }
+
+      console.log(`\n   📊 Score final: ${score} puntos`);
+      console.log(`   📋 Coincidencias: [${coincidencias.join(', ')}]`);
+
+      // Verificar si hay al menos una coincidencia de nombre O CUIT
+      const tieneCoincidenciaNombre = coincidencias.includes('nombre_exacto') || coincidencias.includes('nombre_parcial');
+      const tieneCoincidenciaCUIT = coincidencias.includes('cuit_exacto');
+      const tieneCoincidenciaRequerida = tieneCoincidenciaNombre || tieneCoincidenciaCUIT;
+
+      console.log(`   🔍 Coincidencias requeridas:`);
+      console.log(`      Nombre: ${tieneCoincidenciaNombre ? '✅' : '❌'}`);
+      console.log(`      CUIT: ${tieneCoincidenciaCUIT ? '✅' : '❌'}`);
+      console.log(`      Al menos una: ${tieneCoincidenciaRequerida ? '✅' : '❌'}`);
+
+      // Solo considerar si tiene score suficiente Y al menos una coincidencia requerida
+      if (score >= 50 && tieneCoincidenciaRequerida) {
+        if (score > mejor_score) {
+          mejor_score = score;
+          mejor_coincidencia = acreditacion;
+          id_acreditacion = acreditacion.id;
+          acreditacion_encontrada = true;
+          console.log(`   🏆 ¡Nueva mejor coincidencia! (Score: ${score}, Coincidencias requeridas: ✅)`);
+        } else {
+          console.log(`   📉 No supera el mejor score actual: ${mejor_score}`);
+        }
+      } else {
+        if (score >= 50 && !tieneCoincidenciaRequerida) {
+          console.log(`   ❌ Score suficiente (${score}) pero sin coincidencias requeridas`);
+        } else if (score < 50 && tieneCoincidenciaRequerida) {
+          console.log(`   ❌ Coincidencias requeridas ✅ pero score insuficiente (${score})`);
+        } else {
+          console.log(`   ❌ Score insuficiente (${score}) y sin coincidencias requeridas`);
+        }
+      }
+    }
+
+    // Solo considerar como coincidencia si el score es suficientemente alto Y tiene coincidencias requeridas
+    if (mejor_score >= 50) { // Mínimo 50 puntos para considerar coincidencia
+      console.log('\n💰 Acreditación coincidente encontrada con matching inteligente:');
+      console.log(`   Acreditación ID: ${mejor_coincidencia.id}`);
+      console.log(`   Titular: "${mejor_coincidencia.titular}"`);
+      console.log(`   CUIT: "${mejor_coincidencia.cuit}"`);
+      console.log(`   Importe: $${mejor_coincidencia.importe}`);
+      console.log(`   Score final: ${mejor_score} puntos`);
+      console.log(`   ✅ Coincidencia requerida (nombre O CUIT) verificada`);
+    } else {
+      console.log('\n❌ No se encontró acreditación con score suficiente O sin coincidencias requeridas:');
+      console.log(`   Mejor score obtenido: ${mejor_score}`);
+      console.log(`   Umbral mínimo requerido: 50 puntos`);
+      console.log(`   Requisito adicional: Al menos coincidencia de nombre O CUIT`);
+      id_acreditacion = null;
+      acreditacion_encontrada = false;
+    }
+
+    console.log('\n💾 Guardando comprobante en base de datos...');
+    console.log(`   acreditacion_encontrada: ${acreditacion_encontrada}`);
+    console.log(`   id_acreditacion: ${id_acreditacion}`);
+    console.log(`   cotejado: ${acreditacion_encontrada}`);
+    console.log(`   estado: ${acreditacion_encontrada ? 'cotejado' : 'pendiente'}`);
+
+    // Insertar comprobante
+    const comprobanteResult = await client.query(`
+      INSERT INTO comprobantes_whatsapp (
+        id_comprobante,
+        nombre_remitente,
+        cuit,
+        importe,
+        fecha_envio,
+        id_cliente,
+        id_acreditacion,
+        cotejado,
+        fecha_cotejo,
+        estado
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id, id_comprobante, cotejado, id_acreditacion
+    `, [
+      id_comprobante,
+      nombre_remitente,
+      cuit_limpio,
+      parseFloat(monto),
+      fecha_envio_obj,
+      cliente_id,
+      id_acreditacion,
+      acreditacion_encontrada, // cotejado
+      acreditacion_encontrada ? new Date() : null, // fecha_cotejo
+      acreditacion_encontrada ? 'cotejado' : 'pendiente'
+    ]);
+
+    const comprobante = comprobanteResult.rows[0];
+
+    // Si se encontró acreditación, actualizarla
+    if (acreditacion_encontrada && id_acreditacion) {
+      await client.query(`
+        UPDATE acreditaciones 
+        SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP, id_cliente = $2
+        WHERE id = $3
+      `, [comprobante.id_comprobante, comprobante.id_cliente, id_acreditacion]);
+
+      console.log('✅ Acreditación actualizada con comprobante');
+    }
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'comprobante_whatsapp_creado',
+      `Comprobante de WhatsApp creado: ${nombre_remitente} - $${monto}`,
+      JSON.stringify({
+        comprobante_id: comprobante.id,
+        id_comprobante: id_comprobante,
+        cliente_id,
+        cliente_creado,
+        acreditacion_encontrada,
+        id_acreditacion
+      }),
+      'exitoso'
+    ]);
+
+    console.log('✅ Comprobante creado exitosamente');
+
+    // Determinar el mensaje de estado más claro
+    let estadoMensaje = '';
+    if (acreditacion_encontrada) {
+      estadoMensaje = 'Comprobante cotejado automáticamente con acreditación';
+      console.log('✅ Comprobante cotejado automáticamente');
+    } else {
+      estadoMensaje = 'Comprobante pendiente de cotejo manual';
+      console.log('⏳ Comprobante pendiente de cotejo manual');
+    }
+
+    res.json({
+      success: true,
+      message: estadoMensaje,
+      data: {
+        comprobante_id: comprobante.id,
+        id_comprobante: id_comprobante,
+        cliente: {
+          id: cliente_id,
+          creado: cliente_creado,
+          nombre: nombre_remitente
+        },
+        acreditacion: acreditacion_encontrada ? {
+          id: id_acreditacion,
+          encontrada: true,
+          cotejado: true
+        } : {
+          encontrada: false,
+          cotejado: false
+        },
+        estado: acreditacion_encontrada ? 'cotejado' : 'pendiente',
+        estado_detalle: estadoMensaje,
+        score: acreditacion_encontrada ? mejor_score : 0
+      }
+    });
+
+  } catch (error) {
+    console.error('💥 Error procesando comprobante de WhatsApp:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo procesar el comprobante'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// ===== GESTIÓN DE USUARIOS DEL PORTAL =====
+
+// GET /api/portal-users - Listar usuarios del portal
+router.get('/portal-users', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { page = 1, limit = 20, search = '' } = req.query;
+    const offset = (page - 1) * limit;
+
+    let whereConditions = [];
+    let params = [];
+    let paramIndex = 1;
+
+    if (search) {
+      whereConditions.push(`(pu.username ILIKE $${paramIndex} OR c.nombre ILIKE $${paramIndex} OR c.apellido ILIKE $${paramIndex})`);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // Query para contar total
+    const countQuery = `
+      SELECT COUNT(*) 
+      FROM portal_users pu
+      JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
+      ${whereClause}
+    `;
+    const countResult = await client.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count);
+
+    // Query para obtener datos
+    const dataQuery = `
+      SELECT 
+        pu.id,
+        pu.username,
+        pu.email,
+        pu.activo,
+        pu.fecha_creacion,
+        pu.ultimo_acceso,
+        c.id as cliente_id,
+        c.nombre as cliente_nombre,
+        c.apellido as cliente_apellido,
+        c.estado as cliente_estado
+      FROM portal_users pu
+      JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
+      ${whereClause}
+      ORDER BY pu.fecha_creacion DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    
+    params.push(parseInt(limit), offset);
+    const dataResult = await client.query(dataQuery, params);
+
+    res.json({
+      success: true,
+      data: dataResult.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo usuarios del portal:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron obtener los usuarios del portal'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/portal-users/:id - Obtener usuario del portal por ID
+router.get('/portal-users/:id', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+
+    const userResult = await client.query(`
+      SELECT 
+        pu.id,
+        pu.username,
+        pu.email,
+        pu.activo,
+        pu.fecha_creacion,
+        pu.ultimo_acceso,
+        pu.id_cliente as cliente_id,
+        c.nombre as cliente_nombre,
+        c.apellido as cliente_apellido,
+        c.estado as cliente_estado
+      FROM portal_users pu
+      JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
+      WHERE pu.id = $1
+    `, [id]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Usuario no encontrado',
+        message: 'El usuario especificado no existe'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        activo: user.activo,
+        fecha_creacion: user.fecha_creacion,
+        ultimo_acceso: user.ultimo_acceso,
+        cliente_id: user.cliente_id,
+        cliente_nombre: user.cliente_nombre,
+        cliente_apellido: user.cliente_apellido,
+        cliente_estado: user.cliente_estado
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo usuario del portal:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo obtener el usuario del portal'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/portal-users - Crear usuario del portal
+router.post('/portal-users', [
+  body('id_cliente').notEmpty().withMessage('ID del cliente es requerido').isInt({ min: 1 }).withMessage('ID del cliente debe ser un número entero válido'),
+  body('username').notEmpty().withMessage('Usuario es requerido').isLength({ min: 3, max: 50 }).withMessage('Usuario debe tener entre 3 y 50 caracteres').matches(/^[a-zA-Z0-9_]+$/).withMessage('Usuario solo puede contener letras, números y guiones bajos'),
+  body('password').notEmpty().withMessage('Contraseña es requerida').isLength({ min: 6, max: 100 }).withMessage('Contraseña debe tener entre 6 y 100 caracteres'),
+  body('email').optional().isEmail().withMessage('Email debe ser válido')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    console.log('❌ Errores de validación al crear usuario del portal:', errors.array());
+    return res.status(400).json({ 
+      error: 'Datos inválidos', 
+      details: errors.array() 
+    });
+  }
+
+  const client = await db.getClient();
+  
+  try {
+    const { id_cliente, username, password, email } = req.body;
+    
+    console.log('🔧 Intentando crear usuario del portal:', { id_cliente, username, email: email || 'no especificado' });
+
+    // Verificar que el cliente existe
+    const clienteResult = await client.query(
+      'SELECT id, nombre, apellido FROM clientes WHERE id = $1',
+      [parseInt(id_cliente)]
+    );
+
+    if (clienteResult.rows.length === 0) {
+      console.log('❌ Cliente no encontrado:', id_cliente);
+      return res.status(404).json({
+        error: 'Cliente no encontrado',
+        message: 'El cliente especificado no existe'
+      });
+    }
+
+    // Verificar que el username no existe
+    const existingUser = await client.query(
+      'SELECT id FROM portal_users WHERE username = $1',
+      [username]
+    );
+
+    if (existingUser.rows.length > 0) {
+      console.log('❌ Usuario duplicado:', username);
+      return res.status(409).json({
+        error: 'Usuario duplicado',
+        message: 'Este nombre de usuario ya existe'
+      });
+    }
+
+    // Hash de la contraseña
+    const bcrypt = require('bcrypt');
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Crear usuario del portal
+    const result = await client.query(`
+      INSERT INTO portal_users (
+        id_cliente,
+        username,
+        password_hash,
+        email
+      ) VALUES ($1, $2, $3, $4)
+      RETURNING id, username, email, activo, fecha_creacion
+    `, [parseInt(id_cliente), username, passwordHash, email || null]);
+
+    const cliente = clienteResult.rows[0];
+    console.log('✅ Usuario del portal creado exitosamente:', result.rows[0].id);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'portal_user_creado',
+      `Usuario del portal creado: ${username} para ${cliente.nombre} ${cliente.apellido}`,
+      JSON.stringify({ username, id_cliente, email }),
+      'exitoso'
+    ]);
+
+    res.status(201).json({
+      success: true,
+      message: 'Usuario del portal creado exitosamente',
+      data: {
+        ...result.rows[0],
+        cliente: {
+          id: cliente.id,
+          nombre: cliente.nombre,
+          apellido: cliente.apellido
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error creando usuario del portal:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo crear el usuario del portal'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// PUT /api/portal-users/:id - Actualizar usuario del portal
+router.put('/portal-users/:id', [
+  body('username').optional().isLength({ min: 3 }).withMessage('Usuario debe tener al menos 3 caracteres'),
+  body('email').optional().isEmail().withMessage('Email debe ser válido'),
+  body('activo').optional().isBoolean().withMessage('Activo debe ser true o false')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      error: 'Datos inválidos', 
+      details: errors.array() 
+    });
+  }
+
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+    const { username, email, activo, password } = req.body;
+
+    // Verificar que el usuario existe
+    const existingUser = await client.query(`
+      SELECT pu.*, c.nombre, c.apellido 
+      FROM portal_users pu
+      JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
+      WHERE pu.id = $1
+    `, [id]);
+
+    if (existingUser.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Usuario no encontrado',
+        message: 'El usuario especificado no existe'
+      });
+    }
+
+    // Verificar que el username no existe (si se está cambiando)
+    if (username && username !== existingUser.rows[0].username) {
+      const usernameCheck = await client.query(
+        'SELECT id FROM portal_users WHERE username = $1 AND id != $2',
+        [username, id]
+      );
+
+      if (usernameCheck.rows.length > 0) {
+        return res.status(409).json({
+          error: 'Usuario duplicado',
+          message: 'Este nombre de usuario ya existe'
+        });
+      }
+    }
+
+    // Preparar campos a actualizar
+    let updateFields = [];
+    let params = [];
+    let paramIndex = 1;
+
+    if (username !== undefined) {
+      updateFields.push(`username = $${paramIndex}`);
+      params.push(username);
+      paramIndex++;
+    }
+
+    if (email !== undefined) {
+      updateFields.push(`email = $${paramIndex}`);
+      params.push(email);
+      paramIndex++;
+    }
+
+    if (activo !== undefined) {
+      updateFields.push(`activo = $${paramIndex}`);
+      params.push(activo);
+      paramIndex++;
+    }
+
+    if (password) {
+      const bcrypt = require('bcrypt');
+      const saltRounds = 10;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+      updateFields.push(`password_hash = $${paramIndex}`);
+      params.push(passwordHash);
+      paramIndex++;
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        error: 'Sin cambios',
+        message: 'No se especificaron campos para actualizar'
+      });
+    }
+
+    params.push(id);
+
+    // Actualizar usuario
+    await client.query(`
+      UPDATE portal_users 
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
+    `, params);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'portal_user_actualizado',
+      `Usuario del portal actualizado: ${existingUser.rows[0].username}`,
+      JSON.stringify({ id, username, email, activo, password_changed: !!password }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Usuario del portal actualizado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error actualizando usuario del portal:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo actualizar el usuario del portal'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// DELETE /api/portal-users/:id - Eliminar usuario del portal
+router.delete('/portal-users/:id', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+
+    // Verificar que el usuario existe
+    const userResult = await client.query(`
+      SELECT pu.username, c.nombre, c.apellido 
+      FROM portal_users pu
+      JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
+      WHERE pu.id = $1
+    `, [id]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Usuario no encontrado',
+        message: 'El usuario especificado no existe'
+      });
+    }
+
+    // Eliminar usuario (soft delete - cambiar a inactivo)
+    await client.query(`
+      UPDATE portal_users 
+      SET activo = false 
+      WHERE id = $1
+    `, [id]);
+
+    const user = userResult.rows[0];
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'portal_user_eliminado',
+      `Usuario del portal eliminado: ${user.username} (${user.nombre} ${user.apellido})`,
+      JSON.stringify({ id }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Usuario del portal eliminado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error eliminando usuario del portal:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo eliminar el usuario del portal'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/diagnostico - Endpoint de diagnóstico para verificar estado de BD
+router.get('/diagnostico', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    console.log('🔍 Iniciando diagnóstico de base de datos...');
+    
+    const diagnostico = {
+      timestamp: new Date().toISOString(),
+      conexion: 'OK',
+      tablas: {},
+      errores: []
+    };
+
+    // Verificar conexión
+    try {
+      await client.query('SELECT 1 as test');
+      console.log('✅ Conexión a BD exitosa');
+    } catch (error) {
+      diagnostico.conexion = 'ERROR';
+      diagnostico.errores.push(`Error de conexión: ${error.message}`);
+      console.error('❌ Error de conexión:', error);
+    }
+
+    // Verificar tablas principales
+    const tablas = ['comprobantes_whatsapp', 'acreditaciones', 'clientes', 'logs_procesamiento'];
+    
+    for (const tabla of tablas) {
+      try {
+        const tableExists = await client.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = $1
+          );
+        `, [tabla]);
+
+        if (tableExists.rows[0].exists) {
+          // Contar registros
+          const countResult = await client.query(`SELECT COUNT(*) FROM ${tabla}`);
+          const count = parseInt(countResult.rows[0].count);
+          
+          diagnostico.tablas[tabla] = {
+            existe: true,
+            registros: count
+          };
+          console.log(`✅ Tabla ${tabla}: existe con ${count} registros`);
+        } else {
+          diagnostico.tablas[tabla] = {
+            existe: false,
+            registros: 0
+          };
+          console.log(`❌ Tabla ${tabla}: NO existe`);
+        }
+      } catch (error) {
+        diagnostico.tablas[tabla] = {
+          existe: false,
+          error: error.message
+        };
+        diagnostico.errores.push(`Error verificando tabla ${tabla}: ${error.message}`);
+        console.error(`❌ Error verificando tabla ${tabla}:`, error);
+      }
+    }
+
+    // Verificar estructura de tabla comprobantes_whatsapp si existe
+    if (diagnostico.tablas.comprobantes_whatsapp?.existe) {
+      try {
+        const columns = await client.query(`
+          SELECT column_name, data_type, is_nullable
+          FROM information_schema.columns 
+          WHERE table_name = 'comprobantes_whatsapp'
+          ORDER BY ordinal_position;
+        `);
+        
+        diagnostico.tablas.comprobantes_whatsapp.columnas = columns.rows;
+        console.log(`✅ Columnas de comprobantes_whatsapp:`, columns.rows.map(c => c.column_name));
+      } catch (error) {
+        diagnostico.errores.push(`Error obteniendo columnas de comprobantes_whatsapp: ${error.message}`);
+        console.error('❌ Error obteniendo columnas:', error);
+      }
+    }
+
+    console.log('📊 Diagnóstico completado:', diagnostico);
+
+    res.json({
+      success: true,
+      diagnostico
+    });
+
+  } catch (error) {
+    console.error('💥 Error en diagnóstico:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo completar el diagnóstico',
+      details: error.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/comprobantes/stats - Obtener estadísticas de comprobantes
+router.get('/comprobantes/stats', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    // Obtener estadísticas generales de comprobantes
+    const statsQuery = `
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN cotejado = true THEN 1 END) as cotejados,
+        COUNT(CASE WHEN cotejado = false THEN 1 END) as pendientes,
+        SUM(importe) as importe_total,
+        SUM(CASE WHEN cotejado = true THEN importe ELSE 0 END) as importe_cotejado,
+        SUM(CASE WHEN cotejado = false THEN importe ELSE 0 END) as importe_pendiente
+      FROM comprobantes_whatsapp
+    `;
+    
+    const statsResult = await client.query(statsQuery);
+    const stats = statsResult.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        total: parseInt(stats.total || 0),
+        cotejados: parseInt(stats.cotejados || 0),
+        pendientes: parseInt(stats.pendientes || 0),
+        importe_total: parseFloat(stats.importe_total || 0),
+        importe_cotejado: parseFloat(stats.importe_cotejado || 0),
+        importe_pendiente: parseFloat(stats.importe_pendiente || 0)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo estadísticas de comprobantes:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron obtener las estadísticas'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/comprobantes - Listar comprobantes con paginación y filtros
+router.get('/comprobantes', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      sort = 'fecha_envio',
+      order = 'DESC',
+      search = '',
+      cotejado = '',
+      cliente_id = ''
+    } = req.query;
+
+    console.log('🔍 GET /api/comprobantes - Parámetros:', { page, limit, sort, order, search, cotejado, cliente_id });
+
+    // Validar parámetros
+    const validSortFields = ['id', 'fecha_envio', 'importe', 'nombre_remitente', 'cuit_remitente'];
+    const validOrders = ['ASC', 'DESC'];
+    
+    if (!validSortFields.includes(sort)) {
+      return res.status(400).json({
+        error: 'Campo de ordenamiento inválido',
+        validFields: validSortFields
+      });
+    }
+    
+    if (!validOrders.includes(order.toUpperCase())) {
+      return res.status(400).json({
+        error: 'Orden inválido',
+        validOrders: validOrders
+      });
+    }
+
+    // Construir query base
+    let whereConditions = [];
+    let queryParams = [];
+    let paramIndex = 1;
+
+    // Filtro de búsqueda
+    if (search) {
+      whereConditions.push(`(
+        nombre_remitente ILIKE $${paramIndex} OR 
+        cuit_remitente ILIKE $${paramIndex} OR 
+        numero_comprobante ILIKE $${paramIndex}
+      )`);
+      queryParams.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Filtro de cotejado
+    if (cotejado !== '') {
+      whereConditions.push(`cotejado = $${paramIndex}`);
+      queryParams.push(cotejado === 'true');
+      paramIndex++;
+    }
+
+    // Filtro de cliente
+    if (cliente_id) {
+      whereConditions.push(`id_cliente = $${paramIndex}`);
+      queryParams.push(cliente_id);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // Query para contar total
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM comprobantes_whatsapp
+      ${whereClause}
+    `;
+    
+    const countResult = await client.query(countQuery, queryParams);
+    const total = parseInt(countResult.rows[0].total);
+
+    // Calcular paginación
+    const offset = (page - 1) * limit;
+    const totalPages = Math.ceil(total / limit);
+
+    // Query principal con JOIN para obtener información del cliente
+    const mainQuery = `
+      SELECT 
+        cw.*,
+        c.nombre as cliente_nombre,
+        c.apellido as cliente_apellido
+      FROM comprobantes_whatsapp cw
+      LEFT JOIN clientes c ON cw.id_cliente = c.id
+      ${whereClause}
+      ORDER BY cw.${sort} ${order}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    
+    queryParams.push(parseInt(limit), offset);
+    
+    const result = await client.query(mainQuery, queryParams);
+    const comprobantes = result.rows;
+
+    console.log(`📊 Comprobantes encontrados: ${comprobantes.length} de ${total} total`);
+
+    res.json({
+      success: true,
+      data: comprobantes,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo comprobantes:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron obtener los comprobantes'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// PUT /api/acreditaciones/:id - Editar comisión de una acreditación
+router.put('/acreditaciones/:id', [
+  body('comision').isFloat({ min: 0, max: 100 }).withMessage('Comisión debe ser un número entre 0 y 100')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: 'Datos inválidos', details: errors.array() });
+  }
+  const client = await db.getClient();
+  try {
+    const { id } = req.params;
+    const { comision } = req.body;
+    // Obtener acreditación
+    const acreditacionResult = await client.query('SELECT importe FROM acreditaciones WHERE id = $1', [id]);
+    if (acreditacionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'No encontrado', message: 'Acreditación no encontrada' });
+    }
+    const importe = parseFloat(acreditacionResult.rows[0].importe);
+    const importe_comision = (importe * comision / 100).toFixed(2);
+    // Actualizar acreditación
+    await client.query('UPDATE acreditaciones SET comision = $1, importe_comision = $2 WHERE id = $3', [comision, importe_comision, id]);
+    res.json({ success: true, message: 'Comisión actualizada', data: { id, comision, importe_comision } });
+  } catch (error) {
+    console.error('Error actualizando comisión:', error);
+    res.status(500).json({ error: 'Error interno del servidor', message: 'No se pudo actualizar la comisión' });
+  } finally {
+    client.release();
+  }
+});
+
+module.exports = router; 
