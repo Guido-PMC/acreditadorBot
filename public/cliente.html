@@ -312,20 +312,33 @@
       const cliente = data.cliente;
       const resumen = data.resumen;
 
+      console.log('🔍 Renderizando información del cliente:', { cliente, resumen });
+
+      // Función auxiliar para actualizar elemento de forma segura
+      function updateElement(id, content) {
+        const element = document.getElementById(id);
+        if (element) {
+          element.textContent = content;
+          console.log(`✅ ${id} actualizado:`, content);
+        } else {
+          console.error(`❌ Elemento ${id} no encontrado`);
+        }
+      }
+
       // Información del cliente
-      document.getElementById('clienteNombre').textContent = `${cliente.nombre} ${cliente.apellido || ''}`;
-      document.getElementById('clienteInfo').textContent = `Cliente ID: ${cliente.id} • Estado: ${cliente.estado}`;
+      updateElement('clienteNombre', `${cliente.nombre} ${cliente.apellido || ''}`);
+      updateElement('clienteInfo', `Cliente ID: ${cliente.id} • Estado: ${cliente.estado}`);
       
       // Saldo
-      document.getElementById('saldoCliente').textContent = `$${resumen.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+      updateElement('saldoCliente', `$${resumen.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
       
       // Tarjetas de resumen
-      document.getElementById('totalAcreditaciones').textContent = resumen.acreditaciones.total_acreditaciones || 0;
-      document.getElementById('acreditacionesCotejadas').textContent = resumen.acreditaciones.acreditaciones_cotejadas || 0;
-      document.getElementById('acreditacionesPendientes').textContent = resumen.acreditaciones.acreditaciones_pendientes || 0;
-      document.getElementById('totalComisiones').textContent = `$${(resumen.acreditaciones.total_comisiones || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
-      document.getElementById('totalPagos').textContent = resumen.pagos.total_pagos || 0;
-      document.getElementById('totalImportePagos').textContent = `$${(resumen.pagos.total_importe_pagos || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+      updateElement('totalAcreditaciones', resumen.acreditaciones.total_acreditaciones || 0);
+      updateElement('acreditacionesCotejadas', resumen.acreditaciones.acreditaciones_cotejadas || 0);
+      updateElement('acreditacionesPendientes', resumen.acreditaciones.acreditaciones_pendientes || 0);
+      updateElement('totalComisiones', `$${(resumen.acreditaciones.total_comisiones || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
+      updateElement('totalPagos', resumen.pagos.total_pagos || 0);
+      updateElement('totalImportePagos', `$${(resumen.pagos.total_importe_pagos || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
     }
 
     // Función para limpiar CUIT (quitar guiones y dejar solo números)
@@ -681,8 +694,19 @@
       `;
     }
 
-    // Inicializar
-    loadClienteData();
+    // Inicializar cuando el DOM esté listo
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('🚀 DOM cargado, inicializando cliente...');
+      loadClienteData();
+    });
+
+    // Backup para window.onload
+    window.addEventListener('load', function() {
+      console.log('🔄 Window.onload ejecutado como backup');
+      if (!clienteId) {
+        loadClienteData();
+      }
+    });
   </script>
 </body>
 </html> 
