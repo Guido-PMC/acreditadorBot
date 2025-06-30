@@ -196,6 +196,7 @@ class Database {
         CREATE INDEX IF NOT EXISTS idx_logs_fecha ON logs_procesamiento(fecha);
         CREATE INDEX IF NOT EXISTS idx_pagos_cliente ON pagos(id_cliente);
         CREATE INDEX IF NOT EXISTS idx_pagos_fecha ON pagos(fecha_pago);
+        CREATE INDEX IF NOT EXISTS idx_pagos_fuente ON pagos(fuente);
       `);
 
       console.log('Tablas creadas/verificadas exitosamente');
@@ -343,6 +344,21 @@ class Database {
           ALTER TABLE acreditaciones 
           ADD COLUMN comision DECIMAL(5,2) DEFAULT 0.00,
           ADD COLUMN importe_comision DECIMAL(15,2) DEFAULT 0.00
+        `);
+      }
+
+      // Verificar si la columna fuente existe en pagos
+      const pagosFuenteColumns = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'pagos' AND column_name = 'fuente'
+      `);
+      
+      if (pagosFuenteColumns.rows.length === 0) {
+        console.log('Agregando columna fuente a tabla pagos...');
+        await client.query(`
+          ALTER TABLE pagos 
+          ADD COLUMN fuente VARCHAR(20) DEFAULT 'manual'
         `);
       }
 
