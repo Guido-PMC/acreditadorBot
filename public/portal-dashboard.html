@@ -183,7 +183,7 @@
                     <div class="col-auto">
                         <div class="btn-group btn-group-sm" role="group">
                             <button type="button" class="btn btn-outline-primary" onclick="filterMovimientos('')">Todos</button>
-                            <button type="button" class="btn btn-outline-success" onclick="filterMovimientos('comprobante')">Comprobantes</button>
+                            <button type="button" class="btn btn-outline-success" onclick="filterMovimientos('acreditacion')">Acreditaciones</button>
                             <button type="button" class="btn btn-outline-info" onclick="filterMovimientos('credito')">Créditos</button>
                             <button type="button" class="btn btn-outline-danger" onclick="filterMovimientos('pago')">Pagos</button>
                         </div>
@@ -388,23 +388,23 @@
             }
         }
 
-        // Cargar movimientos unificados (comprobantes + pagos)
+        // Cargar movimientos unificados (acreditaciones + pagos)
         async function loadMovimientosUnificados() {
             try {
-                // Cargar comprobantes y movimientos en paralelo
-                const [comprobantesRes, movimientosRes] = await Promise.all([
-                    authenticatedRequest('/portal/comprobantes?limit=100'),
+                // Cargar acreditaciones y movimientos en paralelo
+                const [acreditacionesRes, movimientosRes] = await Promise.all([
+                    authenticatedRequest('/api/acreditaciones?cliente_id=' + (await getClienteId()) + '&limit=100'),
                     authenticatedRequest('/portal/movimientos?limit=100')
                 ]);
 
-                if (!comprobantesRes || !movimientosRes) return;
+                if (!acreditacionesRes || !movimientosRes) return;
 
-                const [comprobantesData, movimientosData] = await Promise.all([
-                    comprobantesRes.json(),
+                const [acreditacionesData, movimientosData] = await Promise.all([
+                    acreditacionesRes.json(),
                     movimientosRes.json()
                 ]);
 
-                if (!comprobantesData.success || !movimientosData.success) {
+                if (!acreditacionesData.success || !movimientosData.success) {
                     showAlert('Error al cargar movimientos', 'danger');
                     return;
                 }
@@ -412,18 +412,18 @@
                 // Combinar y ordenar movimientos
                 const movimientos = [];
                 
-                // Agregar comprobantes como entradas
-                comprobantesData.data.forEach(comp => {
+                // Agregar acreditaciones como entradas
+                acreditacionesData.data.forEach(acred => {
                     movimientos.push({
-                        id: `comp_${comp.id}`,
-                        tipo: 'comprobante',
-                        concepto: `Comprobante: ${comp.nombre_remitente || 'Sin nombre'}`,
-                        importe: comp.importe,
-                        fecha: comp.fecha_envio,
-                        fecha_recepcion: comp.fecha_recepcion,
-                        cuit: comp.cuit,
-                        estado: comp.cotejado ? 'Cotejado' : 'Pendiente',
-                        acreditacion: comp.acreditacion,
+                        id: `acred_${acred.id}`,
+                        tipo: 'acreditacion',
+                        concepto: `Acreditación: ${acred.titular || 'Sin titular'}`,
+                        importe: acred.importe,
+                        comision: acred.comision,
+                        importe_comision: acred.importe_comision,
+                        fecha: acred.fecha,
+                        cuit: acred.cuit,
+                        estado: acred.cotejado ? 'Cotejado' : 'Pendiente',
                         es_entrada: true
                     });
                 });
@@ -454,14 +454,38 @@
             }
         }
 
+        // Función auxiliar para obtener el cliente_id del token
+        async function getClienteId() {
+            const token = localStorage.getItem('portal_token');
+            if (!token) return null;
+            
+            try {
+                const response = await fetch('/portal/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.data.cliente_id;
+                }
+            } catch (error) {
+                console.error('Error obteniendo cliente_id:', error);
+            }
+            
+            return null;
+        }
+
         // Mostrar movimientos unificados
         function displayMovimientosUnificados(movimientos) {
             // Aplicar filtro si está activo
             let movimientosFiltrados = movimientos;
             if (movimientosFilter) {
                 switch (movimientosFilter) {
-                    case 'comprobante':
-                        movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'comprobante');
+                    case 'acreditacion':
+                        movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'acreditacion');
                         break;
                     case 'credito':
                         movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'movimiento' && mov.tipo_pago === 'credito');
@@ -492,8 +516,8 @@
                 const isEntrada = mov.es_entrada;
                 const importeClass = isEntrada ? 'text-success' : 'text-danger';
                 const importeSign = isEntrada ? '+' : '-';
-                const tipoBadge = mov.tipo === 'comprobante' ? 
-                    '<span class="badge bg-primary status-badge">Comprobante</span>' : 
+                const tipoBadge = mov.tipo === 'acreditacion' ? 
+                    '<span class="badge bg-primary status-badge">Acreditación</span>' : 
                     `<span class="badge bg-${mov.tipo_pago === 'credito' ? 'success' : 'danger'} status-badge">${mov.tipo_pago === 'credito' ? 'Crédito' : 'Pago'}</span>`;
 
                 // Calcular comisión y neto
@@ -537,7 +561,6 @@
                             ${mov.cuit ? `<small><strong>CUIT:</strong> ${mov.cuit}</small><br>` : ''}
                             ${mov.metodo_pago ? `<small><strong>Método:</strong> ${mov.metodo_pago}</small><br>` : ''}
                             ${mov.referencia ? `<small><strong>Ref:</strong> ${mov.referencia}</small><br>` : ''}
-                            ${mov.acreditacion ? `<small><strong>Acreditación:</strong> ${mov.acreditacion.titular}</small>` : ''}
                         </td>
                     </tr>
                 `;
