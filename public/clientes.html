@@ -12,8 +12,18 @@
       <h1>Gestión de Clientes</h1>
       <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#clienteModal" onclick="openClienteModal()">Nuevo Cliente</button>
     </div>
-    <div class="mb-3">
-      <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nombre, apellido, CUIT o email..." oninput="loadClientes()">
+    <div class="row mb-3">
+      <div class="col-md-9">
+        <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nombre, apellido, CUIT o email..." oninput="loadClientes()">
+      </div>
+      <div class="col-md-3">
+        <select id="limitSelect" class="form-select" onchange="loadClientes(1)">
+          <option value="10">10 por página</option>
+          <option value="20" selected>20 por página</option>
+          <option value="50">50 por página</option>
+          <option value="100">100 por página</option>
+        </select>
+      </div>
     </div>
     <div id="alertContainer"></div>
     <div class="table-responsive">
@@ -94,7 +104,8 @@
     async function loadClientes(page = 1) {
       currentPage = page;
       currentSearch = document.getElementById("searchInput").value;
-      let url = `/api/clientes?page=${page}&limit=10`;
+      const limit = document.getElementById("limitSelect").value;
+      let url = `/api/clientes?page=${page}&limit=${limit}`;
       if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
       const res = await fetch(url);
       const data = await res.json();
