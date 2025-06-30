@@ -734,6 +734,7 @@ router.get('/stats', async (req, res) => {
         COUNT(CASE WHEN cotejado = true THEN 1 END) as total_cotejadas,
         COUNT(CASE WHEN cotejado = false THEN 1 END) as total_pendientes,
         SUM(importe) as importe_total,
+        SUM(CASE WHEN cotejado = false THEN importe ELSE 0 END) as importe_pendientes,
         AVG(importe) as importe_promedio,
         MIN(fecha_hora) as fecha_primera,
         MAX(fecha_hora) as fecha_ultima

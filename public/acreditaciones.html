@@ -46,7 +46,7 @@
 
         <!-- Stats Cards -->
         <div class="row mb-4">
-            <div class="col-xl-3 col-md-6 mb-4">
+            <div class="col-xl col-md-6 mb-4">
                 <div class="card stats-card bg-primary text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -61,7 +61,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-xl-3 col-md-6 mb-4">
+            <div class="col-xl col-md-6 mb-4">
                 <div class="card stats-card bg-success text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -76,7 +76,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-xl-3 col-md-6 mb-4">
+            <div class="col-xl col-md-6 mb-4">
                 <div class="card stats-card bg-warning text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -91,7 +91,22 @@
                     </div>
                 </div>
             </div>
-            <div class="col-xl-3 col-md-6 mb-4">
+            <div class="col-xl col-md-6 mb-4">
+                <div class="card stats-card bg-danger text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title" id="importePendientes">-</h4>
+                                <p class="card-text">Importe Pendientes</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-exclamation-triangle fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl col-md-6 mb-4">
                 <div class="card stats-card bg-info text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -360,8 +375,10 @@
                     document.getElementById('totalAcreditaciones').textContent = stats.total_acreditaciones || 0;
                     document.getElementById('totalCotejadas').textContent = stats.total_cotejadas || 0;
                     document.getElementById('totalPendientes').textContent = stats.total_pendientes || 0;
+                    document.getElementById('importePendientes').textContent = 
+                        stats.importe_pendientes ? `$${parseFloat(stats.importe_pendientes).toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : '$0.00';
                     document.getElementById('importeTotal').textContent = 
-                        stats.importe_total ? `$${parseFloat(stats.importe_total).toLocaleString()}` : '$0';
+                        stats.importe_total ? `$${parseFloat(stats.importe_total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : '$0.00';
                 }
             } catch (error) {
                 console.error('Error cargando estadísticas:', error);
