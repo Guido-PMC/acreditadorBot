@@ -306,12 +306,15 @@ router.post('/notification', validateNotification, async (req, res) => {
       INSERT INTO acreditaciones (
         id_transaccion,
         tipo,
+        concepto,
+        aplica_a,
         importe,
         estado,
         id_en_red,
         titular,
         cuit,
         origen,
+        nota,
         fecha_hora,
         cvu,
         coelsa_id,
@@ -321,11 +324,9 @@ router.post('/notification', validateNotification, async (req, res) => {
         tipo_notificacion,
         fuente,
         procesado,
-        id_cliente,
-        comision,
-        importe_comision
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
-      RETURNING id, id_transaccion, importe, fecha_hora
+        id_cliente
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+      RETURNING id
     `, [
       transactionId.toString(),
       type || 'PI',
@@ -344,9 +345,7 @@ router.post('/notification', validateNotification, async (req, res) => {
       type || 'PI',
       'api',
       true,
-      cvu.id || null,
-      comision,
-      importe_comision
+      id_cliente
     ]);
 
     // Registrar log
@@ -832,7 +831,7 @@ router.post('/notifications', [
         fuente,
         procesado,
         id_cliente
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
       RETURNING id
     `, [
       id_transaccion,
