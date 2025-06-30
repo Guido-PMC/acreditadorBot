@@ -603,7 +603,7 @@
                   
                   ${mov.tipo === 'acreditacion' && mov.comision > 0 ? `
                     <div class="mt-1">
-                      <small class="text-muted"><strong>Comisión:</strong> ${mov.comision}% ($${mov.importe_comision?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || '0.00'})</small>
+                      <small class="text-muted"><strong>Comisión:</strong> ${mov.comision}% ($${(mov.importe_comision || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })})</small>
                     </div>
                   ` : ''}
                   
@@ -616,7 +616,7 @@
                 
                 <div class="text-end ms-3">
                   <div class="h5 mb-0 ${importeClass}">
-                    ${importeSign}$${mov.importe?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || '0.00'}
+                    ${importeSign}$${(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </div>
                   
                   ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `
