@@ -41,6 +41,11 @@ function authMiddleware(req, res, next) {
     return next(); // No requerir autenticación para el portal
   }
   
+  // Excluir rutas de export para Google Sheets
+  if (req.path.startsWith('/export')) {
+    return next(); // No requerir autenticación para exports
+  }
+  
   // Excluir páginas específicas del portal
   if (req.path === '/portal-login.html' || 
       req.path === '/portal-dashboard.html' || 
