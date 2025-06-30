@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const csv = require('csv-parser');
 const readline = require('readline');
-const fetch = require('node-fetch');
+const axios = require('axios');
 
 // Configuración de la interfaz de línea de comandos
 const rl = readline.createInterface({
@@ -88,34 +88,26 @@ async function crearAcreditacionHTTP(datos) {
     } = datos;
 
     try {
-        const response = await fetch(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/notifications`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id_transaccion,
-                importe,
-                titular,
-                cuit: cleanCUIT(cuit),
-                fecha_hora: parseFecha(fecha_comprob),
-                id_cliente: cliente_id,
-                comision,
-                importe_comision,
-                tipo: 'Transferencia entrante',
-                estado: 'confirmado',
-                fuente: 'historico',
-                cotejado: true
-            })
+        const response = await axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/notifications`, {
+            id_transaccion,
+            importe,
+            titular,
+            cuit: cleanCUIT(cuit),
+            fecha_hora: parseFecha(fecha_comprob),
+            id_cliente: cliente_id,
+            comision,
+            importe_comision,
+            tipo: 'Transferencia entrante',
+            estado: 'confirmado',
+            fuente: 'historico',
+            cotejado: true
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        if (response.status !== 200 && response.status !== 201) {
+            throw new Error(`HTTP ${response.status}: ${response.data}`);
         }
 
-        const result = await response.json();
-        return result.data.id;
+        return response.data.data.id;
     } catch (error) {
         console.error('Error creando acreditación via HTTP:', error);
         throw error;
@@ -134,32 +126,24 @@ async function crearComprobanteHTTP(datos, acreditacion_id) {
     } = datos;
 
     try {
-        const response = await fetch(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/comprobantes`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id_transaccion,
-                importe,
-                nombre_remitente: titular,
-                cuit: cleanCUIT(cuit),
-                fecha_envio: parseFecha(fecha_comprob),
-                id_cliente: cliente_id,
-                cotejado: true,
-                id_acreditacion: acreditacion_id,
-                estado: 'confirmado',
-                fuente: 'historico'
-            })
+        const response = await axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/comprobantes`, {
+            id_transaccion,
+            importe,
+            nombre_remitente: titular,
+            cuit: cleanCUIT(cuit),
+            fecha_envio: parseFecha(fecha_comprob),
+            id_cliente: cliente_id,
+            cotejado: true,
+            id_acreditacion: acreditacion_id,
+            estado: 'confirmado',
+            fuente: 'historico'
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        if (response.status !== 200 && response.status !== 201) {
+            throw new Error(`HTTP ${response.status}: ${response.data}`);
         }
 
-        const result = await response.json();
-        return result.data.id;
+        return response.data.data.id;
     } catch (error) {
         console.error('Error creando comprobante via HTTP:', error);
         throw error;
@@ -177,30 +161,22 @@ async function crearCreditoHTTP(datos) {
     } = datos;
 
     try {
-        const response = await fetch(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/pagos`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id_cliente: cliente_id,
-                concepto: `Crédito histórico: ${titular}`,
-                importe,
-                fecha_pago: parseFecha(fecha_comprob),
-                tipo_pago: 'credito',
-                metodo_pago,
-                estado: 'confirmado',
-                fuente: 'historico'
-            })
+        const response = await axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/pagos`, {
+            id_cliente: cliente_id,
+            concepto: `Crédito histórico: ${titular}`,
+            importe,
+            fecha_pago: parseFecha(fecha_comprob),
+            tipo_pago: 'credito',
+            metodo_pago,
+            estado: 'confirmado',
+            fuente: 'historico'
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        if (response.status !== 200 && response.status !== 201) {
+            throw new Error(`HTTP ${response.status}: ${response.data}`);
         }
 
-        const result = await response.json();
-        return result.data.id;
+        return response.data.data.id;
     } catch (error) {
         console.error('Error creando crédito via HTTP:', error);
         throw error;
@@ -218,30 +194,22 @@ async function crearPagoHTTP(datos) {
     } = datos;
 
     try {
-        const response = await fetch(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/pagos`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id_cliente: cliente_id,
-                concepto: `Pago histórico: ${titular}`,
-                importe,
-                fecha_pago: parseFecha(fecha_comprob),
-                tipo_pago: 'egreso',
-                metodo_pago,
-                estado: 'confirmado',
-                fuente: 'historico'
-            })
+        const response = await axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/pagos`, {
+            id_cliente: cliente_id,
+            concepto: `Pago histórico: ${titular}`,
+            importe,
+            fecha_pago: parseFecha(fecha_comprob),
+            tipo_pago: 'egreso',
+            metodo_pago,
+            estado: 'confirmado',
+            fuente: 'historico'
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        if (response.status !== 200 && response.status !== 201) {
+            throw new Error(`HTTP ${response.status}: ${response.data}`);
         }
 
-        const result = await response.json();
-        return result.data.id;
+        return response.data.data.id;
     } catch (error) {
         console.error('Error creando pago via HTTP:', error);
         throw error;
@@ -252,35 +220,27 @@ async function crearPagoHTTP(datos) {
 async function buscarOCrearClienteHTTP(nombreCliente) {
     try {
         // Primero intentar buscar el cliente
-        const searchResponse = await fetch(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/clientes?search=${encodeURIComponent(nombreCliente)}`);
+        const searchResponse = await axios.get(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/clientes?search=${encodeURIComponent(nombreCliente)}`);
         
-        if (searchResponse.ok) {
-            const searchResult = await searchResponse.json();
+        if (searchResponse.status === 200) {
+            const searchResult = searchResponse.data;
             if (searchResult.data && searchResult.data.length > 0) {
                 return searchResult.data[0];
             }
         }
 
         // Si no existe, crear nuevo cliente
-        const createResponse = await fetch(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/clientes`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                nombre: nombreCliente,
-                apellido: '',
-                estado: 'activo'
-            })
+        const createResponse = await axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/clientes`, {
+            nombre: nombreCliente,
+            apellido: '',
+            estado: 'activo'
         });
 
-        if (!createResponse.ok) {
-            const errorText = await createResponse.text();
-            throw new Error(`HTTP ${createResponse.status}: ${errorText}`);
+        if (createResponse.status !== 200 && createResponse.status !== 201) {
+            throw new Error(`HTTP ${createResponse.status}: ${createResponse.data}`);
         }
 
-        const result = await createResponse.json();
-        return result.data;
+        return createResponse.data.data;
     } catch (error) {
         console.error('Error buscando/creando cliente via HTTP:', error);
         throw error;
