@@ -798,6 +798,33 @@ router.post('/notifications', async (req, res) => {
     const origen_cuenta = origin?.account || '';
     const cvu_str = cvu?.cvu || '';
 
+    // Debug: Verificar que todos los valores sean válidos
+    const insertValues = [
+      id_transaccion,
+      type || 'PI',
+      'Transferencia entrante',
+      '',
+      importe,
+      status || 'Pending',
+      '',
+      titular,
+      cuit,
+      origen_cuenta,
+      '',
+      fecha_hora,
+      cvu_str,
+      coelsa_id,
+      titular,
+      cuit,
+      origen_cuenta,
+      type || 'PI',
+      'api',
+      true
+    ];
+
+    console.log('Debug - Número de valores:', insertValues.length);
+    console.log('Debug - Valores:', insertValues);
+
     // Insertar nueva acreditación
     const result = await client.query(`
       INSERT INTO acreditaciones (
@@ -823,28 +850,7 @@ router.post('/notifications', async (req, res) => {
         procesado
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING id
-    `, [
-      id_transaccion,
-      type || 'PI',
-      'Transferencia entrante',
-      '',
-      importe,
-      status || 'Pending',
-      '',
-      titular,
-      cuit,
-      origen_cuenta,
-      '',
-      fecha_hora,
-      cvu_str,
-      coelsa_id,
-      titular,
-      cuit,
-      origen_cuenta,
-      type || 'PI',
-      'api',
-      true
-    ]);
+    `, insertValues);
 
     // Registrar log
     await client.query(`
