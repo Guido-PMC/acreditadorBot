@@ -3995,4 +3995,56 @@ router.delete('/acreditaciones/:id', async (req, res) => {
   }
 });
 
+// POST /api/migrate-export-fields - Migración temporal para agregar campos de exportación
+router.post('/migrate-export-fields', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    console.log('🔧 Ejecutando migración de campos de exportación...');
+    
+    // Agregar campo export_user si no existe
+    await client.query(`
+      ALTER TABLE clientes 
+      ADD COLUMN IF NOT EXISTS export_user VARCHAR(50)
+    `);
+    
+    // Agregar campo export_password si no existe
+    await client.query(`
+      ALTER TABLE clientes 
+      ADD COLUMN IF NOT EXISTS export_password VARCHAR(100)
+    `);
+    
+    // Configurar credenciales para el cliente "cripto" (ID: 10)
+    const updateResult = await client.query(`
+      UPDATE clientes 
+      SET export_user = $1, export_password = $2 
+      WHERE id = $3
+    `, ['cripto_export', 'cripto123!', 10]);
+    
+    console.log('✅ Migración completada');
+    
+    res.json({
+      success: true,
+      message: 'Campos de exportación agregados exitosamente',
+      data: {
+        fields_added: ['export_user', 'export_password'],
+        cliente_updated: updateResult.rowCount > 0,
+        credentials: {
+          user: 'cripto_export',
+          password: 'cripto123!'
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en migración:', error);
+    res.status(500).json({
+      error: 'Error en migración',
+      message: error.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 
