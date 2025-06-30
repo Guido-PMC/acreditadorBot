@@ -52,7 +52,7 @@ app.use(cors());
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100 // máximo 100 requests por ventana
+  max: 300 // máximo 300 requests por ventana (triplicado para importación masiva)
 });
 app.use(limiter);
 
