@@ -754,47 +754,32 @@ router.get('/stats', async (req, res) => {
 });
 
 // POST /api/notifications - Recibir notificaciones bancarias
-router.post('/notifications', [
-  body('id_transaccion').notEmpty().withMessage('ID de transacción es requerido'),
-  body('importe').isNumeric().withMessage('Importe debe ser numérico'),
-  body('fecha_hora').isISO8601().withMessage('Fecha debe ser válida')
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ 
-      error: 'Datos inválidos', 
-      details: errors.array() 
-    });
-  }
-
+router.post('/notifications', async (req, res) => {
   const client = await db.getClient();
   
   try {
     const {
-      id_transaccion,
-      tipo = 'Transferencia entrante',
-      concepto = '',
-      aplica_a = '',
-      importe,
-      estado = 'Completed',
-      id_en_red = '',
-      titular = '',
-      cuit = '',
-      origen = '',
-      nota = '',
-      fecha_hora,
-      cvu = '',
-      coelsa_id = '',
-      origen_nombre = '',
-      origen_tax_id = '',
-      origen_cuenta = '',
-      tipo_notificacion = ''
+      id,
+      cvu,
+      type,
+      amount,
+      origin,
+      status,
+      coelsa_id
     } = req.body;
+
+    // Validar campos requeridos
+    if (!id || !amount || !coelsa_id) {
+      return res.status(400).json({ 
+        error: 'Datos inválidos', 
+        message: 'Los campos id, amount y coelsa_id son requeridos'
+      });
+    }
 
     // Verificar si la transacción ya existe
     const existingTransaction = await client.query(
-      'SELECT id FROM acreditaciones WHERE id_transaccion = $1',
-      [id_transaccion]
+      'SELECT id FROM acreditaciones WHERE coelsa_id = $1',
+      [coelsa_id]
     );
 
     if (existingTransaction.rows.length > 0) {
@@ -803,6 +788,15 @@ router.post('/notifications', [
         message: 'Esta transacción ya existe en el sistema'
       });
     }
+
+    // Preparar datos para inserción
+    const id_transaccion = id.toString();
+    const importe = parseFloat(amount) / 100; // Convertir de centavos a pesos
+    const fecha_hora = new Date().toISOString();
+    const titular = origin?.name || '';
+    const cuit = origin?.taxId || '';
+    const origen_cuenta = origin?.account || '';
+    const cvu_str = cvu?.cvu || '';
 
     // Insertar nueva acreditación
     const result = await client.query(`
@@ -831,23 +825,23 @@ router.post('/notifications', [
       RETURNING id
     `, [
       id_transaccion,
-      tipo,
-      concepto,
-      aplica_a,
+      type || 'PI',
+      'Transferencia entrante',
+      '',
       importe,
-      estado,
-      id_en_red,
+      status || 'Pending',
+      '',
       titular,
       cuit,
-      origen,
-      nota,
-      fecha_hora,
-      cvu,
-      coelsa_id,
-      origen_nombre,
-      origen_tax_id,
       origen_cuenta,
-      tipo_notificacion,
+      '',
+      fecha_hora,
+      cvu_str,
+      coelsa_id,
+      titular,
+      cuit,
+      origen_cuenta,
+      type || 'PI',
       'api',
       true
     ]);
@@ -868,7 +862,9 @@ router.post('/notifications', [
       message: 'Acreditación registrada exitosamente',
       data: {
         id: result.rows[0].id,
-        id_transaccion
+        id_transaccion,
+        importe,
+        fecha_hora
       }
     });
 
