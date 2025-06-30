@@ -4,6 +4,9 @@ const csv = require('csv-parser');
 const readline = require('readline');
 const axios = require('axios');
 
+// Configuración para evitar rate limit
+const DELAY_BETWEEN_REQUESTS = 1000; // 1 segundo por defecto
+
 // Configuración de la interfaz de línea de comandos
 const rl = readline.createInterface({
     input: process.stdin,
@@ -17,6 +20,11 @@ function pregunta(pregunta) {
             resolve(respuesta);
         });
     });
+}
+
+// Función para agregar delay y evitar rate limit
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // Función para limpiar CUIT (quitar guiones y dejar solo números)
@@ -297,6 +305,8 @@ async function procesarCSV() {
         });
 
         console.log(`📄 Total de filas en CSV: ${filas.length}`);
+        console.log(`⏳ Delay configurado: ${DELAY_BETWEEN_REQUESTS}ms entre requests para evitar rate limit`);
+        console.log(`⏱️  Tiempo estimado: ~${Math.ceil((filas.length * DELAY_BETWEEN_REQUESTS) / 1000 / 60)} minutos\n`);
 
         // Procesar filas secuencialmente
         for (let i = 0; i < filas.length; i++) {
@@ -311,6 +321,9 @@ async function procesarCSV() {
                     console.log(`❌ No coincide, ignorando fila`);
                     contador.ignorados++;
                     mostrarContadores(contador);
+                    
+                    // Pequeño delay incluso para filas ignoradas para mantener consistencia
+                    await delay(100);
                     continue;
                 }
 
@@ -403,10 +416,18 @@ async function procesarCSV() {
                 // Mostrar contadores después de cada procesamiento
                 mostrarContadores(contador);
 
+                // Agregar delay para evitar rate limit
+                console.log(`⏳ Esperando ${DELAY_BETWEEN_REQUESTS}ms para evitar rate limit...`);
+                await delay(DELAY_BETWEEN_REQUESTS);
+
             } catch (error) {
                 console.error('❌ Error procesando fila:', error);
                 contador.ignorados++;
                 mostrarContadores(contador);
+                
+                // También agregar delay en caso de error
+                console.log(`⏳ Esperando ${DELAY_BETWEEN_REQUESTS}ms antes de continuar...`);
+                await delay(DELAY_BETWEEN_REQUESTS);
             }
         }
 
