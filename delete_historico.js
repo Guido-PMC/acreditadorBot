@@ -1,6 +1,9 @@
 require('dotenv').config();
-const db = require('./config/database');
+const axios = require('axios');
 const readline = require('readline');
+
+// Configuración
+const API_URL = process.env.API_URL || 'http://localhost:3000';
 
 // Configuración de la interfaz de línea de comandos
 const rl = readline.createInterface({
@@ -41,52 +44,59 @@ async function confirmarEliminacion() {
     return true;
 }
 
-// Función para contar registros antes de eliminar
-async function contarRegistros(client) {
+// Función para contar registros históricos via API
+async function contarRegistrosHistoricos() {
     try {
-        const acreditaciones = await client.query(`
-            SELECT COUNT(*) as total FROM acreditaciones WHERE fuente = 'historico'
-        `);
+        console.log(`🌐 Consultando: ${API_URL}/api/stats`);
         
-        const comprobantes = await client.query(`
-            SELECT COUNT(*) as total FROM comprobantes WHERE fuente = 'historico'
-        `);
+        // Primero intentamos obtener estadísticas generales para verificar conectividad
+        const statsResponse = await axios.get(`${API_URL}/api/stats`);
         
-        const pagos = await client.query(`
-            SELECT COUNT(*) as total FROM pagos WHERE fuente = 'historico'
-        `);
+        if (!statsResponse.data.success) {
+            throw new Error('Error obteniendo estadísticas del servidor');
+        }
+        
+        console.log('✅ Conexión con el servidor establecida');
+        
+        // Para contar específicamente los históricos, necesitamos hacer consultas específicas
+        // Como no tenemos un endpoint específico para contar históricos, usaremos el endpoint de eliminación 
+        // en modo "dry-run" (pero como no lo implementamos así, haremos una estimación)
+        
+        // Por ahora, hacemos una estimación basada en que el endpoint de eliminación nos dará el conteo
+        console.log('📊 Para obtener el conteo exacto de registros históricos, se consultará el endpoint de eliminación...');
         
         return {
-            acreditaciones: parseInt(acreditaciones.rows[0].total),
-            comprobantes: parseInt(comprobantes.rows[0].total),
-            pagos: parseInt(pagos.rows[0].total)
+            acreditaciones: '?',
+            comprobantes: '?', 
+            pagos: '?',
+            nota: 'El conteo exacto se obtendrá al ejecutar la eliminación'
         };
+        
     } catch (error) {
-        console.error('Error contando registros:', error);
+        if (error.code === 'ECONNREFUSED') {
+            throw new Error(`No se pudo conectar al servidor en ${API_URL}. ¿Está ejecutándose el servidor?`);
+        }
+        console.error('Error consultando registros históricos:', error.message);
         throw error;
     }
 }
 
-// Función principal para eliminar datos históricos
+// Función principal para eliminar datos históricos via API
 async function eliminarDatosHistoricos() {
-    const client = await db.getClient();
-    
     try {
-        console.log('🔍 Contando registros con fuente "historico"...\n');
+        console.log(`🌐 Conectando al servidor: ${API_URL}\n`);
         
-        // Contar registros antes de eliminar
-        const conteoInicial = await contarRegistros(client);
+        // Verificar conectividad y obtener información inicial
+        const infoInicial = await contarRegistrosHistoricos();
         
-        console.log('📊 Registros encontrados:');
-        console.log(`   - Acreditaciones: ${conteoInicial.acreditaciones}`);
-        console.log(`   - Comprobantes: ${conteoInicial.comprobantes}`);
-        console.log(`   - Pagos: ${conteoInicial.pagos}`);
-        console.log(`   - TOTAL: ${conteoInicial.acreditaciones + conteoInicial.comprobantes + conteoInicial.pagos}\n`);
-        
-        if (conteoInicial.acreditaciones === 0 && conteoInicial.comprobantes === 0 && conteoInicial.pagos === 0) {
-            console.log('ℹ️  No se encontraron registros con fuente "historico" para eliminar.');
-            return;
+        console.log('📊 Información de registros históricos:');
+        console.log(`   - Acreditaciones: ${infoInicial.acreditaciones}`);
+        console.log(`   - Comprobantes: ${infoInicial.comprobantes}`);
+        console.log(`   - Pagos: ${infoInicial.pagos}`);
+        if (infoInicial.nota) {
+            console.log(`   ℹ️  ${infoInicial.nota}`);
         }
+        console.log('');
         
         // Confirmar eliminación
         const confirmado = await confirmarEliminacion();
@@ -94,91 +104,63 @@ async function eliminarDatosHistoricos() {
             return;
         }
         
-        console.log('\n🗑️  Iniciando eliminación...\n');
+        console.log('\n🗑️  Iniciando eliminación via API...\n');
+        console.log(`🌐 Llamando: DELETE ${API_URL}/api/historico/limpiar`);
         
-        // Iniciar transacción
-        await client.query('BEGIN');
+        // Llamar al endpoint de eliminación
+        const response = await axios.delete(`${API_URL}/api/historico/limpiar`);
         
-        let eliminados = {
-            comprobantes: 0,
-            pagos: 0,
-            acreditaciones: 0
-        };
-        
-        // 1. Eliminar comprobantes primero (tienen FK a acreditaciones)
-        if (conteoInicial.comprobantes > 0) {
-            console.log('🗑️  Eliminando comprobantes...');
-            const resultComprobantes = await client.query(`
-                DELETE FROM comprobantes WHERE fuente = 'historico'
-            `);
-            eliminados.comprobantes = resultComprobantes.rowCount;
-            console.log(`✅ Eliminados ${eliminados.comprobantes} comprobantes`);
+        if (!response.data.success) {
+            throw new Error(`Error del servidor: ${response.data.message || 'Error desconocido'}`);
         }
         
-        // 2. Eliminar pagos
-        if (conteoInicial.pagos > 0) {
-            console.log('🗑️  Eliminando pagos...');
-            const resultPagos = await client.query(`
-                DELETE FROM pagos WHERE fuente = 'historico'
-            `);
-            eliminados.pagos = resultPagos.rowCount;
-            console.log(`✅ Eliminados ${eliminados.pagos} pagos`);
-        }
-        
-        // 3. Eliminar acreditaciones al final
-        if (conteoInicial.acreditaciones > 0) {
-            console.log('🗑️  Eliminando acreditaciones...');
-            const resultAcreditaciones = await client.query(`
-                DELETE FROM acreditaciones WHERE fuente = 'historico'
-            `);
-            eliminados.acreditaciones = resultAcreditaciones.rowCount;
-            console.log(`✅ Eliminadas ${eliminados.acreditaciones} acreditaciones`);
-        }
-        
-        // Confirmar transacción
-        await client.query('COMMIT');
+        const resultado = response.data.data;
         
         console.log('\n✅ Eliminación completada exitosamente!');
         console.log('\n📊 Resumen de eliminación:');
-        console.log(`   - Comprobantes eliminados: ${eliminados.comprobantes}`);
-        console.log(`   - Pagos eliminados: ${eliminados.pagos}`);
-        console.log(`   - Acreditaciones eliminadas: ${eliminados.acreditaciones}`);
-        console.log(`   - TOTAL ELIMINADO: ${eliminados.comprobantes + eliminados.pagos + eliminados.acreditaciones}`);
+        console.log(`   - Comprobantes eliminados: ${resultado.eliminados.comprobantes}`);
+        console.log(`   - Pagos eliminados: ${resultado.eliminados.pagos}`);
+        console.log(`   - Acreditaciones eliminadas: ${resultado.eliminados.acreditaciones}`);
+        console.log(`   - TOTAL ELIMINADO: ${resultado.total_eliminado}`);
         
-        // Verificar que no queden registros
-        console.log('\n🔍 Verificando eliminación...');
-        const conteoFinal = await contarRegistros(client);
+        if (resultado.conteo_inicial) {
+            console.log('\n📊 Conteo inicial encontrado:');
+            console.log(`   - Acreditaciones: ${resultado.conteo_inicial.acreditaciones}`);
+            console.log(`   - Comprobantes: ${resultado.conteo_inicial.comprobantes}`);
+            console.log(`   - Pagos: ${resultado.conteo_inicial.pagos}`);
+        }
         
-        if (conteoFinal.acreditaciones === 0 && conteoFinal.comprobantes === 0 && conteoFinal.pagos === 0) {
-            console.log('✅ Verificación exitosa: No quedan registros con fuente "historico"');
+        if (resultado.total_eliminado === 0) {
+            console.log('\nℹ️  No había registros históricos para eliminar.');
         } else {
-            console.log('⚠️  Advertencia: Aún quedan algunos registros:');
-            console.log(`   - Acreditaciones: ${conteoFinal.acreditaciones}`);
-            console.log(`   - Comprobantes: ${conteoFinal.comprobantes}`);
-            console.log(`   - Pagos: ${conteoFinal.pagos}`);
+            console.log(`\n✅ Eliminación exitosa: ${resultado.total_eliminado} registros históricos eliminados del sistema.`);
         }
         
     } catch (error) {
-        // Rollback en caso de error
-        try {
-            await client.query('ROLLBACK');
-            console.log('🔄 Transacción revertida debido al error');
-        } catch (rollbackError) {
-            console.error('❌ Error en rollback:', rollbackError);
+        if (error.response) {
+            // Error de respuesta HTTP
+            console.error(`❌ Error HTTP ${error.response.status}:`, error.response.data.message || error.response.data.error);
+            if (error.response.data.details) {
+                console.error('   Detalles:', error.response.data.details);
+            }
+        } else if (error.code === 'ECONNREFUSED') {
+            console.error(`❌ No se pudo conectar al servidor en ${API_URL}`);
+            console.error('   ¿Está ejecutándose el servidor? Puedes iniciarlo con: npm start');
+        } else {
+            console.error('❌ Error durante la eliminación:', error.message);
         }
-        
-        console.error('❌ Error durante la eliminación:', error);
         throw error;
         
     } finally {
-        client.release();
         rl.close();
     }
 }
 
 // Ejecutar el script
-console.log('🗑️  Script de Eliminación de Datos Históricos');
-console.log('===========================================\n');
+console.log('🗑️  Script de Eliminación de Datos Históricos (via HTTP API)');
+console.log('========================================================');
+console.log(`🌐 Servidor: ${API_URL}`);
+console.log('========================================================\n');
 
 eliminarDatosHistoricos()
     .then(() => {
