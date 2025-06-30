@@ -786,7 +786,7 @@ router.post('/notifications', async (req, res) => {
       id_cliente = req.body.id_cliente;
       comision = req.body.comision || 0;
       importe_comision = req.body.importe_comision || 0;
-      tipo = req.body.tipo || 'Transferencia entrante';
+      tipo = req.body.tipo || 'Transfer';
       estado = req.body.estado || 'confirmado';
       fuente = req.body.fuente || 'historico';
       coelsa_id = req.body.coelsa_id || `HIST_${id_transaccion}`;
@@ -824,24 +824,24 @@ router.post('/notifications', async (req, res) => {
     // Insertar nueva acreditación
     const valores = [
       id_transaccion,
-      tipo.substring(0, 10), // Truncar a 10 caracteres
-      'Transferencia entrante'.substring(0, 50), // Truncar concepto
+      (tipo || '').substring(0, 50), // Campo 'tipo' - VARCHAR(50)
+      'Transferencia entrante'.substring(0, 100), // Campo 'concepto' - VARCHAR(100)
       '',
       importe,
-      estado.substring(0, 20), // Truncar estado
+      (estado || '').substring(0, 20), // Campo 'estado' - VARCHAR(20)
       '',
-      titular.substring(0, 100), // Truncar titular
-      cuit.substring(0, 20), // Truncar CUIT
+      (titular || '').substring(0, 200), // Campo 'titular' - VARCHAR(200)
+      (cuit || '').substring(0, 20), // Campo 'cuit' - VARCHAR(20)
       '',
       '',
       fecha_hora,
       '',
-      coelsa_id.substring(0, 50), // Truncar coelsa_id
-      titular.substring(0, 100), // Truncar origen_nombre
-      cuit.substring(0, 20), // Truncar origen_tax_id
+      (coelsa_id || '').substring(0, 100), // Campo 'coelsa_id' - VARCHAR(100)
+      (titular || '').substring(0, 200), // Campo 'origen_nombre' - VARCHAR(200)
+      (cuit || '').substring(0, 20), // Campo 'origen_tax_id' - VARCHAR(20)
       '',
-      tipo.substring(0, 20), // Truncar tipo_notificacion
-      fuente.substring(0, 20), // Truncar fuente
+      (tipo || '').substring(0, 10), // Campo 'tipo_notificacion' - VARCHAR(10) ⚠️
+      (fuente || '').substring(0, 20), // Campo 'fuente' - VARCHAR(20)
       true,
       id_cliente,
       comision,
