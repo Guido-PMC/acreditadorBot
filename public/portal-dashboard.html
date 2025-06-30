@@ -469,29 +469,32 @@
                     });
                 });
 
-                // Agregar comprobantes como entradas (pendientes o asignados)
+                // Agregar solo comprobantes pendientes (sin asignar)
                 comprobantesData.data.forEach(comp => {
-                    // Verificar que la fecha sea válida
-                    const fecha = comp.fecha_envio ? new Date(comp.fecha_envio) : new Date();
-                    const fechaFormateada = fecha instanceof Date && !isNaN(fecha) ? 
-                        fecha.toLocaleDateString('es-AR') + ' ' + fecha.toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : 
-                        'Fecha no disponible';
+                    // Solo incluir comprobantes que NO tienen acreditación asignada
+                    if (!comp.id_acreditacion) {
+                        // Verificar que la fecha sea válida
+                        const fecha = comp.fecha_envio ? new Date(comp.fecha_envio) : new Date();
+                        const fechaFormateada = fecha instanceof Date && !isNaN(fecha) ? 
+                            fecha.toLocaleDateString('es-AR') + ' ' + fecha.toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : 
+                            'Fecha no disponible';
 
-                    movimientos.push({
-                        id: `comp_${comp.id}`,
-                        tipo: 'comprobante',
-                        concepto: `Comprobante: ${comp.nombre_remitente || 'Sin nombre'}`,
-                        importe: comp.importe,
-                        comision: 0, // Los comprobantes no tienen comisión directa
-                        importe_comision: 0,
-                        fecha: fechaFormateada,
-                        fecha_original: comp.fecha_envio,
-                        cuit: comp.cuit,
-                        estado: comp.id_acreditacion ? 'Asignado' : 'Pendiente',
-                        id_acreditacion: comp.id_acreditacion,
-                        fuente: comp.fuente,
-                        es_entrada: true
-                    });
+                        movimientos.push({
+                            id: `comp_${comp.id}`,
+                            tipo: 'comprobante',
+                            concepto: `Comprobante Pendiente: ${comp.nombre_remitente || 'Sin nombre'}`,
+                            importe: comp.importe,
+                            comision: 0, // Los comprobantes no tienen comisión directa
+                            importe_comision: 0,
+                            fecha: fechaFormateada,
+                            fecha_original: comp.fecha_envio,
+                            cuit: comp.cuit,
+                            estado: 'Pendiente',
+                            id_acreditacion: null,
+                            fuente: comp.fuente,
+                            es_entrada: true
+                        });
+                    }
                 });
 
                 // Agregar movimientos como salidas o entradas
@@ -575,7 +578,7 @@
                 const tipoBadge = mov.tipo === 'acreditacion' ? 
                     '<span class="badge bg-primary status-badge">Acreditación</span>' : 
                     mov.tipo === 'comprobante' ?
-                    `<span class="badge bg-warning status-badge">Comprobante ${mov.estado === 'Pendiente' ? '(Pendiente)' : '(Asignado)'}</span>` :
+                    '<span class="badge bg-warning status-badge">Comprobante Pendiente</span>' :
                     `<span class="badge bg-${mov.tipo_pago === 'credito' ? 'success' : 'danger'} status-badge">${mov.tipo_pago === 'credito' ? 'Crédito' : 'Pago'}</span>`;
 
                 // Calcular comisión y neto

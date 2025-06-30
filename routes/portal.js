@@ -427,21 +427,32 @@ router.get('/resumen', authenticateToken, async (req, res) => {
       WHERE CAST(id_cliente AS INTEGER) = $1
     `, [cliente_id]);
 
+    // Estadísticas de comprobantes pendientes (sin asignar)
+    const comprobantesPendientesStats = await client.query(`
+      SELECT 
+        COUNT(*) as total_comprobantes_pendientes,
+        SUM(importe) as total_importe_comprobantes_pendientes
+      FROM comprobantes_whatsapp 
+      WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
+    `, [cliente_id]);
+
     // Calcular saldo actual (acreditaciones cotejadas - comisiones + créditos - pagos)
     const saldo_actual = (acreditacionesStats.rows[0].total_importe_cotejadas || 0) - 
                          (acreditacionesStats.rows[0].total_comisiones_cotejadas || 0) + 
                          (movimientosStats.rows[0].total_importe_creditos || 0) - 
                          (movimientosStats.rows[0].total_importe_pagos || 0);
 
-    // Saldo pendiente (acreditaciones no cotejadas - comisiones)
+    // Saldo pendiente (acreditaciones no cotejadas - comisiones + comprobantes pendientes)
     const saldo_pendiente = (acreditacionesStats.rows[0].total_importe_pendientes || 0) - 
-                           (acreditacionesStats.rows[0].total_comisiones_pendientes || 0);
+                           (acreditacionesStats.rows[0].total_comisiones_pendientes || 0) +
+                           (comprobantesPendientesStats.rows[0].total_importe_comprobantes_pendientes || 0);
 
     res.json({
       success: true,
       data: {
         acreditaciones: acreditacionesStats.rows[0],
         movimientos: movimientosStats.rows[0],
+        comprobantes_pendientes: comprobantesPendientesStats.rows[0],
         saldo_actual: saldo_actual,
         saldo_pendiente: saldo_pendiente,
         saldo_total: saldo_actual + saldo_pendiente
