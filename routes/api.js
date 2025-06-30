@@ -3094,15 +3094,36 @@ router.post('/comprobantes/whatsapp', [
 
     const comprobante = comprobanteResult.rows[0];
 
-    // Si se encontró acreditación, actualizarla
+    // Si se encontró acreditación, actualizarla con comisión
     if (acreditacion_encontrada && id_acreditacion) {
+      // Obtener comisión del cliente
+      let comision = 0.00;
+      let importe_comision = 0.00;
+      
+      if (comprobante.id_cliente) {
+        console.log('🔍 Obteniendo comisión del cliente ID para cotejo automático:', comprobante.id_cliente);
+        const clienteResult = await client.query('SELECT comision FROM clientes WHERE id = $1', [comprobante.id_cliente]);
+        
+        if (clienteResult.rows.length > 0) {
+          comision = parseFloat(clienteResult.rows[0].comision) || 0.00;
+          
+          // Obtener importe de la acreditación para calcular comisión
+          const acreditacionResult = await client.query('SELECT importe FROM acreditaciones WHERE id = $1', [id_acreditacion]);
+          if (acreditacionResult.rows.length > 0) {
+            const importe = parseFloat(acreditacionResult.rows[0].importe);
+            importe_comision = (importe * comision / 100);
+            console.log(`💰 Aplicando comisión en cotejo automático: ${comision}% sobre $${importe} = $${importe_comision.toFixed(2)}`);
+          }
+        }
+      }
+
       await client.query(`
         UPDATE acreditaciones 
-        SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP, id_cliente = $2
-        WHERE id = $3
-      `, [comprobante.id_comprobante, comprobante.id_cliente, id_acreditacion]);
+        SET id_comprobante_whatsapp = $1, cotejado = true, fecha_cotejo = CURRENT_TIMESTAMP, id_cliente = $2, comision = $3, importe_comision = $4
+        WHERE id = $5
+      `, [comprobante.id_comprobante, comprobante.id_cliente, comision, importe_comision, id_acreditacion]);
 
-      console.log('✅ Acreditación actualizada con comprobante');
+      console.log(`✅ Acreditación actualizada con comprobante y comisión: ${comision}%, $${importe_comision}`);
     }
 
     // Registrar log
