@@ -6,10 +6,19 @@ const router = express.Router();
 
 // OPTIONS handler para CORS preflight
 router.options('/sheets/:cliente_id', (req, res) => {
+  const requestId = Math.random().toString(36).substr(2, 9);
+  console.log(`🔍 [${requestId}] === OPTIONS REQUEST ===`);
+  console.log(`🔍 [${requestId}] IP: ${req.ip}`);
+  console.log(`🔍 [${requestId}] User-Agent: ${req.get('User-Agent') || 'No definido'}`);
+  console.log(`🔍 [${requestId}] Origin: ${req.get('Origin') || 'No definido'}`);
+  console.log(`🔍 [${requestId}] Cliente ID: ${req.params.cliente_id}`);
+  
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Max-Age', '86400');
+  
+  console.log(`✅ [${requestId}] OPTIONS response enviado`);
   res.status(200).end();
 });
 
@@ -59,6 +68,19 @@ function formatDateForCSV(date) {
 
 // GET /export/sheets/:cliente_id - Exportar datos para Google Sheets
 router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
+  const startTime = Date.now();
+  const requestId = Math.random().toString(36).substr(2, 9);
+  
+  console.log(`🔍 [${requestId}] === INICIO REQUEST EXPORT ===`);
+  console.log(`🔍 [${requestId}] Timestamp: ${new Date().toISOString()}`);
+  console.log(`🔍 [${requestId}] IP: ${req.ip}`);
+  console.log(`🔍 [${requestId}] User-Agent: ${req.get('User-Agent') || 'No definido'}`);
+  console.log(`🔍 [${requestId}] Referer: ${req.get('Referer') || 'No definido'}`);
+  console.log(`🔍 [${requestId}] Origin: ${req.get('Origin') || 'No definido'}`);
+  console.log(`🔍 [${requestId}] Headers completos:`, JSON.stringify(req.headers, null, 2));
+  console.log(`🔍 [${requestId}] Cliente ID: ${req.params.cliente_id}`);
+  console.log(`🔍 [${requestId}] Query params:`, JSON.stringify(req.query, null, 2));
+  
   // Headers para compatibilidad con Google Sheets
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
@@ -66,6 +88,9 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
+  
+  console.log(`🔍 [${requestId}] Headers CORS configurados`);
+  
   const client = await db.getClient();
   
   try {
@@ -80,7 +105,10 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
     } = req.query;
 
     // Validar parámetros requeridos
+    console.log(`🔍 [${requestId}] Validando credenciales: user=${user ? 'SI' : 'NO'}, pass=${pass ? 'SI' : 'NO'}`);
+    
     if (!user || !pass) {
+      console.log(`❌ [${requestId}] Credenciales faltantes - user: ${user}, pass: ${pass ? '***' : 'undefined'}`);
       return res.status(401).json({
         error: 'Authentication required',
         message: 'Parameters user and pass are required'
@@ -88,6 +116,8 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
     }
 
     // Verificar credenciales del cliente
+    console.log(`🔍 [${requestId}] Consultando base de datos para cliente ${cliente_id}`);
+    
     const clienteResult = await client.query(`
       SELECT 
         c.id,
@@ -95,20 +125,35 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
         c.apellido,
         c.estado,
         pu.export_user,
-        pu.export_password
+        pu.export_password,
+        pu.username as portal_username,
+        pu.activo as portal_activo
       FROM clientes c
       LEFT JOIN portal_users pu ON c.id = CAST(pu.id_cliente AS INTEGER)
       WHERE c.id = $1 AND c.estado = 'activo'
     `, [parseInt(cliente_id)]);
+    
+    console.log(`🔍 [${requestId}] Resultados de consulta: ${clienteResult.rows.length} filas`);
+    if (clienteResult.rows.length > 0) {
+      const result = clienteResult.rows[0];
+      console.log(`🔍 [${requestId}] Cliente encontrado: ${result.nombre} ${result.apellido}`);
+      console.log(`🔍 [${requestId}] Estado cliente: ${result.estado}`);
+      console.log(`🔍 [${requestId}] Portal username: ${result.portal_username || 'NULL'}`);
+      console.log(`🔍 [${requestId}] Portal activo: ${result.portal_activo || 'NULL'}`);
+      console.log(`🔍 [${requestId}] Export user: ${result.export_user || 'NULL'}`);
+      console.log(`🔍 [${requestId}] Export password: ${result.export_password ? '***' : 'NULL'}`);
+    }
 
     if (clienteResult.rows.length === 0) {
+      console.log(`❌ [${requestId}] Cliente no encontrado o inactivo`);
+      
       await client.query(`
         INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
         VALUES ($1, $2, $3, $4)
       `, [
         'export_access_denied',
-        `Intento de acceso a exportación con cliente_id inválido: ${cliente_id}`,
-        JSON.stringify({ cliente_id, user, ip: req.ip }),
+        `[${requestId}] Intento de acceso a exportación con cliente_id inválido: ${cliente_id}`,
+        JSON.stringify({ requestId, cliente_id, user, ip: req.ip, userAgent: req.get('User-Agent') }),
         'fallido'
       ]);
       
@@ -121,16 +166,27 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
     const cliente = clienteResult.rows[0];
 
     // Verificar credenciales de exportación
+    console.log(`🔍 [${requestId}] Verificando credenciales de export`);
+    console.log(`🔍 [${requestId}] Esperado user: ${cliente.export_user || 'NULL'}`);
+    console.log(`🔍 [${requestId}] Recibido user: ${user}`);
+    console.log(`🔍 [${requestId}] Password match: ${cliente.export_password === pass ? 'SI' : 'NO'}`);
+    
     if (!cliente.export_user || !cliente.export_password || 
         cliente.export_user !== user || cliente.export_password !== pass) {
+      
+      console.log(`❌ [${requestId}] Credenciales inválidas`);
+      console.log(`❌ [${requestId}] - export_user existe: ${!!cliente.export_user}`);
+      console.log(`❌ [${requestId}] - export_password existe: ${!!cliente.export_password}`);
+      console.log(`❌ [${requestId}] - user match: ${cliente.export_user === user}`);
+      console.log(`❌ [${requestId}] - pass match: ${cliente.export_password === pass}`);
       
       await client.query(`
         INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
         VALUES ($1, $2, $3, $4)
       `, [
         'export_access_denied',
-        `Credenciales inválidas para exportación del cliente: ${cliente.nombre} ${cliente.apellido}`,
-        JSON.stringify({ cliente_id, user, ip: req.ip }),
+        `[${requestId}] Credenciales inválidas para exportación del cliente: ${cliente.nombre} ${cliente.apellido}`,
+        JSON.stringify({ requestId, cliente_id, user, ip: req.ip, userAgent: req.get('User-Agent') }),
         'fallido'
       ]);
       
@@ -141,13 +197,15 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
     }
 
     // Log de acceso exitoso
+    console.log(`✅ [${requestId}] Credenciales válidas - acceso autorizado`);
+    
     await client.query(`
       INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
       VALUES ($1, $2, $3, $4)
     `, [
       'export_access_success',
-      `Acceso exitoso a exportación: ${cliente.nombre} ${cliente.apellido}`,
-      JSON.stringify({ cliente_id, user, tipo, format, ip: req.ip }),
+      `[${requestId}] Acceso exitoso a exportación: ${cliente.nombre} ${cliente.apellido}`,
+      JSON.stringify({ requestId, cliente_id, user, tipo, format, ip: req.ip, userAgent: req.get('User-Agent') }),
       'exitoso'
     ]);
 
@@ -212,6 +270,12 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
       // Headers específicos para Google Sheets
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       res.setHeader('X-Content-Type-Options', 'nosniff');
+      
+      console.log(`✅ [${requestId}] Enviando CSV - ${data.length} filas de datos`);
+      console.log(`✅ [${requestId}] Headers: ${headers.join(', ')}`);
+      console.log(`✅ [${requestId}] Tiempo total: ${Date.now() - startTime}ms`);
+      console.log(`🔍 [${requestId}] === FIN REQUEST EXPORT ===`);
+      
       // No usar Content-Disposition para Google Sheets
       return res.send(csvContent);
     
@@ -236,19 +300,27 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
     }
 
   } catch (error) {
-    console.error('Error en exportación:', error);
+    const requestId = req.requestId || 'unknown';
+    console.error(`❌ [${requestId}] Error en exportación:`, error);
+    console.error(`❌ [${requestId}] Stack trace:`, error.stack);
     
     // Log del error
-    await client.query(`
-      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
-      VALUES ($1, $2, $3, $4)
-    `, [
-      'export_error',
-      `Error en exportación: ${error.message}`,
-      JSON.stringify({ cliente_id: req.params.cliente_id, error: error.message }),
-      'fallido'
-    ]);
+    try {
+      await client.query(`
+        INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+        VALUES ($1, $2, $3, $4)
+      `, [
+        'export_error',
+        `[${requestId}] Error en exportación: ${error.message}`,
+        JSON.stringify({ requestId, cliente_id: req.params.cliente_id, error: error.message, stack: error.stack }),
+        'fallido'
+      ]);
+    } catch (logError) {
+      console.error(`❌ [${requestId}] Error al guardar log:`, logError);
+    }
 
+    console.log(`🔍 [${requestId}] === FIN REQUEST EXPORT (ERROR) ===`);
+    
     res.status(500).json({
       error: 'Internal server error',
       message: 'Export failed'
