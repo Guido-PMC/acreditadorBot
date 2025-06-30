@@ -1924,18 +1924,30 @@ router.post('/comprobantes', [
   }
 });
 
-// DELETE /api/comprobantes/:id - Eliminar comprobante
+// DELETE /api/comprobantes/:id - Eliminar comprobante (por ID numérico o id_comprobante)
 router.delete('/comprobantes/:id', async (req, res) => {
   const client = await db.getClient();
   
   try {
     const { id } = req.params;
 
-    // Verificar que el comprobante existe
-    const comprobante = await client.query(
-      'SELECT id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id = $1',
-      [id]
-    );
+    // Determinar si es un ID numérico o un id_comprobante (string)
+    const isNumericId = /^\d+$/.test(id);
+    
+    let comprobante;
+    if (isNumericId) {
+      // Buscar por ID numérico
+      comprobante = await client.query(
+        'SELECT id, id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id = $1',
+        [parseInt(id)]
+      );
+    } else {
+      // Buscar por id_comprobante (string)
+      comprobante = await client.query(
+        'SELECT id, id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id_comprobante = $1',
+        [id]
+      );
+    }
 
     if (comprobante.rows.length === 0) {
       return res.status(404).json({
@@ -1952,10 +1964,11 @@ router.delete('/comprobantes/:id', async (req, res) => {
       });
     }
 
-    // Eliminar el comprobante
+    // Eliminar el comprobante (usar siempre el ID numérico)
+    const comprobanteId = comprobante.rows[0].id;
     await client.query(
       'DELETE FROM comprobantes_whatsapp WHERE id = $1',
-      [id]
+      [comprobanteId]
     );
 
     // Registrar log
@@ -1964,8 +1977,13 @@ router.delete('/comprobantes/:id', async (req, res) => {
       VALUES ($1, $2, $3, $4)
     `, [
       'comprobante_eliminado',
-      `Comprobante ${comprobante.rows[0].id_comprobante} eliminado`,
-      JSON.stringify({ comprobante_id: id }),
+      `Comprobante ${comprobante.rows[0].id_comprobante} eliminado (${isNumericId ? 'por ID' : 'por id_comprobante'})`,
+      JSON.stringify({ 
+        input_id: id, 
+        comprobante_id: comprobanteId, 
+        id_comprobante: comprobante.rows[0].id_comprobante,
+        tipo_busqueda: isNumericId ? 'id_numerico' : 'id_comprobante'
+      }),
       'exitoso'
     ]);
 
