@@ -14,12 +14,21 @@ if (!USE_HTTP) {
 // Función para buscar acreditaciones huérfanas
 async function buscarAcreditacionesHuerfanas() {
     if (USE_HTTP) {
-        // Usar endpoint HTTP (necesitamos crear este endpoint)
-        const response = await axios.get(`${API_URL}/api/comprobantes/huerfanos`);
-        if (!response.data.success) {
-            throw new Error('Error obteniendo datos del servidor');
+        try {
+            // Intentar usar el nuevo endpoint
+            const response = await axios.get(`${API_URL}/api/comprobantes/huerfanos`);
+            if (!response.data.success) {
+                throw new Error('Error obteniendo datos del servidor');
+            }
+            return response.data.data;
+        } catch (error) {
+            if (error.response && error.response.status === 404) {
+                console.log('⚠️  Endpoint /api/comprobantes/huerfanos no disponible en el servidor');
+                console.log('🔄 Usando método alternativo para buscar referencias huérfanas...');
+                return await buscarHuerfanasAlternativo();
+            }
+            throw error;
         }
-        return response.data.data;
     } else {
         // Conexión directa a base de datos
         const client = await db.getClient();
