@@ -184,6 +184,7 @@
                         <div class="btn-group btn-group-sm" role="group">
                             <button type="button" class="btn btn-outline-primary" onclick="filterMovimientos('')">Todos</button>
                             <button type="button" class="btn btn-outline-success" onclick="filterMovimientos('acreditacion')">Acreditaciones</button>
+                            <button type="button" class="btn btn-outline-warning" onclick="filterMovimientos('comprobante')">Comprobantes</button>
                             <button type="button" class="btn btn-outline-info" onclick="filterMovimientos('credito')">Créditos</button>
                             <button type="button" class="btn btn-outline-danger" onclick="filterMovimientos('pago')">Pagos</button>
                         </div>
@@ -412,7 +413,7 @@
             return null;
         }
 
-        // Cargar movimientos unificados (acreditaciones + pagos)
+        // Cargar movimientos unificados (acreditaciones + comprobantes + pagos)
         async function loadMovimientosUnificados() {
             try {
                 // Obtener cliente_id primero
@@ -422,20 +423,22 @@
                     return;
                 }
 
-                // Cargar acreditaciones y movimientos en paralelo
-                const [acreditacionesRes, movimientosRes] = await Promise.all([
+                // Cargar acreditaciones, comprobantes y movimientos en paralelo
+                const [acreditacionesRes, comprobantesRes, movimientosRes] = await Promise.all([
                     authenticatedRequest(`/api/acreditaciones?cliente=${clienteId}&limit=100`),
+                    authenticatedRequest(`/api/clientes/${clienteId}/comprobantes?limit=100`),
                     authenticatedRequest('/portal/movimientos?limit=100')
                 ]);
 
-                if (!acreditacionesRes || !movimientosRes) return;
+                if (!acreditacionesRes || !comprobantesRes || !movimientosRes) return;
 
-                const [acreditacionesData, movimientosData] = await Promise.all([
+                const [acreditacionesData, comprobantesData, movimientosData] = await Promise.all([
                     acreditacionesRes.json(),
+                    comprobantesRes.json(),
                     movimientosRes.json()
                 ]);
 
-                if (!acreditacionesData.success || !movimientosData.success) {
+                if (!acreditacionesData.success || !comprobantesData.success || !movimientosData.success) {
                     showAlert('Error al cargar movimientos', 'danger');
                     return;
                 }
@@ -462,6 +465,31 @@
                         fecha_original: acred.fecha_hora,
                         cuit: acred.cuit,
                         estado: acred.cotejado ? 'Cotejado' : 'Pendiente',
+                        es_entrada: true
+                    });
+                });
+
+                // Agregar comprobantes como entradas (pendientes o asignados)
+                comprobantesData.data.forEach(comp => {
+                    // Verificar que la fecha sea válida
+                    const fecha = comp.fecha_envio ? new Date(comp.fecha_envio) : new Date();
+                    const fechaFormateada = fecha instanceof Date && !isNaN(fecha) ? 
+                        fecha.toLocaleDateString('es-AR') + ' ' + fecha.toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : 
+                        'Fecha no disponible';
+
+                    movimientos.push({
+                        id: `comp_${comp.id}`,
+                        tipo: 'comprobante',
+                        concepto: `Comprobante: ${comp.nombre_remitente || 'Sin nombre'}`,
+                        importe: comp.importe,
+                        comision: 0, // Los comprobantes no tienen comisión directa
+                        importe_comision: 0,
+                        fecha: fechaFormateada,
+                        fecha_original: comp.fecha_envio,
+                        cuit: comp.cuit,
+                        estado: comp.id_acreditacion ? 'Asignado' : 'Pendiente',
+                        id_acreditacion: comp.id_acreditacion,
+                        fuente: comp.fuente,
                         es_entrada: true
                     });
                 });
@@ -512,6 +540,9 @@
                     case 'acreditacion':
                         movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'acreditacion');
                         break;
+                    case 'comprobante':
+                        movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'comprobante');
+                        break;
                     case 'credito':
                         movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'movimiento' && mov.tipo_pago === 'credito');
                         break;
@@ -543,6 +574,8 @@
                 const importeSign = isEntrada ? '+' : '-';
                 const tipoBadge = mov.tipo === 'acreditacion' ? 
                     '<span class="badge bg-primary status-badge">Acreditación</span>' : 
+                    mov.tipo === 'comprobante' ?
+                    `<span class="badge bg-warning status-badge">Comprobante ${mov.estado === 'Pendiente' ? '(Pendiente)' : '(Asignado)'}</span>` :
                     `<span class="badge bg-${mov.tipo_pago === 'credito' ? 'success' : 'danger'} status-badge">${mov.tipo_pago === 'credito' ? 'Crédito' : 'Pago'}</span>`;
 
                 // Calcular comisión y neto
@@ -654,13 +687,13 @@
             const buttons = document.querySelectorAll('.btn-group .btn');
             buttons.forEach(btn => {
                 btn.classList.remove('active');
-                btn.classList.add('btn-outline-primary', 'btn-outline-success', 'btn-outline-info', 'btn-outline-danger');
+                btn.classList.add('btn-outline-primary', 'btn-outline-success', 'btn-outline-warning', 'btn-outline-info', 'btn-outline-danger');
             });
             
             // Activar el botón seleccionado
             const activeButton = event.target;
             if (activeButton) {
-                activeButton.classList.remove('btn-outline-primary', 'btn-outline-success', 'btn-outline-info', 'btn-outline-danger');
+                activeButton.classList.remove('btn-outline-primary', 'btn-outline-success', 'btn-outline-warning', 'btn-outline-info', 'btn-outline-danger');
                 activeButton.classList.add('active');
             }
             
