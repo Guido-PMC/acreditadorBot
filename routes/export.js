@@ -306,6 +306,9 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
       return res.send(csvContent);
     
     } else if (format === 'json') {
+      console.log(`✅ [${requestId}] Enviando JSON - ${data.length} filas de datos`);
+      console.log(`🔍 [${requestId}] === FIN REQUEST EXPORT (JSON) ===`);
+      
       return res.json({
         success: true,
         cliente: {
@@ -319,6 +322,9 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
       });
     
     } else {
+      console.log(`❌ [${requestId}] Formato inválido recibido: '${format}'`);
+      console.log(`❌ [${requestId}] Query completo:`, JSON.stringify(req.query, null, 2));
+      
       return res.status(400).json({
         error: 'Invalid format',
         message: 'Supported formats: csv, json'
@@ -551,20 +557,24 @@ async function getClientMovimientos(client, cliente_id, fecha_desde, fecha_hasta
 router.get('/test/:cliente_id', async (req, res) => {
   const requestId = Math.random().toString(36).substr(2, 9);
   console.log(`🔍 [${requestId}] === TEST ENDPOINT ===`);
+  console.log(`🔍 [${requestId}] Query params:`, JSON.stringify(req.query, null, 2));
   
   try {
     // Headers ultra-simples
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-cache');
     
     // CSV de prueba ultra-simple
     const testCsv = [
       'Fecha,Tipo,Importe',
-      '2025-01-01,Prueba,1000',
-      '2025-01-02,Test,2000'
+      '2025-01-01,Prueba,1000.50',
+      '2025-01-02,Test,2000.75',
+      '2025-01-03,Demo,1500.25'
     ].join('\r\n');
     
-    console.log(`✅ [${requestId}] Enviando CSV de prueba`);
+    console.log(`✅ [${requestId}] Enviando CSV de prueba - ${testCsv.length} caracteres`);
+    console.log(`✅ [${requestId}] CSV content: ${testCsv}`);
     return res.send(testCsv);
     
   } catch (error) {
