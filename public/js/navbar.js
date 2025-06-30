@@ -10,10 +10,10 @@ function createNavbar(activePage = 'dashboard') {
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav ms-auto">
                         <li class="nav-item"><a class="nav-link ${activePage === 'dashboard' ? 'active' : ''}" href="/dashboard.html">Dashboard</a></li>
-                        <li class="nav-item"><a class="nav-link ${activePage === 'acreditaciones' ? 'active' : ''}" href="/acreditaciones.html">Comprobantes</a></li>
+                        <li class="nav-item"><a class="nav-link ${activePage === 'acreditaciones' ? 'active' : ''}" href="/acreditaciones.html">Acreditaciones</a></li>
+                        <li class="nav-item"><a class="nav-link ${activePage === 'tickets' ? 'active' : ''}" href="/tickets.html">Tickets</a></li>
                         <li class="nav-item"><a class="nav-link ${activePage === 'clientes' ? 'active' : ''}" href="/clientes.html">Clientes</a></li>
                         <li class="nav-item"><a class="nav-link ${activePage === 'asignacion' ? 'active' : ''}" href="/asignacion.html">Asignación</a></li>
-                        <li class="nav-item"><a class="nav-link ${activePage === 'tickets' ? 'active' : ''}" href="/tickets.html">Tickets</a></li>
                         <li class="nav-item"><a class="nav-link ${activePage === 'upload' ? 'active' : ''}" href="/upload.html">Subir CSV</a></li>
                         <li class="nav-item"><a class="nav-link ${activePage === 'logs' ? 'active' : ''}" href="/logs.html">Logs</a></li>
                     </ul>
