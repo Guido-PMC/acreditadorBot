@@ -459,27 +459,45 @@
       }
     }
 
-    // Cargar movimientos unificados (comprobantes + pagos)
+    // Cargar movimientos unificados (acreditaciones + comprobantes + pagos)
     async function loadMovimientosUnificados() {
       try {
-        // Cargar comprobantes y pagos en paralelo
-        const [comprobantesRes, pagosRes] = await Promise.all([
+        // Cargar acreditaciones, comprobantes y pagos en paralelo
+        const [acreditacionesRes, comprobantesRes, pagosRes] = await Promise.all([
+          fetch(`/api/acreditaciones?cliente=${clienteId}&limit=100`),
           fetch(`/api/clientes/${clienteId}/comprobantes?limit=100`),
           fetch(`/api/clientes/${clienteId}/pagos?limit=100`)
         ]);
 
-        const [comprobantesData, pagosData] = await Promise.all([
+        const [acreditacionesData, comprobantesData, pagosData] = await Promise.all([
+          acreditacionesRes.json(),
           comprobantesRes.json(),
           pagosRes.json()
         ]);
 
-        if (!comprobantesData.success || !pagosData.success) {
+        if (!acreditacionesData.success || !comprobantesData.success || !pagosData.success) {
           showAlert('danger', 'Error al cargar movimientos');
           return;
         }
 
         // Combinar y ordenar movimientos
         const movimientos = [];
+        
+        // Agregar acreditaciones como entradas
+        acreditacionesData.data.forEach(acred => {
+          movimientos.push({
+            id: `acred_${acred.id}`,
+            tipo: 'acreditacion',
+            concepto: `Acreditación: ${acred.titular || 'Sin titular'}`,
+            importe: acred.importe,
+            fecha: acred.fecha_hora,
+            cuit: acred.cuit,
+            estado: acred.cotejado ? 'Cotejado' : 'Pendiente',
+            comision: acred.comision,
+            importe_comision: acred.importe_comision,
+            es_entrada: true
+          });
+        });
         
         // Agregar comprobantes como entradas
         comprobantesData.data.forEach(comp => {
@@ -550,9 +568,11 @@
                     <i class="${icon} me-2 ${importeClass}"></i>
                     <strong>${mov.concepto}</strong>
                     <span class="badge ${badgeClass} ms-2">${badgeText}</span>
-                    ${mov.tipo === 'comprobante' ? 
-                      `<span class="badge bg-primary ms-1">Comprobante</span>` : 
-                      `<span class="badge bg-warning ms-1">${mov.tipo_pago === 'credito' ? 'Crédito' : 'Pago'}</span>`
+                    ${mov.tipo === 'acreditacion' ? 
+                      `<span class="badge bg-success ms-1">Acreditación</span>` : 
+                      mov.tipo === 'comprobante' ? 
+                        `<span class="badge bg-primary ms-1">Comprobante</span>` : 
+                        `<span class="badge bg-warning ms-1">${mov.tipo_pago === 'credito' ? 'Crédito' : 'Pago'}</span>`
                     }
                   </div>
                   
@@ -578,6 +598,12 @@
                   ${mov.observaciones ? `
                     <div class="mt-1">
                       <small class="text-muted"><strong>Observaciones:</strong> ${mov.observaciones}</small>
+                    </div>
+                  ` : ''}
+                  
+                  ${mov.tipo === 'acreditacion' && mov.comision > 0 ? `
+                    <div class="mt-1">
+                      <small class="text-muted"><strong>Comisión:</strong> ${mov.comision}% ($${mov.importe_comision?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || '0.00'})</small>
                     </div>
                   ` : ''}
                   
