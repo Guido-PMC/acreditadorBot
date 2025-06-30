@@ -2349,7 +2349,7 @@ function cleanCUIT(cuit) {
 // POST /api/comprobantes/whatsapp - Endpoint para recibir comprobantes de WhatsApp
 router.post('/comprobantes/whatsapp', [
   body('nombre_remitente').notEmpty().withMessage('Nombre del remitente es requerido'),
-  body('cuit').notEmpty().withMessage('CUIT es requerido'),
+  body('cuit').optional(), // Hacer el CUIT opcional
   body('fecha').notEmpty().withMessage('Fecha es requerida'),
   body('hora').optional(),
   body('monto').isNumeric().withMessage('Monto debe ser numérico'),
@@ -2377,7 +2377,15 @@ router.post('/comprobantes/whatsapp', [
     } = req.body;
 
     // Limpiar CUIT (quitar guiones y dejar solo números)
-    const cuit_limpio = cleanCUIT(cuit);
+    // Si el CUIT es "No especificado" o similar, usar null
+    let cuit_limpio = null;
+    if (cuit && cuit !== 'No especificado' && cuit !== 'null' && cuit !== 'undefined' && cuit.trim() !== '') {
+      cuit_limpio = cleanCUIT(cuit);
+      // Si después de limpiar está vacío, usar null
+      if (!cuit_limpio || cuit_limpio === '') {
+        cuit_limpio = null;
+      }
+    }
 
     // LOGGING DETALLADO DE LO QUE SE RECIBE
     console.log('='.repeat(80));
