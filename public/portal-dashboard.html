@@ -424,7 +424,7 @@
 
                 // Cargar acreditaciones y movimientos en paralelo
                 const [acreditacionesRes, movimientosRes] = await Promise.all([
-                    authenticatedRequest(`/api/acreditaciones?cliente_id=${clienteId}&limit=100`),
+                    authenticatedRequest(`/api/acreditaciones?cliente=${clienteId}&limit=100`),
                     authenticatedRequest('/portal/movimientos?limit=100')
                 ]);
 
