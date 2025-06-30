@@ -592,6 +592,7 @@ router.get('/acreditaciones/:id', async (req, res) => {
 });
 
 // GET /api/acreditaciones - Obtener acreditaciones con filtros y ordenamiento
+// NOTA: Para crear acreditaciones manuales del histórico, usar el endpoint POST /api/notifications
 router.get('/acreditaciones', async (req, res) => {
   const client = await db.getClient();
   
@@ -606,6 +607,7 @@ router.get('/acreditaciones', async (req, res) => {
       fecha_desde, 
       fecha_hasta, 
       cuit, 
+      importe,
       estado,
       fuente 
     } = req.query;
@@ -649,6 +651,12 @@ router.get('/acreditaciones', async (req, res) => {
     if (cuit) {
       whereConditions.push(`a.cuit = $${paramIndex}`);
       params.push(cuit);
+      paramIndex++;
+    }
+
+    if (importe) {
+      whereConditions.push(`a.importe = $${paramIndex}`);
+      params.push(parseFloat(importe));
       paramIndex++;
     }
 
@@ -953,6 +961,7 @@ router.post('/notifications', async (req, res) => {
 });
 
 // GET /api/acreditaciones - Obtener acreditaciones con filtros y ordenamiento
+// NOTA: Para crear acreditaciones manuales del histórico, usar el endpoint POST /api/notifications
 router.get('/acreditaciones', async (req, res) => {
   const client = await db.getClient();
   
@@ -967,6 +976,7 @@ router.get('/acreditaciones', async (req, res) => {
       fecha_desde, 
       fecha_hasta, 
       cuit, 
+      importe,
       estado,
       fuente 
     } = req.query;
@@ -1010,6 +1020,12 @@ router.get('/acreditaciones', async (req, res) => {
     if (cuit) {
       whereConditions.push(`a.cuit = $${paramIndex}`);
       params.push(cuit);
+      paramIndex++;
+    }
+
+    if (importe) {
+      whereConditions.push(`a.importe = $${paramIndex}`);
+      params.push(parseFloat(importe));
       paramIndex++;
     }
 
