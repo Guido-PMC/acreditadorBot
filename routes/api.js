@@ -3287,4 +3287,47 @@ router.get('/diagnostico', async (req, res) => {
   }
 });
 
+// GET /api/comprobantes/stats - Obtener estadísticas de comprobantes
+router.get('/comprobantes/stats', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    // Obtener estadísticas generales de comprobantes
+    const statsQuery = `
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN cotejado = true THEN 1 END) as cotejados,
+        COUNT(CASE WHEN cotejado = false THEN 1 END) as pendientes,
+        SUM(importe) as importe_total,
+        SUM(CASE WHEN cotejado = true THEN importe ELSE 0 END) as importe_cotejado,
+        SUM(CASE WHEN cotejado = false THEN importe ELSE 0 END) as importe_pendiente
+      FROM comprobantes_whatsapp
+    `;
+    
+    const statsResult = await client.query(statsQuery);
+    const stats = statsResult.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        total: parseInt(stats.total || 0),
+        cotejados: parseInt(stats.cotejados || 0),
+        pendientes: parseInt(stats.pendientes || 0),
+        importe_total: parseFloat(stats.importe_total || 0),
+        importe_cotejado: parseFloat(stats.importe_cotejado || 0),
+        importe_pendiente: parseFloat(stats.importe_pendiente || 0)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo estadísticas de comprobantes:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron obtener las estadísticas'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 
