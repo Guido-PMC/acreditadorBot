@@ -88,6 +88,20 @@ async function crearAcreditacionHTTP(datos) {
     } = datos;
 
     try {
+        console.log('➡️ Enviando datos a /api/notifications:', {
+            id_transaccion,
+            importe,
+            titular,
+            cuit: cleanCUIT(cuit),
+            fecha_hora: parseFecha(fecha_comprob),
+            id_cliente: cliente_id,
+            comision,
+            importe_comision,
+            tipo: 'Transferencia entrante',
+            estado: 'confirmado',
+            fuente: 'historico',
+            cotejado: true
+        });
         const response = await axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/notifications`, {
             id_transaccion,
             importe,
@@ -102,14 +116,13 @@ async function crearAcreditacionHTTP(datos) {
             fuente: 'historico',
             cotejado: true
         });
-
+        console.log('⬅️ Respuesta:', response.status, response.data);
         if (response.status !== 200 && response.status !== 201) {
             throw new Error(`HTTP ${response.status}: ${response.data}`);
         }
-
         return response.data.data.id;
     } catch (error) {
-        console.error('Error creando acreditación via HTTP:', error);
+        console.error('❌ Error creando acreditación via HTTP:', error, error.response && error.response.data);
         throw error;
     }
 }
@@ -279,7 +292,9 @@ async function procesarCSV() {
                     try {
                         // Verificar si la línea corresponde al cliente
                         const clienteCSV = row['CLIENTE'] || row['I'] || '';
+                        console.log(`🔍 Comparando: CSV="${clienteCSV}" vs Buscado="${nombreClienteCSV}"`);
                         if (!clienteCSV || clienteCSV.toLowerCase() !== nombreClienteCSV.toLowerCase()) {
+                            console.log(`❌ No coincide, ignorando fila`);
                             contador.ignorados++;
                             return;
                         }
@@ -301,29 +316,40 @@ async function procesarCSV() {
                         // Procesar según el tipo de operación
                         switch (tipoOperacion.toLowerCase()) {
                             case 'transferencia entrante':
-                                // Crear acreditación y comprobante
-                                const acreditacionId = await crearAcreditacionHTTP({
-                                    id_transaccion: idTransaccion,
-                                    importe: monto,
-                                    titular,
-                                    cuit,
-                                    fecha_comprob: fechaComprob,
-                                    cliente_id: cliente.id,
-                                    comision,
-                                    importe_comision: importeComision
-                                });
-                                
-                                await crearComprobanteHTTP({
-                                    id_transaccion: idTransaccion,
-                                    importe: monto,
-                                    titular,
-                                    cuit,
-                                    fecha_comprob: fechaComprob,
-                                    cliente_id: cliente.id
-                                }, acreditacionId);
-                                
-                                contador.acreditaciones++;
-                                contador.comprobantes++;
+                                console.log(`🔄 Creando acreditación para: ${idTransaccion}`);
+                                try {
+                                    // Crear acreditación y comprobante
+                                    const acreditacionId = await crearAcreditacionHTTP({
+                                        id_transaccion: idTransaccion,
+                                        importe: monto,
+                                        titular,
+                                        cuit,
+                                        fecha_comprob: fechaComprob,
+                                        cliente_id: cliente.id,
+                                        comision,
+                                        importe_comision: importeComision
+                                    });
+                                    
+                                    console.log(`✅ Acreditación creada con ID: ${acreditacionId}`);
+                                    
+                                    console.log(`🔄 Creando comprobante para acreditación: ${acreditacionId}`);
+                                    await crearComprobanteHTTP({
+                                        id_transaccion: idTransaccion,
+                                        importe: monto,
+                                        titular,
+                                        cuit,
+                                        fecha_comprob: fechaComprob,
+                                        cliente_id: cliente.id
+                                    }, acreditacionId);
+                                    
+                                    console.log(`✅ Comprobante creado`);
+                                    
+                                    contador.acreditaciones++;
+                                    contador.comprobantes++;
+                                } catch (error) {
+                                    console.error(`❌ Error procesando transferencia entrante:`, error.message);
+                                    contador.ignorados++;
+                                }
                                 break;
 
                             case 'saldo anterior':

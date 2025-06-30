@@ -761,28 +761,57 @@ router.post('/notifications', async (req, res) => {
   const client = await db.getClient();
   
   try {
-    const {
-      id,
-      cvu,
-      type,
-      amount,
-      origin,
-      status,
-      coelsa_id
-    } = req.body;
-
-    // Validar campos requeridos
-    if (!id || !amount || !coelsa_id) {
+    console.log('📥 Body recibido en /api/notifications:', req.body);
+    
+    // Detectar el tipo de formato
+    const isHistoricalImport = req.body.id_transaccion && req.body.importe && req.body.titular;
+    const isBankNotification = req.body.id && req.body.amount && req.body.coelsa_id;
+    
+    if (!isHistoricalImport && !isBankNotification) {
       return res.status(400).json({ 
         error: 'Datos inválidos', 
-        message: 'Los campos id, amount y coelsa_id son requeridos'
+        message: 'Formato de datos no reconocido'
       });
+    }
+
+    let id_transaccion, importe, titular, cuit, fecha_hora, id_cliente, comision, importe_comision, tipo, estado, fuente, coelsa_id;
+
+    if (isHistoricalImport) {
+      // Formato del script de importación histórica
+      id_transaccion = req.body.id_transaccion;
+      importe = req.body.importe;
+      titular = req.body.titular;
+      cuit = req.body.cuit;
+      fecha_hora = req.body.fecha_hora;
+      id_cliente = req.body.id_cliente;
+      comision = req.body.comision || 0;
+      importe_comision = req.body.importe_comision || 0;
+      tipo = req.body.tipo || 'Transferencia entrante';
+      estado = req.body.estado || 'confirmado';
+      fuente = req.body.fuente || 'historico';
+      coelsa_id = req.body.coelsa_id || `HIST_${id_transaccion}`;
+    } else {
+      // Formato de notificaciones bancarias
+      const { id, cvu, type, amount, origin, status, coelsa_id: bank_coelsa_id } = req.body;
+      
+      id_transaccion = id.toString();
+      importe = parseFloat(amount) / 100; // Convertir de centavos a pesos
+      fecha_hora = new Date().toISOString();
+      titular = origin?.name || '';
+      cuit = origin?.taxId || '';
+      id_cliente = null; // No se especifica cliente en notificaciones bancarias
+      comision = 0;
+      importe_comision = 0;
+      tipo = type || 'PI';
+      estado = status || 'Pending';
+      fuente = 'api';
+      coelsa_id = bank_coelsa_id;
     }
 
     // Verificar si la transacción ya existe
     const existingTransaction = await client.query(
-      'SELECT id FROM acreditaciones WHERE coelsa_id = $1',
-      [coelsa_id]
+      'SELECT id FROM acreditaciones WHERE id_transaccion = $1',
+      [id_transaccion]
     );
 
     if (existingTransaction.rows.length > 0) {
@@ -791,42 +820,6 @@ router.post('/notifications', async (req, res) => {
         message: 'Esta transacción ya existe en el sistema'
       });
     }
-
-    // Preparar datos para inserción
-    const id_transaccion = id.toString();
-    const importe = parseFloat(amount) / 100; // Convertir de centavos a pesos
-    const fecha_hora = new Date().toISOString();
-    const titular = origin?.name || '';
-    const cuit = origin?.taxId || '';
-    const origen_cuenta = origin?.account || '';
-    const cvu_str = cvu?.cvu || '';
-
-    // Debug: Verificar que todos los valores sean válidos
-    const insertValues = [
-      id_transaccion,
-      type || 'PI',
-      'Transferencia entrante',
-      '',
-      importe,
-      status || 'Pending',
-      '',
-      titular,
-      cuit,
-      origen_cuenta,
-      '',
-      fecha_hora,
-      cvu_str,
-      coelsa_id,
-      titular,
-      cuit,
-      origen_cuenta,
-      type || 'PI',
-      'api',
-      true
-    ];
-
-    console.log('Debug - Número de valores:', insertValues.length);
-    console.log('Debug - Valores:', insertValues);
 
     // Insertar nueva acreditación
     const result = await client.query(`
@@ -850,10 +843,39 @@ router.post('/notifications', async (req, res) => {
         origen_cuenta,
         tipo_notificacion,
         fuente,
-        procesado
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+        procesado,
+        id_cliente,
+        comision,
+        importe_comision
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
       RETURNING id
-    `, insertValues);
+    `, [
+      id_transaccion,
+      tipo,
+      'Transferencia entrante',
+      '',
+      importe,
+      estado,
+      '',
+      titular,
+      cuit,
+      '',
+      '',
+      fecha_hora,
+      '',
+      coelsa_id,
+      titular,
+      cuit,
+      '',
+      tipo,
+      fuente,
+      true,
+      id_cliente,
+      comision,
+      importe_comision
+    ]);
+
+    console.log('✅ Nueva acreditación creada:', result.rows[0]);
 
     // Registrar log
     await client.query(`
@@ -878,7 +900,7 @@ router.post('/notifications', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error procesando notificación:', error);
+    console.error('❌ Error procesando notificación:', error);
     
     // Registrar error en logs
     await client.query(`
