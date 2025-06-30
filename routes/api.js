@@ -323,9 +323,8 @@ router.post('/notification', validateNotification, async (req, res) => {
         origen_cuenta,
         tipo_notificacion,
         fuente,
-        procesado,
-        id_cliente
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+        procesado
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING id
     `, [
       transactionId.toString(),
@@ -344,8 +343,7 @@ router.post('/notification', validateNotification, async (req, res) => {
       origin.account,
       type || 'PI',
       'api',
-      true,
-      id_cliente
+      true
     ]);
 
     // Registrar log
@@ -790,8 +788,7 @@ router.post('/notifications', [
       origen_nombre,
       origen_tax_id,
       origen_cuenta,
-      tipo_notificacion,
-      id_cliente
+      tipo_notificacion
     } = req.body;
 
     // Verificar si la transacción ya existe
@@ -829,9 +826,8 @@ router.post('/notifications', [
         origen_cuenta,
         tipo_notificacion,
         fuente,
-        procesado,
-        id_cliente
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+        procesado
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING id
     `, [
       id_transaccion,
@@ -853,8 +849,7 @@ router.post('/notifications', [
       origen_cuenta,
       tipo_notificacion,
       'api',
-      true,
-      id_cliente
+      true
     ]);
 
     // Registrar log
