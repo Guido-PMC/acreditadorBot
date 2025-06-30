@@ -291,7 +291,7 @@
         // Cargar información del usuario
         async function loadUserInfo() {
             try {
-                const response = await authenticatedRequest('/portal/perfil');
+                const response = await authenticatedRequest('/portal/profile');
                 if (!response) return;
 
                 const result = await response.json();
@@ -388,72 +388,6 @@
             }
         }
 
-        // Cargar movimientos unificados (acreditaciones + pagos)
-        async function loadMovimientosUnificados() {
-            try {
-                // Cargar acreditaciones y movimientos en paralelo
-                const [acreditacionesRes, movimientosRes] = await Promise.all([
-                    authenticatedRequest('/api/acreditaciones?cliente_id=' + (await getClienteId()) + '&limit=100'),
-                    authenticatedRequest('/portal/movimientos?limit=100')
-                ]);
-
-                if (!acreditacionesRes || !movimientosRes) return;
-
-                const [acreditacionesData, movimientosData] = await Promise.all([
-                    acreditacionesRes.json(),
-                    movimientosRes.json()
-                ]);
-
-                if (!acreditacionesData.success || !movimientosData.success) {
-                    showAlert('Error al cargar movimientos', 'danger');
-                    return;
-                }
-
-                // Combinar y ordenar movimientos
-                const movimientos = [];
-                
-                // Agregar acreditaciones como entradas
-                acreditacionesData.data.forEach(acred => {
-                    movimientos.push({
-                        id: `acred_${acred.id}`,
-                        tipo: 'acreditacion',
-                        concepto: `Acreditación: ${acred.titular || 'Sin titular'}`,
-                        importe: acred.importe,
-                        comision: acred.comision,
-                        importe_comision: acred.importe_comision,
-                        fecha: acred.fecha,
-                        cuit: acred.cuit,
-                        estado: acred.cotejado ? 'Cotejado' : 'Pendiente',
-                        es_entrada: true
-                    });
-                });
-
-                // Agregar movimientos como salidas o entradas
-                movimientosData.data.forEach(mov => {
-                    movimientos.push({
-                        id: `mov_${mov.id}`,
-                        tipo: 'movimiento',
-                        concepto: mov.concepto,
-                        importe: mov.importe,
-                        fecha: mov.fecha_pago,
-                        metodo_pago: mov.metodo_pago,
-                        referencia: mov.referencia,
-                        tipo_pago: mov.tipo_pago,
-                        estado: mov.estado,
-                        es_entrada: mov.tipo_pago === 'credito'
-                    });
-                });
-
-                // Ordenar por fecha (más reciente primero)
-                movimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-
-                displayMovimientosUnificados(movimientos);
-            } catch (error) {
-                console.error('Error cargando movimientos unificados:', error);
-                showAlert('Error al cargar movimientos unificados', 'danger');
-            }
-        }
-
         // Función auxiliar para obtener el cliente_id del token
         async function getClienteId() {
             const token = localStorage.getItem('portal_token');
@@ -476,6 +410,97 @@
             }
             
             return null;
+        }
+
+        // Cargar movimientos unificados (acreditaciones + pagos)
+        async function loadMovimientosUnificados() {
+            try {
+                // Obtener cliente_id primero
+                const clienteId = await getClienteId();
+                if (!clienteId) {
+                    console.error('No se pudo obtener el cliente_id');
+                    return;
+                }
+
+                // Cargar acreditaciones y movimientos en paralelo
+                const [acreditacionesRes, movimientosRes] = await Promise.all([
+                    authenticatedRequest(`/api/acreditaciones?cliente_id=${clienteId}&limit=100`),
+                    authenticatedRequest('/portal/movimientos?limit=100')
+                ]);
+
+                if (!acreditacionesRes || !movimientosRes) return;
+
+                const [acreditacionesData, movimientosData] = await Promise.all([
+                    acreditacionesRes.json(),
+                    movimientosRes.json()
+                ]);
+
+                if (!acreditacionesData.success || !movimientosData.success) {
+                    showAlert('Error al cargar movimientos', 'danger');
+                    return;
+                }
+
+                // Combinar y ordenar movimientos
+                const movimientos = [];
+                
+                // Agregar acreditaciones como entradas
+                acreditacionesData.data.forEach(acred => {
+                    // Verificar que la fecha sea válida
+                    const fecha = acred.fecha ? new Date(acred.fecha) : new Date();
+                    const fechaFormateada = fecha instanceof Date && !isNaN(fecha) ? 
+                        fecha.toLocaleDateString('es-AR') + ' ' + fecha.toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : 
+                        'Fecha no disponible';
+
+                    movimientos.push({
+                        id: `acred_${acred.id}`,
+                        tipo: 'acreditacion',
+                        concepto: `Acreditación: ${acred.titular || 'Sin titular'}`,
+                        importe: acred.importe,
+                        comision: acred.comision,
+                        importe_comision: acred.importe_comision,
+                        fecha: fechaFormateada,
+                        fecha_original: acred.fecha,
+                        cuit: acred.cuit,
+                        estado: acred.cotejado ? 'Cotejado' : 'Pendiente',
+                        es_entrada: true
+                    });
+                });
+
+                // Agregar movimientos como salidas o entradas
+                movimientosData.data.forEach(mov => {
+                    // Verificar que la fecha sea válida
+                    const fecha = mov.fecha_pago ? new Date(mov.fecha_pago) : new Date();
+                    const fechaFormateada = fecha instanceof Date && !isNaN(fecha) ? 
+                        fecha.toLocaleDateString('es-AR') + ' ' + fecha.toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : 
+                        'Fecha no disponible';
+
+                    movimientos.push({
+                        id: `mov_${mov.id}`,
+                        tipo: 'movimiento',
+                        concepto: mov.concepto,
+                        importe: mov.importe,
+                        fecha: fechaFormateada,
+                        fecha_original: mov.fecha_pago,
+                        metodo_pago: mov.metodo_pago,
+                        referencia: mov.referencia,
+                        tipo_pago: mov.tipo_pago,
+                        estado: mov.estado,
+                        es_entrada: mov.tipo_pago === 'credito'
+                    });
+                });
+
+                // Ordenar por fecha (más reciente primero)
+                movimientos.sort((a, b) => {
+                    const fechaA = a.fecha_original ? new Date(a.fecha_original) : new Date(0);
+                    const fechaB = b.fecha_original ? new Date(b.fecha_original) : new Date(0);
+                    return fechaB - fechaA;
+                });
+
+                displayMovimientosUnificados(movimientos);
+            } catch (error) {
+                console.error('Error cargando movimientos unificados:', error);
+                showAlert('Error al cargar movimientos unificados', 'danger');
+            }
         }
 
         // Mostrar movimientos unificados
@@ -527,7 +552,7 @@
 
                 return `
                     <tr>
-                        <td>${new Date(mov.fecha).toLocaleDateString('es-AR')} ${new Date(mov.fecha).toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'})}</td>
+                        <td>${mov.fecha}</td>
                         <td>${tipoBadge}</td>
                         <td><strong>${mov.concepto}</strong></td>
                         <td>
