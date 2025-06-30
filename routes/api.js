@@ -3828,31 +3828,68 @@ router.get('/comprobantes', async (req, res) => {
   }
 });
 
-// PUT /api/acreditaciones/:id - Editar comisión de una acreditación
-router.put('/acreditaciones/:id', [
-  body('comision').isFloat({ min: 0, max: 100 }).withMessage('Comisión debe ser un número entre 0 y 100')
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ error: 'Datos inválidos', details: errors.array() });
-  }
+// PUT /api/acreditaciones/:id - Editar acreditación
+router.put('/acreditaciones/:id', async (req, res) => {
   const client = await db.getClient();
   try {
     const { id } = req.params;
-    const { comision } = req.body;
-    // Obtener acreditación
-    const acreditacionResult = await client.query('SELECT importe FROM acreditaciones WHERE id = $1', [id]);
+    const { comision, id_cliente, id_comprobante_whatsapp } = req.body;
+    
+    // Obtener acreditación actual
+    const acreditacionResult = await client.query('SELECT * FROM acreditaciones WHERE id = $1', [id]);
     if (acreditacionResult.rows.length === 0) {
       return res.status(404).json({ error: 'No encontrado', message: 'Acreditación no encontrada' });
     }
-    const importe = parseFloat(acreditacionResult.rows[0].importe);
-    const importe_comision = (importe * comision / 100).toFixed(2);
+    
+    const acreditacion = acreditacionResult.rows[0];
+    let updateFields = [];
+    let params = [];
+    let paramIndex = 1;
+    
+    // Actualizar comisión si se proporciona
+    if (comision !== undefined) {
+      if (isNaN(comision) || comision < 0 || comision > 100) {
+        return res.status(400).json({ error: 'Datos inválidos', message: 'Comisión debe ser un número entre 0 y 100' });
+      }
+      const importe = parseFloat(acreditacion.importe);
+      const importe_comision = (importe * comision / 100).toFixed(2);
+      
+      updateFields.push(`comision = $${paramIndex}`);
+      params.push(comision);
+      paramIndex++;
+      
+      updateFields.push(`importe_comision = $${paramIndex}`);
+      params.push(importe_comision);
+      paramIndex++;
+    }
+    
+    // Actualizar id_cliente si se proporciona
+    if (id_cliente !== undefined) {
+      updateFields.push(`id_cliente = $${paramIndex}`);
+      params.push(id_cliente);
+      paramIndex++;
+    }
+    
+    // Actualizar id_comprobante_whatsapp si se proporciona
+    if (id_comprobante_whatsapp !== undefined) {
+      updateFields.push(`id_comprobante_whatsapp = $${paramIndex}`);
+      params.push(id_comprobante_whatsapp);
+      paramIndex++;
+    }
+    
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: 'Sin cambios', message: 'No se especificaron campos para actualizar' });
+    }
+    
+    params.push(id);
+    
     // Actualizar acreditación
-    await client.query('UPDATE acreditaciones SET comision = $1, importe_comision = $2 WHERE id = $3', [comision, importe_comision, id]);
-    res.json({ success: true, message: 'Comisión actualizada', data: { id, comision, importe_comision } });
+    await client.query(`UPDATE acreditaciones SET ${updateFields.join(', ')} WHERE id = $${paramIndex}`, params);
+    
+    res.json({ success: true, message: 'Acreditación actualizada', data: { id, ...req.body } });
   } catch (error) {
-    console.error('Error actualizando comisión:', error);
-    res.status(500).json({ error: 'Error interno del servidor', message: 'No se pudo actualizar la comisión' });
+    console.error('Error actualizando acreditación:', error);
+    res.status(500).json({ error: 'Error interno del servidor', message: 'No se pudo actualizar la acreditación' });
   } finally {
     client.release();
   }
