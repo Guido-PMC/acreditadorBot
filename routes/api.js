@@ -296,9 +296,8 @@ router.post('/notification', validateNotification, async (req, res) => {
         'SELECT id FROM acreditaciones WHERE coelsa_id = $1',
         [coelsa_id]
       );
-
       if (existingCoelsaTransaction.rows.length > 0) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: 'Acreditación duplicada',
           message: `Ya existe una acreditación con coelsa_id '${coelsa_id}'`
         });
@@ -1414,7 +1413,7 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
 
     // Verificar que el comprobante existe
     const comprobante = await client.query(
-      'SELECT id_comprobante, id_acreditacion, id_cliente FROM comprobantes_whatsapp WHERE id = $1',
+      'SELECT id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id = $1',
       [id]
     );
 
@@ -1432,7 +1431,7 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
       importe: comprobante.rows[0].importe,
       cotejado: comprobante.rows[0].cotejado,
       id_acreditacion: comprobante.rows[0].id_acreditacion,
-      id_cliente: comprobante.rows[0].id_cliente,
+      id_acreditacion: comprobante.rows[0].id_acreditacion,
       fecha_cotejo: comprobante.rows[0].fecha_cotejo
     });
 
