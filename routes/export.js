@@ -4,6 +4,15 @@ const db = require('../config/database');
 
 const router = express.Router();
 
+// OPTIONS handler para CORS preflight
+router.options('/sheets/:cliente_id', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.status(200).end();
+});
+
 // Rate limiting simple (en memoria)
 const accessLog = new Map();
 const RATE_LIMIT_WINDOW = 60000; // 1 minuto
@@ -50,6 +59,13 @@ function formatDateForCSV(date) {
 
 // GET /export/sheets/:cliente_id - Exportar datos para Google Sheets
 router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
+  // Headers para compatibilidad con Google Sheets
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const client = await db.getClient();
   
   try {
@@ -193,8 +209,10 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
         }).join(','))
       ].join('\n');
 
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="export_${cliente_id}_${Date.now()}.csv"`);
+      // Headers específicos para Google Sheets
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      // No usar Content-Disposition para Google Sheets
       return res.send(csvContent);
     
     } else if (format === 'json') {
