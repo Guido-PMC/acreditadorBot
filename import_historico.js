@@ -284,128 +284,135 @@ async function procesarCSV() {
             ignorados: 0
         };
 
-        // Leer y procesar el CSV
-        return new Promise((resolve, reject) => {
+        // Leer todas las filas del CSV primero
+        const filas = [];
+        await new Promise((resolve, reject) => {
             fs.createReadStream(rutaCSV)
                 .pipe(csv())
-                .on('data', async (row) => {
-                    try {
-                        // Verificar si la línea corresponde al cliente
-                        const clienteCSV = row['CLIENTE'] || row['I'] || '';
-                        console.log(`🔍 Comparando: CSV="${clienteCSV}" vs Buscado="${nombreClienteCSV}"`);
-                        if (!clienteCSV || clienteCSV.toLowerCase() !== nombreClienteCSV.toLowerCase()) {
-                            console.log(`❌ No coincide, ignorando fila`);
-                            contador.ignorados++;
-                            return;
-                        }
-
-                        // Extraer datos de la fila
-                        const tipoOperacion = row['TIPO OPERACION'] || row['D'] || '';
-                        const monto = cleanImporte(row['MONTO'] || row['E'] || '0');
-                        const titular = row['TITULAR'] || row['F'] || '';
-                        const cuit = row['CUIT'] || row['G'] || '';
-                        const fechaComprob = row['FECHA COMPROB'] || row['H'] || '';
-                        const comision = cleanComision(row['Comision'] || row['J'] || '0');
-                        const idTransaccion = row['ID'] || '';
-
-                        // Calcular importe de comisión
-                        const importeComision = monto * (comision / 100);
-
-                        console.log(`\n📄 Procesando: ${tipoOperacion} - $${monto} - ${titular}`);
-
-                        // Procesar según el tipo de operación
-                        switch (tipoOperacion.toLowerCase()) {
-                            case 'transferencia entrante':
-                                console.log(`🔄 Creando acreditación para: ${idTransaccion}`);
-                                try {
-                                    // Crear acreditación y comprobante
-                                    const acreditacionId = await crearAcreditacionHTTP({
-                                        id_transaccion: idTransaccion,
-                                        importe: monto,
-                                        titular,
-                                        cuit,
-                                        fecha_comprob: fechaComprob,
-                                        cliente_id: cliente.id,
-                                        comision,
-                                        importe_comision: importeComision
-                                    });
-                                    
-                                    console.log(`✅ Acreditación creada con ID: ${acreditacionId}`);
-                                    
-                                    console.log(`🔄 Creando comprobante para acreditación: ${acreditacionId}`);
-                                    await crearComprobanteHTTP({
-                                        id_transaccion: idTransaccion,
-                                        importe: monto,
-                                        titular,
-                                        cuit,
-                                        fecha_comprob: fechaComprob,
-                                        cliente_id: cliente.id
-                                    }, acreditacionId);
-                                    
-                                    console.log(`✅ Comprobante creado`);
-                                    
-                                    contador.acreditaciones++;
-                                    contador.comprobantes++;
-                                } catch (error) {
-                                    console.error(`❌ Error procesando transferencia entrante:`, error.message);
-                                    contador.ignorados++;
-                                }
-                                break;
-
-                            case 'saldo anterior':
-                            case 'deposito':
-                                // Crear crédito
-                                await crearCreditoHTTP({
-                                    importe: monto,
-                                    titular,
-                                    fecha_comprob: fechaComprob,
-                                    cliente_id: cliente.id,
-                                    metodo_pago: tipoOperacion.toLowerCase() === 'deposito' ? 'efectivo' : 'transferencia'
-                                });
-                                
-                                contador.creditos++;
-                                break;
-
-                            case 'transferencia saliente':
-                                // Crear pago
-                                await crearPagoHTTP({
-                                    importe: monto,
-                                    titular,
-                                    fecha_comprob: fechaComprob,
-                                    cliente_id: cliente.id,
-                                    metodo_pago: 'transferencia'
-                                });
-                                
-                                contador.pagos++;
-                                break;
-
-                            default:
-                                console.log(`⚠️  Tipo de operación no reconocido: ${tipoOperacion}`);
-                                contador.ignorados++;
-                                break;
-                        }
-
-                    } catch (error) {
-                        console.error('❌ Error procesando fila:', error);
-                        contador.ignorados++;
-                    }
+                .on('data', (row) => {
+                    filas.push(row);
                 })
-                .on('end', () => {
-                    console.log('\n✅ Procesamiento completado!');
-                    console.log('\n📊 Resumen:');
-                    console.log(`   - Acreditaciones creadas: ${contador.acreditaciones}`);
-                    console.log(`   - Comprobantes creados: ${contador.comprobantes}`);
-                    console.log(`   - Créditos creados: ${contador.creditos}`);
-                    console.log(`   - Pagos creados: ${contador.pagos}`);
-                    console.log(`   - Registros ignorados: ${contador.ignorados}`);
-                    
-                    resolve();
-                })
-                .on('error', (error) => {
-                    console.error('❌ Error leyendo CSV:', error);
-                    reject(error);
-                });
+                .on('end', resolve)
+                .on('error', reject);
         });
+
+        console.log(`📄 Total de filas en CSV: ${filas.length}`);
+
+        // Procesar filas secuencialmente
+        for (let i = 0; i < filas.length; i++) {
+            const row = filas[i];
+            
+            try {
+                // Verificar si la línea corresponde al cliente
+                const clienteCSV = row['CLIENTE'] || row['I'] || '';
+                console.log(`\n[${i + 1}/${filas.length}] 🔍 Comparando: CSV="${clienteCSV}" vs Buscado="${nombreClienteCSV}"`);
+                
+                if (!clienteCSV || clienteCSV.toLowerCase() !== nombreClienteCSV.toLowerCase()) {
+                    console.log(`❌ No coincide, ignorando fila`);
+                    contador.ignorados++;
+                    mostrarContadores(contador);
+                    continue;
+                }
+
+                // Extraer datos de la fila
+                const tipoOperacion = row['TIPO OPERACION'] || row['D'] || '';
+                const monto = cleanImporte(row['MONTO'] || row['E'] || '0');
+                const titular = row['TITULAR'] || row['F'] || '';
+                const cuit = row['CUIT'] || row['G'] || '';
+                const fechaComprob = row['FECHA COMPROB'] || row['H'] || '';
+                const comision = cleanComision(row['Comision'] || row['J'] || '0');
+                const idTransaccion = row['ID'] || '';
+
+                // Calcular importe de comisión
+                const importeComision = monto * (comision / 100);
+
+                console.log(`📄 Procesando: ${tipoOperacion} - $${monto} - ${titular}`);
+
+                // Procesar según el tipo de operación
+                switch (tipoOperacion.toLowerCase()) {
+                    case 'transferencia entrante':
+                        console.log(`🔄 Creando acreditación para: ${idTransaccion}`);
+                        try {
+                            // Crear acreditación y comprobante
+                            const acreditacionId = await crearAcreditacionHTTP({
+                                id_transaccion: idTransaccion,
+                                importe: monto,
+                                titular,
+                                cuit,
+                                fecha_comprob: fechaComprob,
+                                cliente_id: cliente.id,
+                                comision,
+                                importe_comision: importeComision
+                            });
+                            
+                            console.log(`✅ Acreditación creada con ID: ${acreditacionId}`);
+                            
+                            console.log(`🔄 Creando comprobante para acreditación: ${acreditacionId}`);
+                            await crearComprobanteHTTP({
+                                id_transaccion: idTransaccion,
+                                importe: monto,
+                                titular,
+                                cuit,
+                                fecha_comprob: fechaComprob,
+                                cliente_id: cliente.id
+                            }, acreditacionId);
+                            
+                            console.log(`✅ Comprobante creado`);
+                            
+                            contador.acreditaciones++;
+                            contador.comprobantes++;
+                        } catch (error) {
+                            console.error(`❌ Error procesando transferencia entrante:`, error.message);
+                            contador.ignorados++;
+                        }
+                        break;
+
+                    case 'saldo anterior':
+                    case 'deposito':
+                        // Crear crédito
+                        await crearCreditoHTTP({
+                            importe: monto,
+                            titular,
+                            fecha_comprob: fechaComprob,
+                            cliente_id: cliente.id,
+                            metodo_pago: tipoOperacion.toLowerCase() === 'deposito' ? 'efectivo' : 'transferencia'
+                        });
+                        
+                        contador.creditos++;
+                        break;
+
+                    case 'transferencia saliente':
+                        // Crear pago
+                        await crearPagoHTTP({
+                            importe: monto,
+                            titular,
+                            fecha_comprob: fechaComprob,
+                            cliente_id: cliente.id,
+                            metodo_pago: 'transferencia'
+                        });
+                        
+                        contador.pagos++;
+                        break;
+
+                    default:
+                        console.log(`⚠️  Tipo de operación no reconocido: ${tipoOperacion}`);
+                        contador.ignorados++;
+                        break;
+                }
+
+                // Mostrar contadores después de cada procesamiento
+                mostrarContadores(contador);
+
+            } catch (error) {
+                console.error('❌ Error procesando fila:', error);
+                contador.ignorados++;
+                mostrarContadores(contador);
+            }
+        }
+
+        console.log('\n✅ Procesamiento completado!');
+        console.log('\n📊 Resumen Final:');
+        mostrarContadores(contador);
 
     } catch (error) {
         console.error('❌ Error en el procesamiento:', error);
@@ -413,6 +420,17 @@ async function procesarCSV() {
     } finally {
         rl.close();
     }
+}
+
+// Función para mostrar contadores
+function mostrarContadores(contador) {
+    console.log(`\n📊 Contadores actuales:`);
+    console.log(`   - Acreditaciones: ${contador.acreditaciones}`);
+    console.log(`   - Comprobantes: ${contador.comprobantes}`);
+    console.log(`   - Créditos: ${contador.creditos}`);
+    console.log(`   - Pagos: ${contador.pagos}`);
+    console.log(`   - Ignorados: ${contador.ignorados}`);
+    console.log(`   - Total procesados: ${contador.acreditaciones + contador.comprobantes + contador.creditos + contador.pagos + contador.ignorados}`);
 }
 
 // Ejecutar el script
