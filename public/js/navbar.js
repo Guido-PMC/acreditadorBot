@@ -25,28 +25,19 @@ function createNavbar(activePage = 'dashboard') {
     return navbar;
 }
 
-// Función para reemplazar el navbar existente de forma segura
-function replaceNavbar(activePage = 'dashboard') {
-    // Buscar todos los navbars existentes
-    const existingNavbars = document.querySelectorAll('nav.navbar');
+// Función para insertar el navbar al inicio del body
+function insertNavbar(activePage = 'dashboard') {
+    // Verificar si ya existe un navbar
+    const existingNavbar = document.querySelector('nav.navbar');
     
-    if (existingNavbars.length > 0) {
-        console.log(`🔄 Reemplazando ${existingNavbars.length} navbar(s) existente(s)`);
-        
-        // Reemplazar el primer navbar (el principal)
-        existingNavbars[0].outerHTML = createNavbar(activePage);
-        
-        // Eliminar cualquier navbar duplicado adicional
-        const remainingNavbars = document.querySelectorAll('nav.navbar');
-        for (let i = 1; i < remainingNavbars.length; i++) {
-            console.log(`🗑️ Eliminando navbar duplicado #${i + 1}`);
-            remainingNavbars[i].remove();
-        }
-        
-        console.log(`✅ Navbar actualizado para página: ${activePage}`);
-    } else {
-        console.log('⚠️ No se encontró navbar existente para reemplazar');
+    if (existingNavbar) {
+        console.log('⚠️ Ya existe un navbar, no se insertará uno nuevo');
+        return;
     }
+    
+    // Insertar el navbar al inicio del body
+    document.body.insertAdjacentHTML('afterbegin', createNavbar(activePage));
+    console.log(`✅ Navbar insertado para página: ${activePage}`);
 }
 
 // Función para detectar automáticamente la página activa
@@ -77,14 +68,13 @@ function initNavbar(activePage = null) {
     
     // Esperar a que el DOM esté listo
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => replaceNavbar(activePage));
+        document.addEventListener('DOMContentLoaded', () => insertNavbar(activePage));
     } else {
-        replaceNavbar(activePage);
+        insertNavbar(activePage);
     }
 }
 
 // Inicializar automáticamente cuando se carga el script
-// Usar setTimeout para asegurar que se ejecute después de que el DOM esté listo
 setTimeout(() => {
     initNavbar();
 }, 0); 
