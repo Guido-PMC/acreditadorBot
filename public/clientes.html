@@ -22,6 +22,7 @@
           <tr>
             <th>Nombre</th>
             <th>Apellido</th>
+            <th>Comisión</th>
             <th>Estado</th>
             <th>Saldo Total</th>
             <th>Pendiente</th>
@@ -58,6 +59,11 @@
             <div class="mb-3">
               <label for="observaciones" class="form-label">Observaciones</label>
               <textarea class="form-control" id="observaciones"></textarea>
+            </div>
+            <div class="mb-3">
+              <label for="comision" class="form-label">Comisión (%)</label>
+              <input type="number" class="form-control" id="comision" min="0" max="100" step="0.01" placeholder="0.00">
+              <div class="form-text">Porcentaje de comisión que se aplicará a las acreditaciones (0-100%)</div>
             </div>
             <div class="mb-3">
               <label for="estado" class="form-label">Estado</label>
@@ -132,6 +138,7 @@
           <tr>
             <td>${cliente.nombre}</td>
             <td>${cliente.apellido || ""}</td>
+            <td>${cliente.comision || "0.00"}%</td>
             <td><span class="badge ${cliente.estado === "activo" ? "bg-success" : "bg-secondary"}">${cliente.estado}</span></td>
             <td class="text-end fw-bold ${parseFloat(cliente.saldoTotal || 0) > 0 ? "text-success" : "text-muted"}">${saldoTotal}</td>
             <td class="text-end fw-bold ${parseFloat(cliente.pendiente || 0) > 0 ? "text-warning" : "text-muted"}">${saldoPendiente}</td>
@@ -163,6 +170,7 @@
       document.getElementById('clienteId').value = '';
       document.getElementById('clienteModalLabel').innerText = 'Nuevo Cliente';
       document.getElementById('estado').value = 'activo';
+      document.getElementById('comision').value = '0.00';
     }
 
     async function submitClienteForm(event) {
@@ -172,6 +180,7 @@
         nombre: document.getElementById('nombre').value,
         apellido: document.getElementById('apellido').value,
         observaciones: document.getElementById('observaciones').value,
+        comision: document.getElementById('comision').value,
         estado: document.getElementById('estado').value
       };
       let method = 'POST', url = '/api/clientes';
@@ -204,6 +213,7 @@
       document.getElementById('nombre').value = cliente.nombre;
       document.getElementById('apellido').value = cliente.apellido || '';
       document.getElementById('observaciones').value = cliente.observaciones || '';
+      document.getElementById('comision').value = cliente.comision || '0.00';
       document.getElementById('estado').value = cliente.estado || 'activo';
       document.getElementById('clienteModalLabel').innerText = 'Editar Cliente';
       new bootstrap.Modal(document.getElementById('clienteModal')).show();
