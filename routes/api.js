@@ -2362,6 +2362,117 @@ router.delete('/comprobantes/limpiar-todos', async (req, res) => {
   }
 });
 
+// GET /api/comprobantes/huerfanos - Obtener acreditaciones con referencias a comprobantes inexistentes
+router.get('/comprobantes/huerfanos', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    console.log('🔍 Buscando acreditaciones con referencias huérfanas...');
+
+    const acreditacionesHuerfanas = await client.query(`
+      SELECT 
+        a.id,
+        a.id_comprobante_whatsapp,
+        a.titular,
+        a.importe
+      FROM acreditaciones a
+      LEFT JOIN comprobantes_whatsapp cw ON a.id_comprobante_whatsapp = cw.id_comprobante
+      WHERE a.id_comprobante_whatsapp IS NOT NULL 
+      AND cw.id_comprobante IS NULL
+    `);
+
+    console.log(`📊 Encontradas ${acreditacionesHuerfanas.rows.length} acreditaciones huérfanas`);
+
+    res.json({
+      success: true,
+      message: `Encontradas ${acreditacionesHuerfanas.rows.length} acreditaciones con referencias huérfanas`,
+      data: acreditacionesHuerfanas.rows
+    });
+
+  } catch (error) {
+    console.error('💥 Error buscando referencias huérfanas:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron buscar las referencias huérfanas'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// DELETE /api/comprobantes/huerfanos - Limpiar referencias a comprobantes inexistentes
+router.delete('/comprobantes/huerfanos', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    console.log('🧹 Iniciando limpieza de referencias huérfanas...');
+
+    // Primero contar cuántas hay
+    const countQuery = await client.query(`
+      SELECT COUNT(*) as total
+      FROM acreditaciones a
+      LEFT JOIN comprobantes_whatsapp cw ON a.id_comprobante_whatsapp = cw.id_comprobante
+      WHERE a.id_comprobante_whatsapp IS NOT NULL 
+      AND cw.id_comprobante IS NULL
+    `);
+
+    const totalHuerfanas = parseInt(countQuery.rows[0].total);
+
+    if (totalHuerfanas === 0) {
+      return res.json({
+        success: true,
+        message: 'No se encontraron referencias huérfanas para limpiar',
+        data: { total_limpiadas: 0, total_encontradas: 0 }
+      });
+    }
+
+    // Limpiar referencias huérfanas
+    const resultado = await client.query(`
+      UPDATE acreditaciones 
+      SET id_comprobante_whatsapp = NULL
+      WHERE id_comprobante_whatsapp IS NOT NULL 
+      AND id_comprobante_whatsapp NOT IN (
+        SELECT id_comprobante FROM comprobantes_whatsapp
+      )
+    `);
+
+    console.log(`✅ Limpieza completada: ${resultado.rowCount} acreditaciones actualizadas`);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'limpieza_huerfanos',
+      `Limpieza de referencias huérfanas vía API: ${resultado.rowCount} acreditaciones actualizadas`,
+      JSON.stringify({ 
+        total_encontradas: totalHuerfanas,
+        total_limpiadas: resultado.rowCount,
+        metodo: 'http_api'
+      }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: `Limpieza completada: ${resultado.rowCount} referencias huérfanas eliminadas`,
+      data: {
+        total_encontradas: totalHuerfanas,
+        total_limpiadas: resultado.rowCount
+      }
+    });
+
+  } catch (error) {
+    console.error('💥 Error limpiando referencias huérfanas:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo completar la limpieza de referencias huérfanas'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 // DELETE /api/historico/limpiar - Eliminar todos los datos con fuente "historico"
 router.delete('/historico/limpiar', async (req, res) => {
   const client = await db.getClient();
