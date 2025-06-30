@@ -327,15 +327,7 @@
             document.getElementById('idHeader').addEventListener('click', sortById);
             document.getElementById('dateHeader').addEventListener('click', sortByDate);
             
-            // Event delegation para botones de eliminar comprobante
-            document.addEventListener('click', function(e) {
-                if (e.target.closest('.delete-comprobante-btn')) {
-                    const button = e.target.closest('.delete-comprobante-btn');
-                    const acreditacionId = button.getAttribute('data-acreditacion-id');
-                    const comprobanteId = button.getAttribute('data-comprobante-id');
-                    eliminarComprobante(acreditacionId, comprobanteId);
-                }
-            });
+
             
             // Cargar clientes para el filtro
             loadClientes();
@@ -490,13 +482,22 @@
                                 </button>
                             ` : ''}
                             ${hasComprobante ? `
-                                <button class="btn btn-outline-danger delete-comprobante-btn" 
-                                        data-acreditacion-id="${acred.id}" 
-                                        data-comprobante-id="${acred.id_comprobante_whatsapp}" 
+                                <button class="btn btn-outline-warning btn-sm" 
+                                        onclick="desvincularComprobante(${acred.id}, '${acred.id_comprobante_whatsapp}')" 
+                                        title="Desvincular comprobante">
+                                    <i class="fas fa-unlink"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" 
+                                        onclick="eliminarComprobante(${acred.id}, '${acred.id_comprobante_whatsapp}')" 
                                         title="Eliminar comprobante">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             ` : ''}
+                            <button class="btn btn-outline-danger btn-sm" 
+                                    onclick="eliminarAcreditacion(${acred.id})" 
+                                    title="Eliminar acreditación completa">
+                                <i class="fas fa-times"></i>
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -656,8 +657,44 @@
             }, 5000);
         }
 
+        async function desvincularComprobante(idAcreditacion, idComprobante) {
+            if (!confirm(`¿Estás seguro de que quieres desvincular el comprobante ${idComprobante} de esta acreditación? El comprobante no se eliminará, solo se desasignará.`)) {
+                return;
+            }
+
+            try {
+                // Buscar el ID interno del comprobante
+                const searchResponse = await fetch(`/api/comprobantes?search=${idComprobante}&limit=1`);
+                const searchData = await searchResponse.json();
+                
+                if (!searchData.success || searchData.data.length === 0) {
+                    showAlert('No se pudo encontrar el comprobante para desvincular', 'danger');
+                    return;
+                }
+
+                const comprobanteInternoId = searchData.data[0].id;
+
+                const response = await fetch(`/api/comprobantes/${comprobanteInternoId}/desasignar`, {
+                    method: 'PUT'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('Comprobante desvinculado exitosamente', 'success');
+                    loadStats();
+                    loadAcreditaciones(currentPage);
+                } else {
+                    showAlert(result.error || 'Error al desvincular el comprobante', 'danger');
+                }
+            } catch (error) {
+                console.error('Error desvinculando comprobante:', error);
+                showAlert('Error al procesar la solicitud', 'danger');
+            }
+        }
+
         async function eliminarComprobante(idAcreditacion, idComprobante) {
-            if (!confirm(`¿Estás seguro de que quieres eliminar el comprobante ${idComprobante} de esta acreditación?`)) {
+            if (!confirm(`¿Estás seguro de que quieres ELIMINAR COMPLETAMENTE el comprobante ${idComprobante}? Esta acción no se puede deshacer.`)) {
                 return;
             }
 
@@ -677,6 +714,31 @@
                 }
             } catch (error) {
                 console.error('Error eliminando comprobante:', error);
+                showAlert('Error al procesar la solicitud', 'danger');
+            }
+        }
+
+        async function eliminarAcreditacion(idAcreditacion) {
+            if (!confirm(`¿Estás seguro de que quieres ELIMINAR COMPLETAMENTE la acreditación ${idAcreditacion}? Esta acción no se puede deshacer y eliminará toda la información asociada.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/acreditaciones/${idAcreditacion}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('Acreditación eliminada exitosamente', 'success');
+                    loadStats();
+                    loadAcreditaciones(currentPage);
+                } else {
+                    showAlert(result.error || 'Error al eliminar la acreditación', 'danger');
+                }
+            } catch (error) {
+                console.error('Error eliminando acreditación:', error);
                 showAlert('Error al procesar la solicitud', 'danger');
             }
         }

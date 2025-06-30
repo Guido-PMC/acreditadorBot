@@ -3858,4 +3858,83 @@ router.put('/acreditaciones/:id', [
   }
 });
 
+// DELETE /api/acreditaciones/:id - Eliminar acreditación
+router.delete('/acreditaciones/:id', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+
+    // Verificar que la acreditación existe
+    const acreditacionResult = await client.query(
+      'SELECT * FROM acreditaciones WHERE id = $1',
+      [id]
+    );
+
+    if (acreditacionResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Acreditación no encontrada',
+        message: 'La acreditación especificada no existe'
+      });
+    }
+
+    const acreditacion = acreditacionResult.rows[0];
+
+    // Verificar si tiene comprobante asignado y desasignarlo primero
+    if (acreditacion.id_comprobante_whatsapp) {
+      console.log(`🔗 Desasignando comprobante ${acreditacion.id_comprobante_whatsapp} antes de eliminar acreditación`);
+      
+      // Buscar el ID interno del comprobante
+      const comprobanteResult = await client.query(
+        'SELECT id FROM comprobantes_whatsapp WHERE id_comprobante = $1',
+        [acreditacion.id_comprobante_whatsapp]
+      );
+
+      if (comprobanteResult.rows.length > 0) {
+        const comprobanteId = comprobanteResult.rows[0].id;
+        
+        // Desasignar el comprobante
+        await client.query(`
+          UPDATE comprobantes_whatsapp 
+          SET id_acreditacion = NULL, cotejado = false, fecha_cotejo = NULL
+          WHERE id = $1
+        `, [comprobanteId]);
+      }
+    }
+
+    // Eliminar la acreditación
+    await client.query('DELETE FROM acreditaciones WHERE id = $1', [id]);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'acreditacion_eliminada',
+      `Acreditación ${id} eliminada: ${acreditacion.titular} - $${acreditacion.importe}`,
+      JSON.stringify({ 
+        id, 
+        titular: acreditacion.titular,
+        importe: acreditacion.importe,
+        id_comprobante_whatsapp: acreditacion.id_comprobante_whatsapp
+      }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Acreditación eliminada exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error eliminando acreditación:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo eliminar la acreditación'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 
