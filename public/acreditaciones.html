@@ -176,6 +176,8 @@
                                 <th>CUIT</th>
                                 <th>Cliente</th>
                                 <th>Importe</th>
+                                <th>Comisión</th>
+                                <th>Importe Comisión</th>
                                 <th style="cursor: pointer;" id="dateHeader">
                                     Fecha <i class="fas fa-sort" id="dateSortIcon"></i>
                                 </th>
@@ -368,7 +370,7 @@
             const tbody = document.getElementById('acreditacionesTable');
             
             if (acreditaciones.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" class="text-center">No se encontraron acreditaciones</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="12" class="text-center">No se encontraron acreditaciones</td></tr>';
                 return;
             }
 
@@ -378,6 +380,8 @@
             tbody.innerHTML = acreditaciones.map(acred => {
                 const hasComprobante = acred.id_comprobante_whatsapp && acred.id_comprobante_whatsapp !== null;
                 const clienteNombre = acred.cliente_nombre ? `${acred.cliente_nombre} ${acred.cliente_apellido || ''}`.trim() : 'Sin cliente';
+                const comision = parseFloat(acred.comision) || 0;
+                const importeComision = parseFloat(acred.importe_comision) || 0;
                 console.log(`📊 Acreditación ${acred.id}: tiene comprobante = ${hasComprobante}, id_comprobante = ${acred.id_comprobante_whatsapp}`);
                 
                 return `
@@ -387,6 +391,17 @@
                     <td>${acred.cuit || 'N/A'}</td>
                     <td><small>${clienteNombre}</small></td>
                     <td><strong>$${parseFloat(acred.importe).toLocaleString()}</strong></td>
+                    <td>
+                        <div class="input-group input-group-sm">
+                            <input type="number" class="form-control form-control-sm" 
+                                   value="${comision}" 
+                                   min="0" max="100" step="0.01" 
+                                   onchange="actualizarComision(${acred.id}, this.value)"
+                                   style="width: 70px;">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </td>
+                    <td><strong>$${importeComision.toLocaleString()}</strong></td>
                     <td><small>${formatDate(acred.fecha_hora)}</small></td>
                     <td>
                         <span class="badge ${acred.fuente === 'api' ? 'bg-primary' : 'bg-success'} badge-fuente">
@@ -648,6 +663,42 @@
             
             // Recargar las acreditaciones con el nuevo orden
             loadAcreditaciones(currentPage);
+        }
+
+        async function actualizarComision(acreditacionId, comision) {
+            try {
+                const response = await fetch(`/api/acreditaciones/${acreditacionId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ comision: parseFloat(comision) })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('Comisión actualizada exitosamente', 'success');
+                    loadAcreditaciones(currentPage); // Recargar para mostrar el importe actualizado
+                } else {
+                    showAlert(result.error || 'Error al actualizar la comisión', 'danger');
+                }
+            } catch (error) {
+                console.error('Error actualizando comisión:', error);
+                showAlert('Error al procesar la solicitud', 'danger');
+            }
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-AR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
         }
     </script>
 </body>

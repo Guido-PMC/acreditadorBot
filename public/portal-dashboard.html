@@ -105,6 +105,7 @@
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-user me-1"></i>
                             <span id="userName">Usuario</span>
+                            <span id="userComision" class="badge bg-light text-dark ms-1"></span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="#" onclick="showProfile()"><i class="fas fa-user-circle me-2"></i>Mi Perfil</a></li>
@@ -199,12 +200,14 @@
                                 <th class="sortable" onclick="sortMovimientos('tipo')">Tipo</th>
                                 <th class="sortable" onclick="sortMovimientos('concepto')">Concepto</th>
                                 <th class="sortable" onclick="sortMovimientos('importe')">Importe</th>
+                                <th>Comisión</th>
+                                <th>Neto</th>
                                 <th>Detalles</th>
                             </tr>
                         </thead>
                         <tbody id="movimientosUnificadosTableBody">
                             <tr>
-                                <td colspan="6" class="text-center py-4">
+                                <td colspan="7" class="text-center py-4">
                                     <div class="spinner-border text-primary" role="status">
                                         <span class="visually-hidden">Cargando...</span>
                                     </div>
@@ -286,11 +289,33 @@
         }
 
         // Cargar información del usuario
-        function loadUserInfo() {
-            const userStr = localStorage.getItem('portal_user');
-            if (userStr) {
-                currentUser = JSON.parse(userStr);
-                document.getElementById('userName').textContent = `${currentUser.nombre} ${currentUser.apellido}`;
+        async function loadUserInfo() {
+            try {
+                const response = await authenticatedRequest('/portal/perfil');
+                if (!response) return;
+
+                const result = await response.json();
+                if (result.success) {
+                    currentUser = result.data;
+                    document.getElementById('userName').textContent = `${currentUser.nombre} ${currentUser.apellido}`;
+                    
+                    // Mostrar comisión del cliente
+                    const comisionElement = document.getElementById('userComision');
+                    if (currentUser.comision && currentUser.comision > 0) {
+                        comisionElement.textContent = `Comisión: ${currentUser.comision}%`;
+                        comisionElement.style.display = 'inline';
+                    } else {
+                        comisionElement.style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Error cargando información del usuario:', error);
+                // Fallback a datos locales
+                const userStr = localStorage.getItem('portal_user');
+                if (userStr) {
+                    currentUser = JSON.parse(userStr);
+                    document.getElementById('userName').textContent = `${currentUser.nombre} ${currentUser.apellido}`;
+                }
             }
         }
 
@@ -454,7 +479,7 @@
             if (movimientosFiltrados.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="text-center py-4 text-muted">
+                        <td colspan="7" class="text-center py-4 text-muted">
                             <i class="fas fa-inbox fa-2x mb-2"></i><br>
                             ${movimientosFilter ? `No se encontraron movimientos de tipo "${movimientosFilter}"` : 'No se encontraron movimientos'}
                         </td>
@@ -471,6 +496,11 @@
                     '<span class="badge bg-primary status-badge">Comprobante</span>' : 
                     `<span class="badge bg-${mov.tipo_pago === 'credito' ? 'success' : 'danger'} status-badge">${mov.tipo_pago === 'credito' ? 'Crédito' : 'Pago'}</span>`;
 
+                // Calcular comisión y neto
+                const comision = mov.comision || 0;
+                const importeComision = mov.importe_comision || 0;
+                const neto = mov.importe - importeComision;
+
                 return `
                     <tr>
                         <td>${new Date(mov.fecha).toLocaleDateString('es-AR')} ${new Date(mov.fecha).toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'})}</td>
@@ -482,6 +512,25 @@
                                     style: 'currency',
                                     currency: 'ARS'
                                 }).format(mov.importe)}</strong>
+                            </span>
+                        </td>
+                        <td>
+                            ${comision > 0 ? `
+                                <small class="text-muted">
+                                    ${comision}%<br>
+                                    <span class="text-danger">-${new Intl.NumberFormat('es-AR', {
+                                        style: 'currency',
+                                        currency: 'ARS'
+                                    }).format(importeComision)}</span>
+                                </small>
+                            ` : '<small class="text-muted">0%</small>'}
+                        </td>
+                        <td>
+                            <span class="${isEntrada ? 'text-success' : 'text-danger'}">
+                                <strong>${importeSign}${new Intl.NumberFormat('es-AR', {
+                                    style: 'currency',
+                                    currency: 'ARS'
+                                }).format(neto)}</strong>
                             </span>
                         </td>
                         <td>

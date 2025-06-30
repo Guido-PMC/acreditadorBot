@@ -73,7 +73,8 @@ class Database {
           apellido VARCHAR(200),
           fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           estado VARCHAR(20) DEFAULT 'activo',
-          observaciones TEXT
+          observaciones TEXT,
+          comision DECIMAL(5,2) DEFAULT 0.00
         )
       `);
 
@@ -106,7 +107,9 @@ class Database {
           id_comprobante_whatsapp VARCHAR(50),
           fecha_cotejo TIMESTAMP,
           observaciones TEXT,
-          id_cliente INTEGER REFERENCES clientes(id)
+          id_cliente INTEGER REFERENCES clientes(id),
+          comision DECIMAL(5,2) DEFAULT 0.00,
+          importe_comision DECIMAL(15,2) DEFAULT 0.00
         )
       `);
 
@@ -258,8 +261,8 @@ class Database {
           await client.query(`
             UPDATE comprobantes_whatsapp 
             SET id_cliente_temp = CASE 
-              WHEN id_cliente ~ '^[0-9]+$' THEN id_cliente::INTEGER 
-              ELSE NULL 
+              WHEN id_cliente ~ '^[0-9]+$' THEN CAST(id_cliente AS INTEGER)
+              ELSE NULL
             END
           `);
           
@@ -274,7 +277,6 @@ class Database {
             RENAME COLUMN id_cliente_temp TO id_cliente
           `);
           
-          // Agregar la referencia foreign key
           await client.query(`
             ALTER TABLE comprobantes_whatsapp 
             ADD CONSTRAINT fk_comprobantes_cliente 
@@ -310,6 +312,37 @@ class Database {
         await client.query(`
           ALTER TABLE clientes 
           ADD COLUMN numero_telefono VARCHAR(20)
+        `);
+      }
+
+      // Verificar si la columna comision existe en clientes
+      const clientesComisionColumns = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'clientes' AND column_name = 'comision'
+      `);
+      
+      if (clientesComisionColumns.rows.length === 0) {
+        console.log('Agregando columna comision a tabla clientes...');
+        await client.query(`
+          ALTER TABLE clientes 
+          ADD COLUMN comision DECIMAL(5,2) DEFAULT 0.00
+        `);
+      }
+
+      // Verificar si las columnas de comisión existen en acreditaciones
+      const acreditacionesComisionColumns = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'acreditaciones' AND column_name IN ('comision', 'importe_comision')
+      `);
+      
+      if (acreditacionesComisionColumns.rows.length === 0) {
+        console.log('Agregando columnas de comisión a tabla acreditaciones...');
+        await client.query(`
+          ALTER TABLE acreditaciones 
+          ADD COLUMN comision DECIMAL(5,2) DEFAULT 0.00,
+          ADD COLUMN importe_comision DECIMAL(15,2) DEFAULT 0.00
         `);
       }
 

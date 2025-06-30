@@ -304,6 +304,17 @@ router.post('/notification', validateNotification, async (req, res) => {
       }
     }
 
+    // Buscar comisión del cliente (si hay id_cliente)
+    let comision = 0.00;
+    let importe_comision = 0.00;
+    if (cvu.id) {
+      const clienteResult = await client.query('SELECT comision FROM clientes WHERE id = $1', [cvu.id]);
+      if (clienteResult.rows.length > 0) {
+        comision = parseFloat(clienteResult.rows[0].comision) || 0.00;
+      }
+    }
+    importe_comision = (parseFloat(importe) * comision / 100).toFixed(2);
+
     // Insertar la acreditación
     const result = await client.query(`
       INSERT INTO acreditaciones (
@@ -323,8 +334,11 @@ router.post('/notification', validateNotification, async (req, res) => {
         origen_cuenta,
         tipo_notificacion,
         fuente,
-        procesado
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        procesado,
+        id_cliente,
+        comision,
+        importe_comision
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING id, id_transaccion, importe, fecha_hora
     `, [
       transactionId.toString(),
@@ -343,7 +357,10 @@ router.post('/notification', validateNotification, async (req, res) => {
       origin.account,
       type || 'PI',
       'api',
-      true
+      true,
+      cvu.id || null,
+      comision,
+      importe_comision
     ]);
 
     // Registrar log
@@ -1122,7 +1139,8 @@ router.get('/clientes', async (req, res) => {
 
 // POST /api/clientes - Crear cliente
 router.post('/clientes', [
-  body('nombre').notEmpty().withMessage('Nombre es requerido')
+  body('nombre').notEmpty().withMessage('Nombre es requerido'),
+  body('comision').optional().isFloat({ min: 0, max: 100 }).withMessage('Comisión debe ser un número entre 0 y 100')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -1138,7 +1156,8 @@ router.post('/clientes', [
     const {
       nombre,
       apellido,
-      observaciones
+      observaciones,
+      comision = 0.00
     } = req.body;
 
     // Insertar cliente
@@ -1146,13 +1165,15 @@ router.post('/clientes', [
       INSERT INTO clientes (
         nombre,
         apellido,
-        observaciones
-      ) VALUES ($1, $2, $3)
+        observaciones,
+        comision
+      ) VALUES ($1, $2, $3, $4)
       RETURNING id
     `, [
       nombre,
       apellido,
-      observaciones
+      observaciones,
+      comision
     ]);
 
     // Registrar log
@@ -1161,7 +1182,7 @@ router.post('/clientes', [
       VALUES ($1, $2, $3, $4)
     `, [
       'cliente_creado',
-      `Cliente creado: ${nombre} ${apellido || ''}`,
+      `Cliente creado: ${nombre} ${apellido || ''} (Comisión: ${comision}%)`,
       JSON.stringify(req.body),
       'exitoso'
     ]);
@@ -1172,7 +1193,8 @@ router.post('/clientes', [
       data: {
         id: result.rows[0].id,
         nombre,
-        apellido
+        apellido,
+        comision
       }
     });
 
@@ -1189,7 +1211,8 @@ router.post('/clientes', [
 
 // PUT /api/clientes/:id - Actualizar cliente
 router.put('/clientes/:id', [
-  body('nombre').notEmpty().withMessage('Nombre es requerido')
+  body('nombre').notEmpty().withMessage('Nombre es requerido'),
+  body('comision').optional().isFloat({ min: 0, max: 100 }).withMessage('Comisión debe ser un número entre 0 y 100')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -1207,7 +1230,8 @@ router.put('/clientes/:id', [
       nombre,
       apellido,
       observaciones,
-      estado
+      estado,
+      comision
     } = req.body;
 
     // Verificar si el cliente existe
@@ -1229,13 +1253,15 @@ router.put('/clientes/:id', [
         nombre = $1,
         apellido = $2,
         observaciones = $3,
-        estado = $4
-      WHERE id = $5
+        estado = $4,
+        comision = COALESCE($5, comision)
+      WHERE id = $6
     `, [
       nombre,
       apellido,
       observaciones,
       estado || 'activo',
+      comision,
       id
     ]);
 
@@ -1245,7 +1271,7 @@ router.put('/clientes/:id', [
       VALUES ($1, $2, $3, $4)
     `, [
       'cliente_actualizado',
-      `Cliente actualizado: ${nombre} ${apellido || ''}`,
+      `Cliente actualizado: ${nombre} ${apellido || ''} (Comisión: ${comision !== undefined ? comision : 'sin cambio'}%)`,
       JSON.stringify(req.body),
       'exitoso'
     ]);
