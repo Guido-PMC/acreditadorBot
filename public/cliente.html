@@ -47,7 +47,7 @@
             <div class="d-flex justify-content-between">
               <div>
                 <h4 id="totalAcreditaciones">0</h4>
-                <p class="mb-0">Total Acreditaciones</p>
+                <p class="mb-0">Total Comprobantes</p>
               </div>
               <div class="align-self-center">
                 <i class="fas fa-receipt fa-2x"></i>
@@ -62,7 +62,7 @@
             <div class="d-flex justify-content-between">
               <div>
                 <h4 id="acreditacionesCotejadas">0</h4>
-                <p class="mb-0">Acreditaciones Cotejadas</p>
+                <p class="mb-0">Comprobantes Asignados</p>
               </div>
               <div class="align-self-center">
                 <i class="fas fa-check-circle fa-2x"></i>
@@ -77,7 +77,7 @@
             <div class="d-flex justify-content-between">
               <div>
                 <h4 id="acreditacionesPendientes">0</h4>
-                <p class="mb-0">Acreditaciones Pendientes</p>
+                <p class="mb-0">Comprobantes Pendientes</p>
               </div>
               <div class="align-self-center">
                 <i class="fas fa-clock fa-2x"></i>
@@ -92,10 +92,10 @@
             <div class="d-flex justify-content-between">
               <div>
                 <h4 id="totalComisiones">$0.00</h4>
-                <p class="mb-0">Total Comisiones</p>
+                <p class="mb-0">Total Importe</p>
               </div>
               <div class="align-self-center">
-                <i class="fas fa-percentage fa-2x"></i>
+                <i class="fas fa-dollar-sign fa-2x"></i>
               </div>
             </div>
           </div>
@@ -335,11 +335,11 @@
       // Saldo
       updateElement('saldoCliente', `$${resumen.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
       
-      // Tarjetas de resumen
-      updateElement('totalAcreditaciones', resumen.acreditaciones.total_acreditaciones || 0);
-      updateElement('acreditacionesCotejadas', resumen.acreditaciones.acreditaciones_cotejadas || 0);
-      updateElement('acreditacionesPendientes', resumen.acreditaciones.acreditaciones_pendientes || 0);
-      updateElement('totalComisiones', `$${(resumen.acreditaciones.total_comisiones || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
+      // Tarjetas de resumen - usando estadísticas de comprobantes
+      updateElement('totalAcreditaciones', resumen.comprobantes.total_comprobantes || 0);
+      updateElement('acreditacionesCotejadas', resumen.comprobantes.comprobantes_asignados || 0);
+      updateElement('acreditacionesPendientes', resumen.comprobantes.comprobantes_sin_asignar || 0);
+      updateElement('totalComisiones', `$${(resumen.comprobantes.total_importe_comprobantes || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
       updateElement('totalPagos', resumen.pagos.total_pagos || 0);
       updateElement('totalImportePagos', `$${(resumen.pagos.total_importe_pagos || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
     }
