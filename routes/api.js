@@ -822,6 +822,58 @@ router.post('/notifications', async (req, res) => {
     }
 
     // Insertar nueva acreditación
+    const valores = [
+      id_transaccion,
+      tipo.substring(0, 10), // Truncar a 10 caracteres
+      'Transferencia entrante'.substring(0, 50), // Truncar concepto
+      '',
+      importe,
+      estado.substring(0, 20), // Truncar estado
+      '',
+      titular.substring(0, 100), // Truncar titular
+      cuit.substring(0, 20), // Truncar CUIT
+      '',
+      '',
+      fecha_hora,
+      '',
+      coelsa_id.substring(0, 50), // Truncar coelsa_id
+      titular.substring(0, 100), // Truncar origen_nombre
+      cuit.substring(0, 20), // Truncar origen_tax_id
+      '',
+      tipo.substring(0, 20), // Truncar tipo_notificacion
+      fuente.substring(0, 20), // Truncar fuente
+      true,
+      id_cliente,
+      comision,
+      importe_comision
+    ];
+
+    // Log de valores para debug
+    console.log('🔍 Valores a insertar:');
+    console.log('  id_transaccion:', valores[0], 'length:', valores[0]?.toString().length);
+    console.log('  tipo:', valores[1], 'length:', valores[1]?.toString().length);
+    console.log('  concepto:', valores[2], 'length:', valores[2]?.toString().length);
+    console.log('  aplica_a:', valores[3], 'length:', valores[3]?.toString().length);
+    console.log('  importe:', valores[4], 'length:', valores[4]?.toString().length);
+    console.log('  estado:', valores[5], 'length:', valores[5]?.toString().length);
+    console.log('  id_en_red:', valores[6], 'length:', valores[6]?.toString().length);
+    console.log('  titular:', valores[7], 'length:', valores[7]?.toString().length);
+    console.log('  cuit:', valores[8], 'length:', valores[8]?.toString().length);
+    console.log('  origen:', valores[9], 'length:', valores[9]?.toString().length);
+    console.log('  nota:', valores[10], 'length:', valores[10]?.toString().length);
+    console.log('  fecha_hora:', valores[11], 'length:', valores[11]?.toString().length);
+    console.log('  cvu:', valores[12], 'length:', valores[12]?.toString().length);
+    console.log('  coelsa_id:', valores[13], 'length:', valores[13]?.toString().length);
+    console.log('  origen_nombre:', valores[14], 'length:', valores[14]?.toString().length);
+    console.log('  origen_tax_id:', valores[15], 'length:', valores[15]?.toString().length);
+    console.log('  origen_cuenta:', valores[16], 'length:', valores[16]?.toString().length);
+    console.log('  tipo_notificacion:', valores[17], 'length:', valores[17]?.toString().length);
+    console.log('  fuente:', valores[18], 'length:', valores[18]?.toString().length);
+    console.log('  procesado:', valores[19], 'length:', valores[19]?.toString().length);
+    console.log('  id_cliente:', valores[20], 'length:', valores[20]?.toString().length);
+    console.log('  comision:', valores[21], 'length:', valores[21]?.toString().length);
+    console.log('  importe_comision:', valores[22], 'length:', valores[22]?.toString().length);
+
     const result = await client.query(`
       INSERT INTO acreditaciones (
         id_transaccion,
@@ -849,31 +901,7 @@ router.post('/notifications', async (req, res) => {
         importe_comision
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
       RETURNING id
-    `, [
-      id_transaccion,
-      tipo.substring(0, 10), // Truncar a 10 caracteres
-      'Transferencia entrante'.substring(0, 50), // Truncar concepto
-      '',
-      importe,
-      estado.substring(0, 20), // Truncar estado
-      '',
-      titular.substring(0, 100), // Truncar titular
-      cuit.substring(0, 20), // Truncar CUIT
-      '',
-      '',
-      fecha_hora,
-      '',
-      coelsa_id.substring(0, 50), // Truncar coelsa_id
-      titular.substring(0, 100), // Truncar origen_nombre
-      cuit.substring(0, 20), // Truncar origen_tax_id
-      '',
-      tipo.substring(0, 20), // Truncar tipo_notificacion
-      fuente.substring(0, 20), // Truncar fuente
-      true,
-      id_cliente,
-      comision,
-      importe_comision
-    ]);
+    `, valores);
 
     console.log('✅ Nueva acreditación creada:', result.rows[0]);
 
