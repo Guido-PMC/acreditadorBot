@@ -46,8 +46,8 @@
           <div class="card-body">
             <div class="d-flex justify-content-between">
               <div>
-                <h4 id="totalComprobantes">0</h4>
-                <p class="mb-0">Total Comprobantes</p>
+                <h4 id="totalAcreditaciones">0</h4>
+                <p class="mb-0">Total Acreditaciones</p>
               </div>
               <div class="align-self-center">
                 <i class="fas fa-receipt fa-2x"></i>
@@ -61,8 +61,8 @@
           <div class="card-body">
             <div class="d-flex justify-content-between">
               <div>
-                <h4 id="comprobantesCotejados">0</h4>
-                <p class="mb-0">Comprobantes Cotejados</p>
+                <h4 id="acreditacionesCotejadas">0</h4>
+                <p class="mb-0">Acreditaciones Cotejadas</p>
               </div>
               <div class="align-self-center">
                 <i class="fas fa-check-circle fa-2x"></i>
@@ -76,8 +76,8 @@
           <div class="card-body">
             <div class="d-flex justify-content-between">
               <div>
-                <h4 id="comprobantesPendientes">0</h4>
-                <p class="mb-0">Comprobantes Pendientes</p>
+                <h4 id="acreditacionesPendientes">0</h4>
+                <p class="mb-0">Acreditaciones Pendientes</p>
               </div>
               <div class="align-self-center">
                 <i class="fas fa-clock fa-2x"></i>
@@ -91,11 +91,11 @@
           <div class="card-body">
             <div class="d-flex justify-content-between">
               <div>
-                <h4 id="totalImporteComprobantes">$0.00</h4>
-                <p class="mb-0">Total Importe</p>
+                <h4 id="totalComisiones">$0.00</h4>
+                <p class="mb-0">Total Comisiones</p>
               </div>
               <div class="align-self-center">
-                <i class="fas fa-money-bill-wave fa-2x"></i>
+                <i class="fas fa-percentage fa-2x"></i>
               </div>
             </div>
           </div>
@@ -320,10 +320,10 @@
       document.getElementById('saldoCliente').textContent = `$${resumen.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
       
       // Tarjetas de resumen
-      document.getElementById('totalComprobantes').textContent = resumen.comprobantes.total_comprobantes || 0;
-      document.getElementById('comprobantesCotejados').textContent = resumen.comprobantes.comprobantes_cotejados || 0;
-      document.getElementById('comprobantesPendientes').textContent = resumen.comprobantes.comprobantes_pendientes || 0;
-      document.getElementById('totalImporteComprobantes').textContent = `$${(resumen.comprobantes.total_importe_comprobantes || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+      document.getElementById('totalAcreditaciones').textContent = resumen.acreditaciones.total_acreditaciones || 0;
+      document.getElementById('acreditacionesCotejadas').textContent = resumen.acreditaciones.acreditaciones_cotejadas || 0;
+      document.getElementById('acreditacionesPendientes').textContent = resumen.acreditaciones.acreditaciones_pendientes || 0;
+      document.getElementById('totalComisiones').textContent = `$${(resumen.acreditaciones.total_comisiones || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
       document.getElementById('totalPagos').textContent = resumen.pagos.total_pagos || 0;
       document.getElementById('totalImportePagos').textContent = `$${(resumen.pagos.total_importe_pagos || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
     }

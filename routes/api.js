@@ -1969,13 +1969,16 @@ router.get('/clientes/:id/resumen', async (req, res) => {
       WHERE id_cliente = $1
     `, [id]);
 
-    // Obtener estadísticas de acreditaciones
+    // Obtener estadísticas de acreditaciones (considerando comisiones)
     const acreditacionesStats = await client.query(`
       SELECT 
         COUNT(*) as total_acreditaciones,
         SUM(importe) as total_importe_acreditaciones,
         COUNT(CASE WHEN cotejado = true THEN 1 END) as acreditaciones_cotejadas,
-        COUNT(CASE WHEN cotejado = false THEN 1 END) as acreditaciones_pendientes
+        COUNT(CASE WHEN cotejado = false THEN 1 END) as acreditaciones_pendientes,
+        SUM(importe_comision) as total_comisiones,
+        SUM(CASE WHEN cotejado = true THEN importe_comision ELSE 0 END) as total_comisiones_cotejadas,
+        SUM(CASE WHEN cotejado = false THEN importe_comision ELSE 0 END) as total_comisiones_pendientes
       FROM acreditaciones 
       WHERE id_cliente = $1
     `, [id]);
@@ -1984,15 +1987,19 @@ router.get('/clientes/:id/resumen', async (req, res) => {
     const pagosStats = await client.query(`
       SELECT 
         COUNT(*) as total_pagos,
-        SUM(importe) as total_importe_pagos
+        SUM(CASE WHEN tipo_pago = 'egreso' THEN importe ELSE 0 END) as total_importe_pagos,
+        SUM(CASE WHEN tipo_pago = 'credito' THEN importe ELSE 0 END) as total_importe_creditos
       FROM pagos 
       WHERE id_cliente = $1 AND estado = 'confirmado'
     `, [id]);
 
-    // Calcular saldo real (comprobantes cotejados - pagos)
-    const totalComprobantesCotejados = parseFloat(comprobantesStats.rows[0].total_importe_cotejados || 0);
+    // Calcular saldo real (acreditaciones cotejadas - comisiones + créditos - pagos)
+    const totalAcreditacionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_importe_acreditaciones || 0);
+    const totalComisionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_comisiones_cotejadas || 0);
     const totalPagos = parseFloat(pagosStats.rows[0].total_importe_pagos || 0);
-    const saldo = totalComprobantesCotejados - totalPagos;
+    const totalCreditos = parseFloat(pagosStats.rows[0].total_importe_creditos || 0);
+    
+    const saldo = totalAcreditacionesCotejadas - totalComisionesCotejadas + totalCreditos - totalPagos;
 
     res.json({
       success: true,
