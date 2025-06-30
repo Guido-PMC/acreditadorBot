@@ -553,6 +553,20 @@ async function getClientMovimientos(client, cliente_id, fecha_desde, fecha_hasta
   return movimientos;
 }
 
+// GET /export/simple - Endpoint súper básico para Google Sheets
+router.get('/simple', (req, res) => {
+  console.log('🔍 SIMPLE ENDPOINT - Request recibido');
+  console.log('🔍 Headers:', JSON.stringify(req.headers, null, 2));
+  
+  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  
+  const csv = 'Fecha,Tipo,Importe\n2025-01-01,Test,1000\n2025-01-02,Demo,2000';
+  
+  console.log('✅ Enviando respuesta simple');
+  res.send(csv);
+});
+
 // GET /export/test/:cliente_id - Endpoint de prueba simple para Google Sheets
 router.get('/test/:cliente_id', async (req, res) => {
   const requestId = Math.random().toString(36).substr(2, 9);
