@@ -851,24 +851,24 @@ router.post('/notifications', async (req, res) => {
       RETURNING id
     `, [
       id_transaccion,
-      tipo,
-      'Transferencia entrante',
+      tipo.substring(0, 10), // Truncar a 10 caracteres
+      'Transferencia entrante'.substring(0, 50), // Truncar concepto
       '',
       importe,
-      estado,
+      estado.substring(0, 20), // Truncar estado
       '',
-      titular,
-      cuit,
+      titular.substring(0, 100), // Truncar titular
+      cuit.substring(0, 20), // Truncar CUIT
       '',
       '',
       fecha_hora,
       '',
-      coelsa_id,
-      titular,
-      cuit,
+      coelsa_id.substring(0, 50), // Truncar coelsa_id
+      titular.substring(0, 100), // Truncar origen_nombre
+      cuit.substring(0, 20), // Truncar origen_tax_id
       '',
-      tipo,
-      fuente,
+      tipo.substring(0, 20), // Truncar tipo_notificacion
+      fuente.substring(0, 20), // Truncar fuente
       true,
       id_cliente,
       comision,
