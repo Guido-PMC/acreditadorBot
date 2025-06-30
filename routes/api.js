@@ -324,7 +324,7 @@ router.post('/notification', validateNotification, async (req, res) => {
         id_cliente,
         comision,
         importe_comision
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING id, id_transaccion, importe, fecha_hora
     `, [
       transactionId.toString(),
@@ -346,8 +346,7 @@ router.post('/notification', validateNotification, async (req, res) => {
       true,
       cvu.id || null,
       comision,
-      importe_comision,
-      cvu.id || null
+      importe_comision
     ]);
 
     // Registrar log
@@ -809,44 +808,6 @@ router.post('/notifications', [
       });
     }
 
-    // Validar que el cliente exista si se especifica, o crear uno por defecto
-    let clienteId = null;
-    if (id_cliente) {
-      const clienteResult = await client.query(
-        'SELECT id FROM clientes WHERE id = $1',
-        [id_cliente]
-      );
-      
-      if (clienteResult.rows.length === 0) {
-        return res.status(400).json({
-          error: 'Cliente no encontrado',
-          message: `El cliente con ID ${id_cliente} no existe en el sistema`
-        });
-      }
-      
-      clienteId = id_cliente;
-    } else {
-      // Si no se especifica cliente, buscar o crear un cliente por defecto
-      const clienteDefaultResult = await client.query(
-        'SELECT id FROM clientes WHERE nombre = $1',
-        ['Cliente API']
-      );
-      
-      if (clienteDefaultResult.rows.length === 0) {
-        // Crear cliente por defecto para acreditaciones API
-        const nuevoClienteResult = await client.query(`
-          INSERT INTO clientes (nombre, apellido, estado, fecha_registro)
-          VALUES ($1, $2, $3, $4)
-          RETURNING id
-        `, ['Cliente API', '', 'activo', new Date().toISOString()]);
-        
-        clienteId = nuevoClienteResult.rows[0].id;
-        console.log(`Cliente por defecto creado para API: ID ${clienteId}`);
-      } else {
-        clienteId = clienteDefaultResult.rows[0].id;
-      }
-    }
-
     // Insertar nueva acreditación
     const result = await client.query(`
       INSERT INTO acreditaciones (
@@ -871,7 +832,7 @@ router.post('/notifications', [
         fuente,
         procesado,
         id_cliente
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING id
     `, [
       id_transaccion,
@@ -894,7 +855,7 @@ router.post('/notifications', [
       tipo_notificacion,
       'api',
       true,
-      clienteId
+      id_cliente
     ]);
 
     // Registrar log
