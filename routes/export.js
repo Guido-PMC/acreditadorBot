@@ -25,10 +25,24 @@ router.options('/sheets/:cliente_id', (req, res) => {
 // Rate limiting simple (en memoria)
 const accessLog = new Map();
 const RATE_LIMIT_WINDOW = 60000; // 1 minuto
-const MAX_REQUESTS_PER_WINDOW = 10;
+const MAX_REQUESTS_PER_WINDOW = 30; // Aumentado para Google Sheets
 
 // Middleware de rate limiting
 function rateLimiter(req, res, next) {
+  const requestId = Math.random().toString(36).substr(2, 9);
+  req.requestId = requestId; // Guardar para usar en logs
+  
+  const userAgent = req.get('User-Agent') || '';
+  const isGoogleSheets = userAgent.includes('GoogleDocs') || userAgent.includes('apps-spreadsheets');
+  
+  console.log(`🔍 [${requestId}] Rate Limiter - IP: ${req.ip}, Google Sheets: ${isGoogleSheets}`);
+  
+  // Ser más permisivo con Google Sheets
+  if (isGoogleSheets) {
+    console.log(`✅ [${requestId}] Google Sheets detectado - saltando rate limit estricto`);
+    return next();
+  }
+  
   const clientKey = `${req.ip}_${req.params.cliente_id}`;
   const now = Date.now();
   
@@ -41,6 +55,7 @@ function rateLimiter(req, res, next) {
   const validRequests = requests.filter(time => now - time < RATE_LIMIT_WINDOW);
   
   if (validRequests.length >= MAX_REQUESTS_PER_WINDOW) {
+    console.log(`❌ [${requestId}] Rate limit excedido para ${clientKey} - ${validRequests.length} requests`);
     return res.status(429).json({
       error: 'Too Many Requests',
       message: 'Rate limit exceeded. Try again later.'
@@ -49,6 +64,7 @@ function rateLimiter(req, res, next) {
   
   validRequests.push(now);
   accessLog.set(clientKey, validRequests);
+  console.log(`✅ [${requestId}] Rate limit OK - ${validRequests.length}/${MAX_REQUESTS_PER_WINDOW} requests`);
   next();
 }
 
@@ -69,7 +85,7 @@ function formatDateForCSV(date) {
 // GET /export/sheets/:cliente_id - Exportar datos para Google Sheets
 router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
   const startTime = Date.now();
-  const requestId = Math.random().toString(36).substr(2, 9);
+  const requestId = req.requestId || Math.random().toString(36).substr(2, 9);
   
   console.log(`🔍 [${requestId}] === INICIO REQUEST EXPORT ===`);
   console.log(`🔍 [${requestId}] Timestamp: ${new Date().toISOString()}`);
