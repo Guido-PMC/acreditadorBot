@@ -2348,7 +2348,7 @@ function cleanCUIT(cuit) {
 
 // POST /api/comprobantes/whatsapp - Endpoint para recibir comprobantes de WhatsApp
 router.post('/comprobantes/whatsapp', [
-  body('nombre_remitente').notEmpty().withMessage('Nombre del remitente es requerido'),
+  body('nombre_remitente').optional(), // Hacer el nombre opcional también
   body('cuit').optional(), // Hacer el CUIT opcional
   body('fecha').notEmpty().withMessage('Fecha es requerida'),
   body('hora').optional(),
@@ -2376,6 +2376,12 @@ router.post('/comprobantes/whatsapp', [
       cliente
     } = req.body;
 
+    // Limpiar nombre del remitente (si está vacío o es inválido, usar null)
+    let nombre_limpio = null;
+    if (nombre_remitente && nombre_remitente !== 'null' && nombre_remitente !== 'undefined' && nombre_remitente.trim() !== '') {
+      nombre_limpio = nombre_remitente.trim();
+    }
+
     // Limpiar CUIT (quitar guiones y dejar solo números)
     // Si el CUIT es "No especificado" o similar, usar null
     let cuit_limpio = null;
@@ -2387,12 +2393,21 @@ router.post('/comprobantes/whatsapp', [
       }
     }
 
+    // Verificar que al menos uno de los dos (nombre o CUIT) esté presente
+    if (!nombre_limpio && !cuit_limpio) {
+      return res.status(400).json({
+        error: 'Datos insuficientes',
+        message: 'Se requiere al menos el nombre del remitente o el CUIT'
+      });
+    }
+
     // LOGGING DETALLADO DE LO QUE SE RECIBE
     console.log('='.repeat(80));
     console.log('📱 POST RECIBIDO EN /api/comprobantes/whatsapp');
     console.log('='.repeat(80));
     console.log('📋 DATOS RECIBIDOS:');
-    console.log('   nombre_remitente:', nombre_remitente);
+    console.log('   nombre_remitente original:', nombre_remitente);
+    console.log('   nombre_remitente limpio:', nombre_limpio);
     console.log('   cuit original:', cuit);
     console.log('   cuit limpio:', cuit_limpio);
     console.log('   fecha:', fecha);
@@ -2400,7 +2415,7 @@ router.post('/comprobantes/whatsapp', [
     console.log('   monto:', monto, '(tipo:', typeof monto, ')');
     console.log('   cliente:', cliente);
     console.log('📋 DATOS PROCESADOS:', JSON.stringify({
-      nombre_remitente,
+      nombre_remitente: nombre_limpio,
       cuit: cuit_limpio,
       fecha,
       hora,
@@ -2410,8 +2425,8 @@ router.post('/comprobantes/whatsapp', [
     console.log('='.repeat(80));
 
     console.log('📱 Recibiendo comprobante de WhatsApp:', {
-      nombre_remitente,
-      cuit,
+      nombre_remitente: nombre_limpio,
+      cuit: cuit_limpio,
       fecha,
       hora,
       monto,
@@ -2544,7 +2559,7 @@ router.post('/comprobantes/whatsapp', [
         AND fecha_envio BETWEEN $4 AND $5
         AND id_cliente = $6
     `, [
-      nombre_remitente,
+      nombre_limpio,
       cuit_limpio,
       parseFloat(monto),
       new Date(fecha_envio_obj.getTime() - 5 * 60 * 1000), // 5 minutos antes
@@ -2561,9 +2576,9 @@ router.post('/comprobantes/whatsapp', [
         VALUES ($1, $2, $3, $4)
       `, [
         'comprobante_duplicado',
-        `Intento de crear comprobante duplicado: ${nombre_remitente} - $${monto}`,
+        `Intento de crear comprobante duplicado: ${nombre_limpio || 'Sin nombre'} - $${monto}`,
         JSON.stringify({
-          nombre_remitente,
+          nombre_remitente: nombre_limpio,
           cuit: cuit_limpio,
           monto,
           fecha: fecha_envio_obj,
@@ -2660,17 +2675,17 @@ router.post('/comprobantes/whatsapp', [
       }
 
       // Coincidencia de nombre
-      console.log(`\n   🔤 Evaluando nombre: "${nombre_remitente}" vs "${acreditacion.titular}"`);
-      if (namesMatch(nombre_remitente, acreditacion.titular)) {
+      console.log(`\n   🔤 Evaluando nombre: "${nombre_limpio || 'Sin nombre'}" vs "${acreditacion.titular}"`);
+      if (nombre_limpio && namesMatch(nombre_limpio, acreditacion.titular)) {
         score += 25;
         coincidencias.push('nombre_exacto');
         console.log(`   ✅ Nombre exacto: +25 puntos`);
-      } else if (namesMatch(nombre_remitente, acreditacion.titular, 0.6)) {
+      } else if (nombre_limpio && namesMatch(nombre_limpio, acreditacion.titular, 0.6)) {
         score += 15;
         coincidencias.push('nombre_parcial');
         console.log(`   ✅ Nombre parcial: +15 puntos`);
       } else {
-        console.log(`   ❌ Nombre no coincide`);
+        console.log(`   ❌ Nombre no coincide o no disponible`);
       }
 
       // Coincidencia de CUIT
@@ -2763,7 +2778,7 @@ router.post('/comprobantes/whatsapp', [
       RETURNING id, id_comprobante, cotejado, id_acreditacion
     `, [
       id_comprobante,
-      nombre_remitente,
+      nombre_limpio,
       cuit_limpio,
       parseFloat(monto),
       fecha_envio_obj,
@@ -2793,7 +2808,7 @@ router.post('/comprobantes/whatsapp', [
       VALUES ($1, $2, $3, $4)
     `, [
       'comprobante_whatsapp_creado',
-      `Comprobante de WhatsApp creado: ${nombre_remitente} - $${monto}`,
+      `Comprobante de WhatsApp creado: ${nombre_limpio || 'Sin nombre'} - $${monto}`,
       JSON.stringify({
         comprobante_id: comprobante.id,
         id_comprobante: id_comprobante,
