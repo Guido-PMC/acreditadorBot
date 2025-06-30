@@ -395,9 +395,15 @@ async function procesarCSV() {
                         break;
 
                     case 'transferencia saliente':
-                        // Crear pago
+                        // Crear pago - usar valor absoluto porque los pagos representan salidas
+                        // Si el CSV ya trae signo negativo, lo convertimos a positivo
+                        const importePago = Math.abs(monto);
+                        if (monto !== importePago) {
+                            console.log(`💰 Convirtiendo monto negativo ${monto} a positivo ${importePago} para pago`);
+                        }
+                        
                         await crearPagoHTTP({
-                            importe: monto,
+                            importe: importePago,
                             titular,
                             fecha_comprob: fechaComprob,
                             cliente_id: cliente.id,
