@@ -2341,6 +2341,128 @@ router.delete('/comprobantes/limpiar-todos', async (req, res) => {
   }
 });
 
+// DELETE /api/historico/limpiar - Eliminar todos los datos con fuente "historico"
+router.delete('/historico/limpiar', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    console.log('🗑️  Iniciando eliminación de datos históricos...');
+
+    // Función para contar registros
+    const contarRegistros = async () => {
+      const acreditaciones = await client.query(`SELECT COUNT(*) as total FROM acreditaciones WHERE fuente = 'historico'`);
+      const comprobantes = await client.query(`SELECT COUNT(*) as total FROM comprobantes WHERE fuente = 'historico'`);
+      const pagos = await client.query(`SELECT COUNT(*) as total FROM pagos WHERE fuente = 'historico'`);
+      
+      return {
+        acreditaciones: parseInt(acreditaciones.rows[0].total),
+        comprobantes: parseInt(comprobantes.rows[0].total),
+        pagos: parseInt(pagos.rows[0].total)
+      };
+    };
+
+    // Contar registros antes de eliminar
+    const conteoInicial = await contarRegistros();
+    
+    console.log('📊 Registros encontrados con fuente "historico":');
+    console.log(`   - Acreditaciones: ${conteoInicial.acreditaciones}`);
+    console.log(`   - Comprobantes: ${conteoInicial.comprobantes}`);
+    console.log(`   - Pagos: ${conteoInicial.pagos}`);
+    
+    const totalInicial = conteoInicial.acreditaciones + conteoInicial.comprobantes + conteoInicial.pagos;
+    
+    if (totalInicial === 0) {
+      return res.json({
+        success: true,
+        message: 'No se encontraron registros con fuente "historico" para eliminar',
+        data: {
+          eliminados: { acreditaciones: 0, comprobantes: 0, pagos: 0 },
+          total_eliminado: 0
+        }
+      });
+    }
+
+    // Iniciar transacción
+    await client.query('BEGIN');
+    
+    let eliminados = { comprobantes: 0, pagos: 0, acreditaciones: 0 };
+    
+    // 1. Eliminar comprobantes primero (tienen FK a acreditaciones)
+    if (conteoInicial.comprobantes > 0) {
+      console.log('🗑️  Eliminando comprobantes históricos...');
+      const resultComprobantes = await client.query(`DELETE FROM comprobantes WHERE fuente = 'historico'`);
+      eliminados.comprobantes = resultComprobantes.rowCount;
+      console.log(`✅ Eliminados ${eliminados.comprobantes} comprobantes`);
+    }
+    
+    // 2. Eliminar pagos
+    if (conteoInicial.pagos > 0) {
+      console.log('🗑️  Eliminando pagos históricos...');
+      const resultPagos = await client.query(`DELETE FROM pagos WHERE fuente = 'historico'`);
+      eliminados.pagos = resultPagos.rowCount;
+      console.log(`✅ Eliminados ${eliminados.pagos} pagos`);
+    }
+    
+    // 3. Eliminar acreditaciones al final
+    if (conteoInicial.acreditaciones > 0) {
+      console.log('🗑️  Eliminando acreditaciones históricas...');
+      const resultAcreditaciones = await client.query(`DELETE FROM acreditaciones WHERE fuente = 'historico'`);
+      eliminados.acreditaciones = resultAcreditaciones.rowCount;
+      console.log(`✅ Eliminadas ${eliminados.acreditaciones} acreditaciones`);
+    }
+    
+    // Confirmar transacción
+    await client.query('COMMIT');
+    
+    const totalEliminado = eliminados.comprobantes + eliminados.pagos + eliminados.acreditaciones;
+    
+    console.log('✅ Eliminación de datos históricos completada');
+    console.log(`📊 Total eliminado: ${totalEliminado} registros`);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'limpieza_historico',
+      `Eliminación masiva de datos históricos: ${totalEliminado} registros`,
+      JSON.stringify({ 
+        eliminados,
+        total_eliminado: totalEliminado,
+        conteo_inicial: conteoInicial
+      }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: `Eliminación completada: ${totalEliminado} registros históricos eliminados`,
+      data: {
+        eliminados,
+        total_eliminado: totalEliminado,
+        conteo_inicial: conteoInicial
+      }
+    });
+
+  } catch (error) {
+    // Rollback en caso de error
+    try {
+      await client.query('ROLLBACK');
+      console.log('🔄 Transacción revertida debido al error');
+    } catch (rollbackError) {
+      console.error('❌ Error en rollback:', rollbackError);
+    }
+    
+    console.error('💥 Error eliminando datos históricos:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo completar la eliminación de datos históricos'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 // Función para limpiar CUIT (quitar guiones y dejar solo números)
 function cleanCUIT(cuit) {
   if (!cuit) return null;
