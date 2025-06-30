@@ -663,16 +663,48 @@
             }
 
             try {
-                // Buscar el ID interno del comprobante
-                const searchResponse = await fetch(`/api/comprobantes?search=${idComprobante}&limit=1`);
+                // Buscar el ID interno del comprobante usando el id_comprobante
+                const searchResponse = await fetch(`/api/comprobantes?search=${encodeURIComponent(idComprobante)}&limit=1`);
                 const searchData = await searchResponse.json();
                 
                 if (!searchData.success || searchData.data.length === 0) {
+                    // Si no lo encuentra por búsqueda, intentar buscar por id_comprobante exacto
+                    console.log(`⚠️ No encontrado por búsqueda, intentando buscar comprobante por id_comprobante: ${idComprobante}`);
+                    
+                    // Intentar con búsqueda más específica
+                    const directResponse = await fetch(`/api/comprobantes?page=1&limit=100`);
+                    const directData = await directResponse.json();
+                    
+                    if (directData.success) {
+                        const comprobante = directData.data.find(c => c.id_comprobante === idComprobante);
+                        if (!comprobante) {
+                            showAlert(`No se pudo encontrar el comprobante ${idComprobante} para desvincular`, 'danger');
+                            return;
+                        }
+                        
+                        // Usar el ID encontrado
+                        const response = await fetch(`/api/comprobantes/${comprobante.id}/desasignar`, {
+                            method: 'PUT'
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            showAlert('Comprobante desvinculado exitosamente', 'success');
+                            loadStats();
+                            loadAcreditaciones(currentPage);
+                        } else {
+                            showAlert(result.error || 'Error al desvincular el comprobante', 'danger');
+                        }
+                        return;
+                    }
+                    
                     showAlert('No se pudo encontrar el comprobante para desvincular', 'danger');
                     return;
                 }
 
                 const comprobanteInternoId = searchData.data[0].id;
+                console.log(`✅ Comprobante encontrado: ${idComprobante} -> ID interno: ${comprobanteInternoId}`);
 
                 const response = await fetch(`/api/comprobantes/${comprobanteInternoId}/desasignar`, {
                     method: 'PUT'
@@ -699,7 +731,10 @@
             }
 
             try {
-                const response = await fetch(`/api/comprobantes/${idComprobante}`, {
+                console.log(`🗑️ Eliminando comprobante: ${idComprobante}`);
+                
+                // El endpoint DELETE maneja tanto IDs numéricos como id_comprobante strings
+                const response = await fetch(`/api/comprobantes/${encodeURIComponent(idComprobante)}`, {
                     method: 'DELETE'
                 });
 
