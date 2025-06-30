@@ -109,10 +109,16 @@
           const saldoRes = await fetch(`/api/clientes/${cliente.id}/resumen`);
           const saldoData = await saldoRes.json();
           if (saldoData.success) {
+            // Usar acreditaciones en lugar de comprobantes y considerar comisiones
+            const acreditacionesCotejadas = saldoData.data.resumen.acreditaciones?.total_importe_cotejadas || 0;
+            const comisionesCotejadas = saldoData.data.resumen.acreditaciones?.total_comisiones_cotejadas || 0;
+            const acreditacionesPendientes = saldoData.data.resumen.acreditaciones?.total_importe_pendientes || 0;
+            const comisionesPendientes = saldoData.data.resumen.acreditaciones?.total_comisiones_pendientes || 0;
+            
             return {
               ...cliente,
-              saldoTotal: (saldoData.data.resumen.comprobantes.total_importe_cotejados || 0),
-              pendiente: (saldoData.data.resumen.comprobantes.total_importe_comprobantes - (saldoData.data.resumen.comprobantes.total_importe_cotejados || 0))
+              saldoTotal: acreditacionesCotejadas - comisionesCotejadas, // Saldo actual (cotejado - comisiones)
+              pendiente: acreditacionesPendientes - comisionesPendientes // Saldo pendiente (no cotejado - comisiones)
             };
           }
         } catch (error) {
