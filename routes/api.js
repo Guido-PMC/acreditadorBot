@@ -1460,7 +1460,7 @@ router.put('/comprobantes/:id/asignar', async (req, res) => {
 
     // Verificar que el comprobante existe
     const comprobante = await client.query(
-      'SELECT id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id = $1',
+      'SELECT id_comprobante, id_acreditacion, id_cliente FROM comprobantes_whatsapp WHERE id = $1',
       [id]
     );
 
@@ -1606,7 +1606,7 @@ router.put('/comprobantes/:id/desasignar', async (req, res) => {
 
     // Verificar que el comprobante existe y está asignado
     const comprobante = await client.query(
-      'SELECT id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id = $1',
+      'SELECT id_comprobante, id_acreditacion, id_cliente FROM comprobantes_whatsapp WHERE id = $1',
       [id]
     );
 
