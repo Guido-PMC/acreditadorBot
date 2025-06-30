@@ -4108,4 +4108,153 @@ router.post('/migrate-export-fields', async (req, res) => {
   }
 });
 
+// POST /api/fix-comisiones-cotejadas - Arreglar comisiones de acreditaciones cotejadas
+router.post('/fix-comisiones-cotejadas', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    console.log('🔍 === DIAGNÓSTICO DE COMISIONES FALTANTES ===');
+    
+    // 1. Buscar acreditaciones cotejadas sin comisión calculada
+    const acreditacionesSinComision = await client.query(`
+      SELECT 
+        a.id,
+        a.id_transaccion,
+        a.titular,
+        a.importe,
+        a.cotejado,
+        a.id_cliente,
+        a.comision,
+        a.importe_comision,
+        c.nombre as cliente_nombre,
+        c.apellido as cliente_apellido,
+        c.comision as cliente_comision
+      FROM acreditaciones a
+      LEFT JOIN clientes c ON a.id_cliente = c.id
+      WHERE a.cotejado = true 
+        AND a.id_cliente IS NOT NULL
+        AND (a.comision = 0 OR a.importe_comision = 0 OR a.comision IS NULL OR a.importe_comision IS NULL)
+      ORDER BY a.fecha_hora DESC
+    `);
+
+    console.log(`📊 Acreditaciones cotejadas sin comisión: ${acreditacionesSinComision.rows.length}`);
+    
+    if (acreditacionesSinComision.rows.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No hay acreditaciones que necesiten corrección de comisiones',
+        data: {
+          corregidas: 0,
+          errores: 0,
+          total_encontradas: 0
+        }
+      });
+    }
+
+    console.log('\n🔧 === INICIANDO CORRECCIÓN ===');
+    
+    let corregidas = 0;
+    let errores = 0;
+    const detalles = [];
+
+    // Procesar cada acreditación
+    for (const acred of acreditacionesSinComision.rows) {
+      try {
+        const comision_cliente = parseFloat(acred.cliente_comision) || 0.00;
+        const importe = parseFloat(acred.importe);
+        const importe_comision = (importe * comision_cliente / 100);
+
+        console.log(`🔄 Corrigiendo acreditación ${acred.id}: ${comision_cliente}% sobre $${importe} = $${importe_comision.toFixed(2)}`);
+
+        // Actualizar la acreditación
+        await client.query(`
+          UPDATE acreditaciones 
+          SET comision = $1, importe_comision = $2
+          WHERE id = $3
+        `, [comision_cliente, importe_comision, acred.id]);
+
+        detalles.push({
+          id: acred.id,
+          titular: acred.titular,
+          importe: acred.importe,
+          comision_anterior: acred.comision || 0,
+          comision_nueva: comision_cliente,
+          importe_comision_anterior: acred.importe_comision || 0,
+          importe_comision_nuevo: importe_comision,
+          cliente: `${acred.cliente_nombre} ${acred.cliente_apellido}`
+        });
+
+        corregidas++;
+
+      } catch (error) {
+        console.error(`❌ Error corrigiendo acreditación ${acred.id}:`, error.message);
+        errores++;
+      }
+    }
+
+    console.log('\n✅ === CORRECCIÓN COMPLETADA ===');
+    console.log(`✅ Acreditaciones corregidas: ${corregidas}`);
+    console.log(`❌ Errores: ${errores}`);
+    
+    // Verificar resultados
+    const verificacion = await client.query(`
+      SELECT COUNT(*) as count
+      FROM acreditaciones 
+      WHERE cotejado = true 
+        AND id_cliente IS NOT NULL
+        AND (comision = 0 OR importe_comision = 0 OR comision IS NULL OR importe_comision IS NULL)
+    `);
+
+    // Mostrar resumen de comisiones
+    const resumenComisiones = await client.query(`
+      SELECT 
+        COUNT(*) as total_cotejadas,
+        SUM(importe) as total_importe,
+        SUM(importe_comision) as total_comisiones,
+        AVG(comision) as comision_promedio
+      FROM acreditaciones 
+      WHERE cotejado = true AND id_cliente IS NOT NULL
+    `);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'fix_comisiones_cotejadas',
+      `Corrección masiva de comisiones: ${corregidas} acreditaciones corregidas`,
+      JSON.stringify({
+        total_encontradas: acreditacionesSinComision.rows.length,
+        corregidas,
+        errores,
+        restantes_sin_comision: verificacion.rows[0].count,
+        resumen: resumenComisiones.rows[0]
+      }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: `Corrección completada: ${corregidas} acreditaciones corregidas`,
+      data: {
+        total_encontradas: acreditacionesSinComision.rows.length,
+        corregidas,
+        errores,
+        restantes_sin_comision: parseInt(verificacion.rows[0].count),
+        resumen_final: resumenComisiones.rows[0],
+        detalles: detalles.slice(0, 20) // Solo los primeros 20 para no sobrecargar la respuesta
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error ejecutando corrección de comisiones:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudo ejecutar la corrección de comisiones'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 
