@@ -22,30 +22,95 @@ router.options('/sheets/:cliente_id', (req, res) => {
   res.status(200).end();
 });
 
-// Rate limiting simple (en memoria)
+// Rate limiting avanzado (en memoria)
 const accessLog = new Map();
+const suspiciousIPs = new Map(); // IPs con comportamiento sospechoso
 const RATE_LIMIT_WINDOW = 60000; // 1 minuto
-const MAX_REQUESTS_PER_WINDOW = 30; // Aumentado para Google Sheets
+const MAX_REQUESTS_PER_WINDOW = 30; // Límite base
+const SUSPICIOUS_THRESHOLD = 50; // Requests para marcar como sospechoso
+const BLACKLIST_DURATION = 5 * 60 * 1000; // 5 minutos de blacklist
 
-// Middleware de rate limiting
+// Limpieza automática de mapas cada 5 minutos
+setInterval(() => {
+  const now = Date.now();
+  let cleanedAccess = 0;
+  let cleanedSuspicious = 0;
+  
+  // Limpiar accessLog
+  for (const [key, requests] of accessLog.entries()) {
+    const validRequests = requests.filter(time => now - time < RATE_LIMIT_WINDOW);
+    if (validRequests.length === 0) {
+      accessLog.delete(key);
+      cleanedAccess++;
+    } else {
+      accessLog.set(key, validRequests);
+    }
+  }
+  
+  // Limpiar suspiciousIPs
+  for (const [ip, info] of suspiciousIPs.entries()) {
+    if (now - info.timestamp > BLACKLIST_DURATION) {
+      suspiciousIPs.delete(ip);
+      cleanedSuspicious++;
+    }
+  }
+  
+  if (cleanedAccess > 0 || cleanedSuspicious > 0) {
+    console.log(`🧹 Rate Limiter cleanup: ${cleanedAccess} access entries, ${cleanedSuspicious} suspicious IPs removed`);
+  }
+}, 5 * 60 * 1000);
+
+// Middleware de rate limiting avanzado
 function rateLimiter(req, res, next) {
   const requestId = Math.random().toString(36).substr(2, 9);
   req.requestId = requestId; // Guardar para usar en logs
   
   const userAgent = req.get('User-Agent') || '';
   const isGoogleSheets = userAgent.includes('GoogleDocs') || userAgent.includes('apps-spreadsheets');
+  const isImportData = userAgent.includes('IMPORTDATA') || req.get('Referer')?.includes('docs.google.com');
+  const isBot = /bot|crawler|spider|scraper/i.test(userAgent);
   
-  console.log(`🔍 [${requestId}] Rate Limiter - IP: ${req.ip}, Google Sheets: ${isGoogleSheets}`);
-  
-  // Ser más permisivo con Google Sheets
-  if (isGoogleSheets) {
-    console.log(`✅ [${requestId}] Google Sheets detectado - saltando rate limit estricto`);
-    return next();
-  }
+  console.log(`🔍 [${requestId}] Rate Limiter - IP: ${req.ip}`);
+  console.log(`🔍 [${requestId}] User-Agent: ${userAgent.substring(0, 100)}...`);
+  console.log(`🔍 [${requestId}] Google Sheets: ${isGoogleSheets}, ImportData: ${isImportData}, Bot: ${isBot}`);
   
   const clientKey = `${req.ip}_${req.params.cliente_id}`;
+  const ipKey = req.ip;
   const now = Date.now();
   
+  // Verificar si la IP está en blacklist
+  if (suspiciousIPs.has(ipKey)) {
+    const blacklistInfo = suspiciousIPs.get(ipKey);
+    if (now - blacklistInfo.timestamp < BLACKLIST_DURATION) {
+      console.log(`🚫 [${requestId}] IP en blacklist: ${ipKey} (${blacklistInfo.reason})`);
+      return res.status(429).json({
+        error: 'Too Many Requests',
+        message: 'IP temporarily blocked due to suspicious activity',
+        retryAfter: Math.ceil((BLACKLIST_DURATION - (now - blacklistInfo.timestamp)) / 1000),
+        details: {
+          reason: 'rate_limit_exceeded',
+          blockedUntil: new Date(blacklistInfo.timestamp + BLACKLIST_DURATION).toISOString()
+        }
+      });
+    } else {
+      // Limpiar blacklist expirada
+      suspiciousIPs.delete(ipKey);
+      console.log(`✅ [${requestId}] IP removida de blacklist: ${ipKey}`);
+    }
+  }
+  
+  // Configurar límites dinámicos según el tipo de cliente
+  let maxRequests = MAX_REQUESTS_PER_WINDOW;
+  
+  if (isGoogleSheets || isImportData) {
+    maxRequests = 60; // Más permisivo para Google Sheets
+    console.log(`📈 [${requestId}] Google Sheets detectado - límite aumentado a ${maxRequests}`);
+  } else if (isBot) {
+    maxRequests = 5; // Más estricto para bots
+    console.log(`🤖 [${requestId}] Bot detectado - límite reducido a ${maxRequests}`);
+  }
+  
+  // Inicializar registro de accesos
   if (!accessLog.has(clientKey)) {
     accessLog.set(clientKey, []);
   }
@@ -54,19 +119,117 @@ function rateLimiter(req, res, next) {
   // Limpiar requests antiguos
   const validRequests = requests.filter(time => now - time < RATE_LIMIT_WINDOW);
   
-  if (validRequests.length >= MAX_REQUESTS_PER_WINDOW) {
-    console.log(`❌ [${requestId}] Rate limit excedido para ${clientKey} - ${validRequests.length} requests`);
+  // Verificar límite
+  if (validRequests.length >= maxRequests) {
+    console.log(`❌ [${requestId}] Rate limit excedido para ${clientKey}`);
+    console.log(`❌ [${requestId}] Requests: ${validRequests.length}/${maxRequests}`);
+    
+    // Marcar IP como sospechosa si excede el umbral
+    if (validRequests.length >= SUSPICIOUS_THRESHOLD) {
+      suspiciousIPs.set(ipKey, {
+        timestamp: now,
+        reason: 'excessive_requests',
+        requestCount: validRequests.length
+      });
+      console.log(`🚫 [${requestId}] IP marcada como sospechosa: ${ipKey} (${validRequests.length} requests)`);
+    }
+    
+    // Calcular tiempo de espera recomendado
+    const oldestRequest = Math.min(...validRequests);
+    const retryAfter = Math.ceil((oldestRequest + RATE_LIMIT_WINDOW - now) / 1000);
+    
     return res.status(429).json({
       error: 'Too Many Requests',
-      message: 'Rate limit exceeded. Try again later.'
+      message: 'Rate limit exceeded. Please try again later.',
+      retryAfter: retryAfter,
+      details: {
+        reason: 'rate_limit_exceeded',
+        currentRequests: validRequests.length,
+        maxRequests: maxRequests,
+        windowMs: RATE_LIMIT_WINDOW,
+        retryAfterSeconds: retryAfter,
+        suggestions: [
+          'Wait before making another request',
+          'Use Google Sheets IMPORTDATA function for automatic retries',
+          'Contact support if you need higher limits'
+        ]
+      }
     });
   }
   
+  // Registrar request exitoso
   validRequests.push(now);
   accessLog.set(clientKey, validRequests);
-  console.log(`✅ [${requestId}] Rate limit OK - ${validRequests.length}/${MAX_REQUESTS_PER_WINDOW} requests`);
+  
+  console.log(`✅ [${requestId}] Rate limit OK - ${validRequests.length}/${maxRequests} requests`);
+  console.log(`✅ [${requestId}] Ventana: ${RATE_LIMIT_WINDOW}ms, Próximo reset en: ${Math.ceil((Math.min(...validRequests) + RATE_LIMIT_WINDOW - now) / 1000)}s`);
+  
   next();
 }
+
+// GET /export/rate-limit-status - Endpoint para monitorear el estado del rate limiter
+router.get('/rate-limit-status', async (req, res) => {
+  const requestId = Math.random().toString(36).substr(2, 9);
+  const now = Date.now();
+  
+  try {
+    // Recopilar estadísticas
+    const stats = {
+      timestamp: new Date().toISOString(),
+      requestId,
+      activeConnections: accessLog.size,
+      suspiciousIPs: suspiciousIPs.size,
+      rateLimitConfig: {
+        windowMs: RATE_LIMIT_WINDOW,
+        maxRequestsBase: MAX_REQUESTS_PER_WINDOW,
+        suspiciousThreshold: SUSPICIOUS_THRESHOLD,
+        blacklistDuration: BLACKLIST_DURATION
+      },
+      currentActivity: []
+    };
+    
+    // Agregar detalles de actividad actual (solo los últimos 10)
+    let activityCount = 0;
+    for (const [key, requests] of accessLog.entries()) {
+      if (activityCount >= 10) break;
+      
+      const validRequests = requests.filter(time => now - time < RATE_LIMIT_WINDOW);
+      if (validRequests.length > 0) {
+        const [ip, clienteId] = key.split('_');
+        stats.currentActivity.push({
+          ip: ip.replace(/\d+$/, 'xxx'), // Ocultar último octeto por privacidad
+          clienteId,
+          requestCount: validRequests.length,
+          lastRequest: new Date(Math.max(...validRequests)).toISOString()
+        });
+        activityCount++;
+      }
+    }
+    
+    // Agregar IPs sospechosas (sin mostrar IPs completas)
+    stats.suspiciousActivity = Array.from(suspiciousIPs.entries()).map(([ip, info]) => ({
+      ip: ip.replace(/\d+$/, 'xxx'),
+      reason: info.reason,
+      requestCount: info.requestCount,
+      blockedSince: new Date(info.timestamp).toISOString(),
+      unblockAt: new Date(info.timestamp + BLACKLIST_DURATION).toISOString()
+    }));
+    
+    console.log(`📊 [${requestId}] Rate limit status requested`);
+    
+    res.json({
+      success: true,
+      data: stats
+    });
+    
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error getting rate limit status:`, error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Could not retrieve rate limit status'
+    });
+  }
+});
 
 // Función para limpiar CUIT
 function cleanCUIT(cuit) {

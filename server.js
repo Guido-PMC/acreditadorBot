@@ -50,10 +50,96 @@ app.use(helmet({
 }));
 app.use(cors());
 
-// Rate limiting
+// Rate limiting avanzado
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 300 // máximo 300 requests por ventana (triplicado para importación masiva)
+  max: (req) => {
+    const userAgent = req.get('User-Agent') || '';
+    
+    // Detectar diferentes tipos de clientes
+    if (userAgent.includes('GoogleDocs') || userAgent.includes('apps-spreadsheets')) {
+      return 500; // Más permisivo para Google Sheets
+    }
+    if (userAgent.includes('IMPORTDATA')) {
+      return 400; // Permisivo para IMPORTDATA
+    }
+    if (/bot|crawler|spider|scraper/i.test(userAgent)) {
+      return 50; // Más estricto para bots
+    }
+    
+    return 300; // Límite base
+  },
+  standardHeaders: true, // Retornar headers de rate limit info en `RateLimit-*` headers
+  legacyHeaders: false, // Deshabilitar headers `X-RateLimit-*`
+  message: (req) => {
+    const userAgent = req.get('User-Agent') || '';
+    const isGoogleSheets = userAgent.includes('GoogleDocs') || userAgent.includes('apps-spreadsheets');
+    
+    return {
+      error: 'Too Many Requests',
+      message: 'Rate limit exceeded. Please try again later.',
+      details: {
+        reason: 'global_rate_limit_exceeded',
+        windowMs: 15 * 60 * 1000,
+        retryAfter: Math.ceil(15 * 60), // 15 minutos en segundos
+        suggestions: isGoogleSheets ? [
+          'Google Sheets will automatically retry',
+          'Wait a few minutes before manual refresh',
+          'Contact support if this persists'
+        ] : [
+          'Wait before making another request',
+          'Reduce request frequency',
+          'Contact support if you need higher limits'
+        ]
+      }
+    };
+  },
+  skip: (req) => {
+    // Saltar rate limiting para health checks
+    return req.path === '/health';
+  },
+  onLimitReached: (req, res, options) => {
+    const userAgent = req.get('User-Agent') || '';
+    const ip = req.ip;
+    
+    console.log(`🚨 Rate limit global alcanzado:`);
+    console.log(`   IP: ${ip}`);
+    console.log(`   User-Agent: ${userAgent.substring(0, 100)}...`);
+    console.log(`   Path: ${req.path}`);
+    console.log(`   Method: ${req.method}`);
+    console.log(`   Timestamp: ${new Date().toISOString()}`);
+    
+    // Log en base de datos si es posible
+    try {
+      // Nota: Este log se ejecuta de forma asíncrona sin bloquear la respuesta
+      setTimeout(async () => {
+        try {
+          const db = require('./config/database');
+          const client = await db.getClient();
+          await client.query(`
+            INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+            VALUES ($1, $2, $3, $4)
+          `, [
+            'rate_limit_global_exceeded',
+            `Rate limit global excedido para IP: ${ip}`,
+            JSON.stringify({ 
+              ip, 
+              userAgent: userAgent.substring(0, 200),
+              path: req.path,
+              method: req.method,
+              timestamp: new Date().toISOString()
+            }),
+            'warning'
+          ]);
+          client.release();
+        } catch (error) {
+          console.error('Error logging rate limit event:', error);
+        }
+      }, 0);
+    } catch (error) {
+      // Ignorar errores de logging para no afectar la respuesta
+    }
+  }
 });
 app.use(limiter);
 
