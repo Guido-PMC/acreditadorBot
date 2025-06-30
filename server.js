@@ -11,6 +11,7 @@ const apiRoutes = require('./routes/api');
 const webRoutes = require('./routes/web');
 const uploadRoutes = require('./routes/upload');
 const portalRoutes = require('./routes/portal');
+const exportRoutes = require('./routes/export');
 const { authMiddleware } = require('./auth');
 
 const app = express();
@@ -72,6 +73,8 @@ app.use('/api', apiRoutes);
 console.log('Rutas API configuradas');
 app.use('/portal', portalRoutes);
 console.log('Rutas del portal configuradas');
+app.use('/export', exportRoutes);
+console.log('Rutas de exportación configuradas');
 app.use('/upload', uploadRoutes);
 console.log('Rutas de upload configuradas');
 app.use('/', webRoutes);
