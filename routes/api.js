@@ -768,11 +768,11 @@ router.post('/notifications', async (req, res) => {
     const isBankNotification = req.body.id && req.body.amount && req.body.coelsa_id;
     
     if (!isHistoricalImport && !isBankNotification) {
-      return res.status(400).json({ 
-        error: 'Datos inválidos', 
+    return res.status(400).json({ 
+      error: 'Datos inválidos', 
         message: 'Formato de datos no reconocido'
-      });
-    }
+    });
+  }
 
     let id_transaccion, importe, titular, cuit, fecha_hora, id_cliente, comision, importe_comision, tipo, estado, fuente, coelsa_id;
 

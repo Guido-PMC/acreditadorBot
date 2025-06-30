@@ -262,7 +262,7 @@ class Database {
             UPDATE comprobantes_whatsapp 
             SET id_cliente_temp = CASE 
               WHEN id_cliente ~ '^[0-9]+$' THEN CAST(id_cliente AS INTEGER)
-              ELSE NULL
+              ELSE NULL 
             END
           `);
           

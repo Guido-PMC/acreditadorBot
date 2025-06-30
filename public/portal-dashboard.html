@@ -311,10 +311,10 @@
             } catch (error) {
                 console.error('Error cargando información del usuario:', error);
                 // Fallback a datos locales
-                const userStr = localStorage.getItem('portal_user');
-                if (userStr) {
-                    currentUser = JSON.parse(userStr);
-                    document.getElementById('userName').textContent = `${currentUser.nombre} ${currentUser.apellido}`;
+            const userStr = localStorage.getItem('portal_user');
+            if (userStr) {
+                currentUser = JSON.parse(userStr);
+                document.getElementById('userName').textContent = `${currentUser.nombre} ${currentUser.apellido}`;
                 }
             }
         }
@@ -446,7 +446,7 @@
                 // Agregar acreditaciones como entradas
                 acreditacionesData.data.forEach(acred => {
                     // Verificar que la fecha sea válida
-                    const fecha = acred.fecha ? new Date(acred.fecha) : new Date();
+                    const fecha = acred.fecha_hora ? new Date(acred.fecha_hora) : new Date();
                     const fechaFormateada = fecha instanceof Date && !isNaN(fecha) ? 
                         fecha.toLocaleDateString('es-AR') + ' ' + fecha.toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : 
                         'Fecha no disponible';
@@ -459,7 +459,7 @@
                         comision: acred.comision,
                         importe_comision: acred.importe_comision,
                         fecha: fechaFormateada,
-                        fecha_original: acred.fecha,
+                        fecha_original: acred.fecha_hora,
                         cuit: acred.cuit,
                         estado: acred.cotejado ? 'Cotejado' : 'Pendiente',
                         es_entrada: true

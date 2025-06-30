@@ -145,7 +145,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
         c.nombre,
         c.apellido,
         c.estado as cliente_estado,
-        c.fecha_registro
+        c.fecha_registro,
+        c.comision
       FROM portal_users pu
       JOIN clientes c ON CAST(pu.id_cliente AS INTEGER) = c.id
       WHERE pu.id = $1
@@ -170,7 +171,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
         apellido: user.apellido,
         cliente_estado: user.cliente_estado,
         fecha_registro: user.fecha_registro,
-        ultimo_acceso: user.ultimo_acceso
+        ultimo_acceso: user.ultimo_acceso,
+        comision: user.comision
       }
     });
 
