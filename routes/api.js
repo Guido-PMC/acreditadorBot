@@ -1976,6 +1976,8 @@ router.get('/clientes/:id/resumen', async (req, res) => {
         SUM(importe) as total_importe_acreditaciones,
         COUNT(CASE WHEN cotejado = true THEN 1 END) as acreditaciones_cotejadas,
         COUNT(CASE WHEN cotejado = false THEN 1 END) as acreditaciones_pendientes,
+        SUM(CASE WHEN cotejado = true THEN importe ELSE 0 END) as total_importe_cotejadas,
+        SUM(CASE WHEN cotejado = false THEN importe ELSE 0 END) as total_importe_pendientes,
         SUM(importe_comision) as total_comisiones,
         SUM(CASE WHEN cotejado = true THEN importe_comision ELSE 0 END) as total_comisiones_cotejadas,
         SUM(CASE WHEN cotejado = false THEN importe_comision ELSE 0 END) as total_comisiones_pendientes
@@ -1994,7 +1996,7 @@ router.get('/clientes/:id/resumen', async (req, res) => {
     `, [id]);
 
     // Calcular saldo real (acreditaciones cotejadas - comisiones + créditos - pagos)
-    const totalAcreditacionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_importe_acreditaciones || 0);
+    const totalAcreditacionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_importe_cotejadas || 0);
     const totalComisionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_comisiones_cotejadas || 0);
     const totalPagos = parseFloat(pagosStats.rows[0].total_importe_pagos || 0);
     const totalCreditos = parseFloat(pagosStats.rows[0].total_importe_creditos || 0);
