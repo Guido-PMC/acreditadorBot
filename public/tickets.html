@@ -113,6 +113,13 @@
                             <input type="text" class="form-control" id="remitenteFilter" placeholder="Buscar por remitente">
                         </div>
                         <div class="col-md-3">
+                            <label class="form-label">Cliente</label>
+                            <select class="form-select" id="clienteFilter">
+                                <option value="">Todos los clientes</option>
+                                <!-- Los clientes se cargarán dinámicamente -->
+                            </select>
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label">Importe</label>
                             <input type="number" class="form-control" id="importeFilter" placeholder="Importe exacto">
                         </div>
@@ -124,6 +131,8 @@
                             <label class="form-label">Fecha Hasta</label>
                             <input type="date" class="form-control" id="fechaHastaFilter">
                         </div>
+                    </div>
+                    <div class="row g-3 mt-1">
                         <div class="col-md-2">
                             <label class="form-label">Estado</label>
                             <select class="form-select" id="estadoFilter">
@@ -131,6 +140,10 @@
                                 <option value="cotejado">Cotejado</option>
                                 <option value="pendiente">Pendiente</option>
                             </select>
+                        </div>
+                    </div>
+                        <div class="col-md-10">
+                            <!-- Espacio vacío para alineación -->
                         </div>
                     </div>
                     <div class="row mt-3">
@@ -224,10 +237,32 @@
             }
         }
 
+        // Cargar lista de clientes
+        async function loadClientes() {
+            try {
+                const res = await fetch('/api/clientes');
+                const data = await res.json();
+                if (data.success) {
+                    const clienteSelect = document.getElementById('clienteFilter');
+                    clienteSelect.innerHTML = '<option value="">Todos los clientes</option>';
+                    
+                    data.data.forEach(cliente => {
+                        const option = document.createElement('option');
+                        option.value = cliente.id;
+                        option.textContent = `${cliente.nombre} ${cliente.apellido || ''}`.trim();
+                        clienteSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error cargando clientes:', error);
+            }
+        }
+
         // Cargar tickets
         async function loadTickets(page = 1) {
             currentPage = page;
             const remitente = document.getElementById('remitenteFilter')?.value || '';
+            const cliente = document.getElementById('clienteFilter')?.value || '';
             const importe = document.getElementById('importeFilter')?.value || '';
             const fechaDesde = document.getElementById('fechaDesdeFilter')?.value || '';
             const fechaHasta = document.getElementById('fechaHastaFilter')?.value || '';
@@ -235,10 +270,11 @@
 
             let url = `/api/comprobantes?page=${page}&limit=20&sort=${currentSort.field}&order=${currentSort.order}`;
             if (remitente) url += `&search=${encodeURIComponent(remitente)}`;
+            if (cliente) url += `&cliente_id=${encodeURIComponent(cliente)}`;
             if (importe) url += `&importe=${encodeURIComponent(importe)}`;
             if (fechaDesde) url += `&fecha_desde=${encodeURIComponent(fechaDesde)}`;
             if (fechaHasta) url += `&fecha_hasta=${encodeURIComponent(fechaHasta)}`;
-            if (estado) url += `&estado=${encodeURIComponent(estado)}`;
+            if (estado) url += `&cotejado=${estado === 'cotejado' ? 'true' : estado === 'pendiente' ? 'false' : ''}`;
 
             try {
                 const res = await fetch(url);
@@ -310,6 +346,7 @@
 
         function clearFilters() {
             document.getElementById('remitenteFilter').value = '';
+            document.getElementById('clienteFilter').value = '';
             document.getElementById('importeFilter').value = '';
             document.getElementById('fechaDesdeFilter').value = '';
             document.getElementById('fechaHastaFilter').value = '';
@@ -336,6 +373,7 @@
         // Inicializar
         window.onload = () => {
             loadStats();
+            loadClientes();
             loadTickets();
         };
     </script>

@@ -5,7 +5,8 @@ const readline = require('readline');
 const axios = require('axios');
 
 // Configuración para evitar rate limit
-const DELAY_BETWEEN_REQUESTS = 1000; // 1 segundo por defecto
+const DELAY_BETWEEN_REQUESTS = 2000; // 2 segundos por defecto
+const MAX_RETRIES = 3; // Máximo número de reintentos
 
 // Configuración de la interfaz de línea de comandos
 const rl = readline.createInterface({
@@ -25,6 +26,32 @@ function pregunta(pregunta) {
 // Función para agregar delay y evitar rate limit
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Función para hacer request con retry automático
+async function makeRequestWithRetry(requestFunction, maxRetries = MAX_RETRIES) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return await requestFunction();
+        } catch (error) {
+            if (error.response?.status === 429) {
+                const retryAfter = error.response.headers['retry-after'] || 30;
+                const waitTime = Math.min(retryAfter * 1000, attempt * 2000); // Backoff exponencial
+                console.log(`⚠️  Rate limit alcanzado (intento ${attempt}/${maxRetries}). Esperando ${waitTime}ms...`);
+                
+                if (attempt === maxRetries) {
+                    throw error;
+                }
+                
+                await delay(waitTime);
+            } else if (error.response?.status === 400) {
+                console.log(`❌ Error 400 - Datos inválidos:`, error.response.data);
+                throw error;
+            } else {
+                throw error;
+            }
+        }
+    }
 }
 
 // Función para limpiar CUIT (quitar guiones y dejar solo números)
@@ -135,7 +162,7 @@ async function crearAcreditacionHTTP(datos) {
     }
 }
 
-// Función para crear un comprobante via HTTP
+// Función para crear un comprobante via HTTP y asignarlo a una acreditación
 async function crearComprobanteHTTP(datos, acreditacion_id) {
     const {
         id_transaccion,
@@ -147,26 +174,42 @@ async function crearComprobanteHTTP(datos, acreditacion_id) {
     } = datos;
 
     try {
-        const response = await axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/comprobantes`, {
-            id_transaccion,
-            importe,
-            nombre_remitente: titular,
-            cuit: cleanCUIT(cuit),
-            fecha_envio: parseFecha(fecha_comprob),
-            id_cliente: cliente_id,
-            cotejado: true,
-            id_acreditacion: acreditacion_id,
-            estado: 'confirmado',
-            fuente: 'historico'
-        });
+        // Crear el comprobante con retry
+        const response = await makeRequestWithRetry(() =>
+            axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/comprobantes`, {
+                id_comprobante: id_transaccion, // El endpoint requiere id_comprobante, no id_transaccion
+                importe,
+                nombre_remitente: titular,
+                fecha_envio: parseFecha(fecha_comprob),
+                id_cliente: cliente_id
+            })
+        );
 
         if (response.status !== 200 && response.status !== 201) {
             throw new Error(`HTTP ${response.status}: ${response.data}`);
         }
 
-        return response.data.data.id;
+        const comprobante_id = response.data.data.id;
+        console.log(`✅ Comprobante creado con ID: ${comprobante_id}`);
+
+        // Pequeño delay antes de la asignación
+        console.log(`⏳ Esperando ${DELAY_BETWEEN_REQUESTS}ms antes de asignar...`);
+        await delay(DELAY_BETWEEN_REQUESTS);
+
+        // Asignar el comprobante a la acreditación (esto los coteja automáticamente)
+        console.log(`🔄 Asignando comprobante ${comprobante_id} a acreditación ${acreditacion_id}`);
+        const asignacionResponse = await axios.put(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/comprobantes/${comprobante_id}/asignar`, {
+            id_acreditacion: acreditacion_id
+        });
+
+        if (asignacionResponse.status !== 200 && asignacionResponse.status !== 201) {
+            throw new Error(`HTTP ${asignacionResponse.status}: ${asignacionResponse.data}`);
+        }
+
+        console.log(`✅ Comprobante ${comprobante_id} asignado y cotejado con acreditación ${acreditacion_id}`);
+        return comprobante_id;
     } catch (error) {
-        console.error('Error creando comprobante via HTTP:', error);
+        console.error('Error creando/asignando comprobante via HTTP:', error);
         throw error;
     }
 }
@@ -240,8 +283,10 @@ async function crearPagoHTTP(datos) {
 // Función para buscar o crear cliente via HTTP
 async function buscarOCrearClienteHTTP(nombreCliente) {
     try {
-        // Primero intentar buscar el cliente
-        const searchResponse = await axios.get(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/clientes?search=${encodeURIComponent(nombreCliente)}`);
+        // Primero intentar buscar el cliente con retry
+        const searchResponse = await makeRequestWithRetry(() => 
+            axios.get(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/clientes?search=${encodeURIComponent(nombreCliente)}`)
+        );
         
         if (searchResponse.status === 200) {
             const searchResult = searchResponse.data;
@@ -250,12 +295,14 @@ async function buscarOCrearClienteHTTP(nombreCliente) {
             }
         }
 
-        // Si no existe, crear nuevo cliente
-        const createResponse = await axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/clientes`, {
-            nombre: nombreCliente,
-            apellido: '',
-            estado: 'activo'
-        });
+        // Si no existe, crear nuevo cliente con retry
+        const createResponse = await makeRequestWithRetry(() =>
+            axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/clientes`, {
+                nombre: nombreCliente,
+                apellido: '',
+                estado: 'activo'
+            })
+        );
 
         if (createResponse.status !== 200 && createResponse.status !== 201) {
             throw new Error(`HTTP ${createResponse.status}: ${createResponse.data}`);
@@ -360,6 +407,10 @@ async function procesarCSV() {
                             
                             console.log(`✅ Acreditación creada con ID: ${acreditacionId}`);
                             
+                            // Delay antes de crear el comprobante
+                            console.log(`⏳ Esperando ${DELAY_BETWEEN_REQUESTS}ms antes de crear comprobante...`);
+                            await delay(DELAY_BETWEEN_REQUESTS);
+                            
                             console.log(`🔄 Creando comprobante para acreditación: ${acreditacionId}`);
                             await crearComprobanteHTTP({
                                 id_transaccion: idTransaccion,
@@ -395,6 +446,7 @@ async function procesarCSV() {
                         break;
 
                     case 'transferencia saliente':
+                    case 'pago':
                         // Crear pago - usar valor absoluto porque los pagos representan salidas
                         // Si el CSV ya trae signo negativo, lo convertimos a positivo
                         const importePago = Math.abs(monto);
