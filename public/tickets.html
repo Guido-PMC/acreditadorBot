@@ -1,0 +1,155 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/dashboard.html">AcreditadorBot</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="/dashboard.html">Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/tickets.html">Tickets Clientes</a></li>
+                <li class="nav-item"><a class="nav-link" href="/clientes.html">Clientes</a></li>
+                <li class="nav-item"><a class="nav-link" href="/asignacion.html">Asignación</a></li>
+                <li class="nav-item"><a class="nav-link" href="/upload.html">Subir CSV</a></li>
+                <li class="nav-item"><a class="nav-link" href="/logs.html">Logs</a></li>
+                <li class="nav-item"><a class="nav-link" href="/portal-users.html">Portal Usuarios</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-ticket-alt me-2"></i>Gestión de Tickets
+        </h1>
+        <p class="text-muted">Busca, filtra y gestiona tickets de WhatsApp</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-table me-2"></i>Resultados
+            <span class="badge bg-secondary ms-2" id="resultCount">0</span>
+        </h5>
+    </div>
+</div>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th style="cursor: pointer;" id="idHeader">
+                ID <i class="fas fa-sort" id="idSortIcon"></i>
+            </th>
+            <th>Remitente</th>
+            <th>CUIT</th>
+            <th>Cliente</th>
+            <th>Importe</th>
+            <th style="cursor: pointer;" id="dateHeader">
+                Fecha <i class="fas fa-sort" id="dateSortIcon"></i>
+            </th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Table rows will be dynamically populated here -->
+    </tbody>
+</table>
+
+<script>
+// Variables globales para filtros y paginación
+let currentPage = 1;
+let totalPages = 1;
+
+async function loadTickets(page = 1) {
+    currentPage = page;
+    // Obtener filtros
+    const cuit = document.getElementById('cuitFilter')?.value || '';
+    const importe = document.getElementById('importeFilter')?.value || '';
+    const fechaDesde = document.getElementById('fechaDesdeFilter')?.value || '';
+    const fechaHasta = document.getElementById('fechaHastaFilter')?.value || '';
+    const estado = document.getElementById('cotejadoFilter')?.value || '';
+
+    let url = `/api/comprobantes?page=${page}&limit=20`;
+    if (cuit) url += `&cuit=${encodeURIComponent(cuit)}`;
+    if (importe) url += `&importe=${encodeURIComponent(importe)}`;
+    if (fechaDesde) url += `&fecha_desde=${encodeURIComponent(fechaDesde)}`;
+    if (fechaHasta) url += `&fecha_hasta=${encodeURIComponent(fechaHasta)}`;
+    if (estado) url += `&estado=${encodeURIComponent(estado)}`;
+
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data.success) {
+            renderTickets([]);
+            document.getElementById('resultCount').innerText = '0';
+            return;
+        }
+        renderTickets(data.data);
+        document.getElementById('resultCount').innerText = data.pagination.total;
+        renderPagination(data.pagination.pages);
+    } catch (err) {
+        renderTickets([]);
+        document.getElementById('resultCount').innerText = '0';
+    }
+}
+
+function renderTickets(tickets) {
+    const tbody = document.querySelector('tbody');
+    tbody.innerHTML = '';
+    if (!tickets.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center">No hay tickets para mostrar</td></tr>`;
+        return;
+    }
+    tickets.forEach(ticket => {
+        tbody.innerHTML += `
+            <tr>
+                <td>${ticket.id_comprobante || ticket.id}</td>
+                <td>${ticket.nombre_remitente || ''}</td>
+                <td>${ticket.cuit || ''}</td>
+                <td>${ticket.cliente_nombre || ''}</td>
+                <td>${parseFloat(ticket.importe || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>
+                <td>${ticket.fecha_envio ? new Date(ticket.fecha_envio).toLocaleDateString() : ''}</td>
+                <td>${ticket.cotejado ? '<span class="badge bg-success">Cotejado</span>' : '<span class="badge bg-warning text-dark">Pendiente</span>'}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="verTicket(${ticket.id})">Ver</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+function renderPagination(pages) {
+    const pagContainer = document.getElementById('pagination');
+    if (!pagContainer) return;
+    pagContainer.innerHTML = '';
+    for (let i = 1; i <= pages; i++) {
+        pagContainer.innerHTML += `<li class="page-item${i === currentPage ? ' active' : ''}"><a class="page-link" href="#" onclick="loadTickets(${i})">${i}</a></li>`;
+    }
+}
+
+function searchTickets() {
+    loadTickets(1);
+}
+
+function clearFilters() {
+    document.getElementById('cuitFilter').value = '';
+    document.getElementById('importeFilter').value = '';
+    document.getElementById('fechaDesdeFilter').value = '';
+    document.getElementById('fechaHastaFilter').value = '';
+    document.getElementById('cotejadoFilter').value = '';
+    loadTickets(1);
+}
+
+function verTicket(id) {
+    // Aquí puedes implementar la lógica para ver detalles del ticket
+    alert('Ver ticket: ' + id);
+}
+
+// Inicializar
+window.onload = () => {
+    loadTickets();
+};
+</script> 
