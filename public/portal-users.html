@@ -109,6 +109,7 @@
                                 <th>Usuario</th>
                                 <th>Cliente</th>
                                 <th>Email</th>
+                                <th>Export</th>
                                 <th>Estado</th>
                                 <th>Último Acceso</th>
                                 <th>Fecha Creación</th>
@@ -117,7 +118,7 @@
                         </thead>
                         <tbody id="usersTableBody">
                             <tr>
-                                <td colspan="8" class="text-center py-4">
+                                <td colspan="9" class="text-center py-4">
                                     <div class="spinner-border text-primary" role="status">
                                         <span class="visually-hidden">Cargando...</span>
                                     </div>
@@ -189,6 +190,25 @@
                                 </label>
                             </div>
                         </div>
+
+                        <!-- Sección de Export para Google Sheets -->
+                        <hr>
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-file-export me-1"></i>
+                            Configuración de Export (Google Sheets)
+                        </h6>
+                        
+                        <div class="mb-3">
+                            <label for="exportUser" class="form-label">Usuario Export</label>
+                            <input type="text" class="form-control" id="exportUser" maxlength="50">
+                            <div class="form-text">Usuario para autenticación en endpoint de export</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="exportPassword" class="form-label">Contraseña Export</label>
+                            <input type="password" class="form-control" id="exportPassword" maxlength="100">
+                            <div class="form-text">Contraseña para autenticación en endpoint de export</div>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -216,6 +236,68 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="btn btn-danger" onclick="confirmDelete()">Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal URL de Export -->
+    <div class="modal fade" id="exportUrlModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-file-export me-2"></i>
+                        URL de Export para Google Sheets
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Instrucciones:</strong> Copia la URL y úsala en Google Sheets con la función <code>=IMPORTDATA("URL")</code>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">URL de Export:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="exportUrlInput" readonly>
+                            <button class="btn btn-outline-secondary" onclick="copyExportUrl()" title="Copiar URL">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Ejemplo de uso en Google Sheets:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="googleSheetsExample" readonly>
+                            <button class="btn btn-outline-secondary" onclick="copyGoogleSheetsExample()" title="Copiar ejemplo">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Tipos de export disponibles:</h6>
+                            <ul class="list-unstyled">
+                                <li><code>&type=movimientos</code> - Solo movimientos</li>
+                                <li><code>&type=resumen</code> - Solo resumen</li>
+                                <li><code>&type=all</code> - Todo (por defecto)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Formatos disponibles:</h6>
+                            <ul class="list-unstyled">
+                                <li><code>&format=csv</code> - CSV (por defecto)</li>
+                                <li><code>&format=json</code> - JSON</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -285,7 +367,7 @@
             if (users.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="8" class="text-center py-4 text-muted">
+                        <td colspan="9" class="text-center py-4 text-muted">
                             <i class="fas fa-inbox fa-2x mb-2"></i><br>
                             No se encontraron usuarios
                         </td>
@@ -306,6 +388,20 @@
                         <br><small class="text-muted">ID: ${user.cliente_id}</small>
                     </td>
                     <td>${user.email || '<span class="text-muted">-</span>'}</td>
+                    <td>
+                        ${user.export_user ? 
+                            `<span class="badge bg-info">
+                                <i class="fas fa-file-export me-1"></i>
+                                ${user.export_user}
+                            </span>` : 
+                            '<span class="text-muted">Sin configurar</span>'
+                        }
+                        ${user.export_user ? 
+                            `<br><button class="btn btn-outline-info btn-sm mt-1" onclick="showExportUrl(${user.cliente_id}, '${user.export_user}', '${user.export_password || ''}')" title="Ver URL de Export">
+                                <i class="fas fa-link"></i>
+                            </button>` : ''
+                        }
+                    </td>
                     <td>
                         ${user.activo ? 
                             '<span class="badge bg-success status-badge">Activo</span>' : 
@@ -440,6 +536,8 @@
                     document.getElementById('activo').checked = user.activo;
                     document.getElementById('password').value = '';
                     document.getElementById('password').required = false;
+                    document.getElementById('exportUser').value = user.export_user || '';
+                    document.getElementById('exportPassword').value = user.export_password || '';
                     document.getElementById('activoGroup').style.display = 'block';
                     
                     const modal = new bootstrap.Modal(document.getElementById('userModal'));
@@ -462,7 +560,9 @@
                 id_cliente: document.getElementById('clienteSelect').value,
                 username: document.getElementById('username').value,
                 password: document.getElementById('password').value,
-                email: document.getElementById('email').value
+                email: document.getElementById('email').value,
+                export_user: document.getElementById('exportUser').value,
+                export_password: document.getElementById('exportPassword').value
             };
             
             if (isEdit) {
@@ -569,6 +669,35 @@
                     bsAlert.close();
                 }
             }, 5000);
+        }
+
+        // Mostrar URL de export
+        function showExportUrl(clienteId, exportUser, exportPassword) {
+            const baseUrl = window.location.origin;
+            const exportUrl = `${baseUrl}/export/sheets/${clienteId}?user=${encodeURIComponent(exportUser)}&pass=${encodeURIComponent(exportPassword)}&format=csv`;
+            const googleSheetsExample = `=IMPORTDATA("${exportUrl}")`;
+            
+            document.getElementById('exportUrlInput').value = exportUrl;
+            document.getElementById('googleSheetsExample').value = googleSheetsExample;
+            
+            const modal = new bootstrap.Modal(document.getElementById('exportUrlModal'));
+            modal.show();
+        }
+
+        // Copiar URL de export
+        function copyExportUrl() {
+            const input = document.getElementById('exportUrlInput');
+            input.select();
+            document.execCommand('copy');
+            showAlert('URL de export copiada al portapapeles', 'success');
+        }
+
+        // Copiar ejemplo de Google Sheets
+        function copyGoogleSheetsExample() {
+            const input = document.getElementById('googleSheetsExample');
+            input.select();
+            document.execCommand('copy');
+            showAlert('Ejemplo de Google Sheets copiado al portapapeles', 'success');
         }
     </script>
 </body>

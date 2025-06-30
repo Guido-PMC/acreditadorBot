@@ -362,6 +362,22 @@ class Database {
         `);
       }
 
+      // Verificar si las columnas de export existen en portal_users
+      const portalUsersExportColumns = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'portal_users' AND column_name IN ('export_user', 'export_password')
+      `);
+      
+      if (portalUsersExportColumns.rows.length < 2) {
+        console.log('Agregando columnas de export a tabla portal_users...');
+        await client.query(`
+          ALTER TABLE portal_users 
+          ADD COLUMN IF NOT EXISTS export_user VARCHAR(50),
+          ADD COLUMN IF NOT EXISTS export_password VARCHAR(100)
+        `);
+      }
+
       console.log('Migraciones completadas exitosamente');
       
     } catch (error) {

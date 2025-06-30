@@ -78,9 +78,10 @@ router.get('/sheets/:cliente_id', rateLimiter, async (req, res) => {
         c.nombre,
         c.apellido,
         c.estado,
-        c.export_user,
-        c.export_password
+        pu.export_user,
+        pu.export_password
       FROM clientes c
+      LEFT JOIN portal_users pu ON c.id = CAST(pu.id_cliente AS INTEGER)
       WHERE c.id = $1 AND c.estado = 'activo'
     `, [parseInt(cliente_id)]);
 

@@ -3196,6 +3196,8 @@ router.get('/portal-users', async (req, res) => {
         pu.activo,
         pu.fecha_creacion,
         pu.ultimo_acceso,
+        pu.export_user,
+        pu.export_password,
         c.id as cliente_id,
         c.nombre as cliente_nombre,
         c.apellido as cliente_apellido,
@@ -3247,6 +3249,8 @@ router.get('/portal-users/:id', async (req, res) => {
         pu.activo,
         pu.fecha_creacion,
         pu.ultimo_acceso,
+        pu.export_user,
+        pu.export_password,
         pu.id_cliente as cliente_id,
         c.nombre as cliente_nombre,
         c.apellido as cliente_apellido,
@@ -3274,6 +3278,8 @@ router.get('/portal-users/:id', async (req, res) => {
         activo: user.activo,
         fecha_creacion: user.fecha_creacion,
         ultimo_acceso: user.ultimo_acceso,
+        export_user: user.export_user,
+        export_password: user.export_password,
         cliente_id: user.cliente_id,
         cliente_nombre: user.cliente_nombre,
         cliente_apellido: user.cliente_apellido,
@@ -3297,7 +3303,9 @@ router.post('/portal-users', [
   body('id_cliente').notEmpty().withMessage('ID del cliente es requerido').isInt({ min: 1 }).withMessage('ID del cliente debe ser un número entero válido'),
   body('username').notEmpty().withMessage('Usuario es requerido').isLength({ min: 3, max: 50 }).withMessage('Usuario debe tener entre 3 y 50 caracteres').matches(/^[a-zA-Z0-9_]+$/).withMessage('Usuario solo puede contener letras, números y guiones bajos'),
   body('password').notEmpty().withMessage('Contraseña es requerida').isLength({ min: 6, max: 100 }).withMessage('Contraseña debe tener entre 6 y 100 caracteres'),
-  body('email').optional().isEmail().withMessage('Email debe ser válido')
+  body('email').optional().isEmail().withMessage('Email debe ser válido'),
+  body('export_user').optional().isLength({ max: 50 }).withMessage('Usuario export debe tener máximo 50 caracteres'),
+  body('export_password').optional().isLength({ max: 100 }).withMessage('Contraseña export debe tener máximo 100 caracteres')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -3311,7 +3319,7 @@ router.post('/portal-users', [
   const client = await db.getClient();
   
   try {
-    const { id_cliente, username, password, email } = req.body;
+    const { id_cliente, username, password, email, export_user, export_password } = req.body;
     
     console.log('🔧 Intentando crear usuario del portal:', { id_cliente, username, email: email || 'no especificado' });
 
@@ -3354,10 +3362,12 @@ router.post('/portal-users', [
         id_cliente,
         username,
         password_hash,
-        email
-      ) VALUES ($1, $2, $3, $4)
+        email,
+        export_user,
+        export_password
+      ) VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, username, email, activo, fecha_creacion
-    `, [parseInt(id_cliente), username, passwordHash, email || null]);
+    `, [parseInt(id_cliente), username, passwordHash, email || null, export_user || null, export_password || null]);
 
     const cliente = clienteResult.rows[0];
     console.log('✅ Usuario del portal creado exitosamente:', result.rows[0].id);
@@ -3401,7 +3411,9 @@ router.post('/portal-users', [
 router.put('/portal-users/:id', [
   body('username').optional().isLength({ min: 3 }).withMessage('Usuario debe tener al menos 3 caracteres'),
   body('email').optional().isEmail().withMessage('Email debe ser válido'),
-  body('activo').optional().isBoolean().withMessage('Activo debe ser true o false')
+  body('activo').optional().isBoolean().withMessage('Activo debe ser true o false'),
+  body('export_user').optional().isLength({ max: 50 }).withMessage('Usuario export debe tener máximo 50 caracteres'),
+  body('export_password').optional().isLength({ max: 100 }).withMessage('Contraseña export debe tener máximo 100 caracteres')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -3415,7 +3427,7 @@ router.put('/portal-users/:id', [
   
   try {
     const { id } = req.params;
-    const { username, email, activo, password } = req.body;
+    const { username, email, activo, password, export_user, export_password } = req.body;
 
     // Verificar que el usuario existe
     const existingUser = await client.query(`
@@ -3476,6 +3488,18 @@ router.put('/portal-users/:id', [
       const passwordHash = await bcrypt.hash(password, saltRounds);
       updateFields.push(`password_hash = $${paramIndex}`);
       params.push(passwordHash);
+      paramIndex++;
+    }
+
+    if (export_user !== undefined) {
+      updateFields.push(`export_user = $${paramIndex}`);
+      params.push(export_user || null);
+      paramIndex++;
+    }
+
+    if (export_password !== undefined) {
+      updateFields.push(`export_password = $${paramIndex}`);
+      params.push(export_password || null);
       paramIndex++;
     }
 
