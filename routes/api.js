@@ -3078,7 +3078,7 @@ router.post('/comprobantes/whatsapp', [
         fecha_cotejo,
         estado
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING id, id_comprobante, cotejado, id_acreditacion
+      RETURNING id, id_comprobante, cotejado, id_acreditacion, id_cliente
     `, [
       id_comprobante,
       nombre_limpio,
