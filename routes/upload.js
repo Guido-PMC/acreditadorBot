@@ -90,7 +90,6 @@ router.post('/csv', upload.single('file'), async (req, res) => {
         // Validar que sea una transferencia entrante
         if (row.Tipo !== 'Transferencia entrante') {
           skippedCount++;
-          skippedTipoCount++;
           continue; // Saltar transferencias salientes y otros tipos
         }
 
@@ -103,6 +102,24 @@ router.post('/csv', upload.single('file'), async (req, res) => {
         if (existingTransaction.rows.length > 0) {
           skippedCount++;
           continue; // Saltar transacciones duplicadas
+        }
+
+        // Verificar si existe una acreditación con el mismo coelsa_id (si está presente en el CSV)
+        if (row.IdEnRed) {
+          const existingCoelsaTransaction = await client.query(
+            'SELECT id FROM acreditaciones WHERE coelsa_id = $1',
+            [row.IdEnRed]
+          );
+
+          if (existingCoelsaTransaction.rows.length > 0) {
+            errors.push({
+              row: i + 2,
+              error: `Acreditación con coelsa_id '${row.IdEnRed}' ya existe en la base de datos`,
+              data: row
+            });
+            skippedCount++;
+            continue; // Saltar transacciones duplicadas por coelsa_id
+          }
         }
 
         // Parsear fecha
@@ -140,6 +157,8 @@ router.post('/csv', upload.single('file'), async (req, res) => {
         }
 
         // Insertar acreditación
+        const coelsaId = row.IdEnRed || null;
+        
         await client.query(`
           INSERT INTO acreditaciones (
             id_transaccion,
@@ -154,9 +173,10 @@ router.post('/csv', upload.single('file'), async (req, res) => {
             origen,
             nota,
             fecha_hora,
+            coelsa_id,
             fuente,
             procesado
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         `, [
           row.Id,
           row.Tipo || 'Transferencia entrante',
@@ -170,6 +190,7 @@ router.post('/csv', upload.single('file'), async (req, res) => {
           row.Origen ? row.Origen.replace(/"/g, '') : null,
           row.Nota || null,
           fechaHora,
+          coelsaId,
           'csv',
           true
         ]);

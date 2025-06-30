@@ -306,6 +306,11 @@ Recibe notificaciones en tiempo real de transferencias bancarias.
 }
 ```
 
+**Validaciones:**
+- Verifica que no exista una transacción con el mismo `id_transaccion`
+- Verifica que no exista una acreditación con el mismo `coelsa_id`
+- Retorna error 409 si se detecta duplicación
+
 ### Gestión de Acreditaciones
 
 #### GET `/api/acreditaciones`
@@ -333,6 +338,45 @@ Sube y procesa archivos CSV.
 
 **Form Data:**
 - `file`: Archivo CSV
+
+**Validaciones de Duplicación:**
+- Verifica que no exista una transacción con el mismo `Id` (id_transaccion)
+- Verifica que no exista una acreditación con el mismo `IdEnRed` (coelsa_id)
+- Si se detecta duplicación, la fila se omite y se registra en los errores
+
+**Campos del CSV:**
+- `Id`: ID de transacción (requerido)
+- `Importe`: Monto de la transacción (requerido)
+- `FechaHora`: Fecha y hora (formato: YYYY-MM-DD HH:mm:ss) (requerido)
+- `IdEnRed`: ID de Coelsa (opcional, usado para validación de duplicación)
+- `Tipo`: Tipo de transacción (debe ser "Transferencia entrante")
+- `Titular`: Nombre del titular
+- `CUIT`: CUIT del titular
+- `Origen`: Cuenta de origen
+- `Concepto`: Concepto de la transacción
+- `Nota`: Notas adicionales
+
+**Respuesta:**
+```json
+{
+  "success": true,
+  "message": "Archivo CSV procesado exitosamente",
+  "data": {
+    "archivo": "transacciones.csv",
+    "total_filas": 100,
+    "procesadas": 95,
+    "omitidas": 5,
+    "errores": 2,
+    "errores_detalle": [
+      {
+        "row": 3,
+        "error": "Acreditación con coelsa_id 'ABC123' ya existe en la base de datos",
+        "data": {...}
+      }
+    ]
+  }
+}
+```
 
 #### GET `/upload/logs`
 Obtiene logs de procesamiento de archivos.
