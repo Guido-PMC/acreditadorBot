@@ -773,22 +773,22 @@ router.post('/notifications', [
     const {
       id_transaccion,
       tipo = 'Transferencia entrante',
-      concepto,
-      aplica_a,
+      concepto = '',
+      aplica_a = '',
       importe,
       estado = 'Completed',
-      id_en_red,
-      titular,
-      cuit,
-      origen,
-      nota,
+      id_en_red = '',
+      titular = '',
+      cuit = '',
+      origen = '',
+      nota = '',
       fecha_hora,
-      cvu,
-      coelsa_id,
-      origen_nombre,
-      origen_tax_id,
-      origen_cuenta,
-      tipo_notificacion
+      cvu = '',
+      coelsa_id = '',
+      origen_nombre = '',
+      origen_tax_id = '',
+      origen_cuenta = '',
+      tipo_notificacion = ''
     } = req.body;
 
     // Verificar si la transacción ya existe
