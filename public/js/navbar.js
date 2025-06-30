@@ -25,11 +25,27 @@ function createNavbar(activePage = 'dashboard') {
     return navbar;
 }
 
-// Función para reemplazar el navbar existente
+// Función para reemplazar el navbar existente de forma segura
 function replaceNavbar(activePage = 'dashboard') {
-    const existingNavbar = document.querySelector('nav.navbar');
-    if (existingNavbar) {
-        existingNavbar.outerHTML = createNavbar(activePage);
+    // Buscar todos los navbars existentes
+    const existingNavbars = document.querySelectorAll('nav.navbar');
+    
+    if (existingNavbars.length > 0) {
+        console.log(`🔄 Reemplazando ${existingNavbars.length} navbar(s) existente(s)`);
+        
+        // Reemplazar el primer navbar (el principal)
+        existingNavbars[0].outerHTML = createNavbar(activePage);
+        
+        // Eliminar cualquier navbar duplicado adicional
+        const remainingNavbars = document.querySelectorAll('nav.navbar');
+        for (let i = 1; i < remainingNavbars.length; i++) {
+            console.log(`🗑️ Eliminando navbar duplicado #${i + 1}`);
+            remainingNavbars[i].remove();
+        }
+        
+        console.log(`✅ Navbar actualizado para página: ${activePage}`);
+    } else {
+        console.log('⚠️ No se encontró navbar existente para reemplazar');
     }
 }
 
@@ -57,6 +73,8 @@ function initNavbar(activePage = null) {
         activePage = detectActivePage();
     }
     
+    console.log(`🚀 Inicializando navbar para página: ${activePage}`);
+    
     // Esperar a que el DOM esté listo
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => replaceNavbar(activePage));
@@ -66,4 +84,7 @@ function initNavbar(activePage = null) {
 }
 
 // Inicializar automáticamente cuando se carga el script
-initNavbar(); 
+// Usar setTimeout para asegurar que se ejecute después de que el DOM esté listo
+setTimeout(() => {
+    initNavbar();
+}, 0); 
