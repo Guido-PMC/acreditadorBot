@@ -226,7 +226,14 @@
                             Mostrando 0 de 0 movimientos
                         </small>
                     </div>
-                    <div class="col-auto">
+                    <div class="col-auto d-flex align-items-center gap-2">
+                        <small class="text-muted">Mostrar:</small>
+                        <select class="form-select form-select-sm" id="movimientosPerPage" onchange="changeMovimientosPerPage()" style="width: auto;">
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="500">500</option>
+                        </select>
                         <nav aria-label="Paginación de movimientos">
                             <ul class="pagination pagination-sm mb-0" id="movimientosUnificadosPagination">
                             </ul>
@@ -266,6 +273,9 @@
         // Variables globales
         let currentUser = null;
         let movimientosFilter = '';
+        let allMovimientos = []; // Todos los movimientos cargados
+        let currentPage = 1;
+        let movimientosPerPage = 25;
 
         // Inicializar
         document.addEventListener('DOMContentLoaded', function() {
@@ -528,39 +538,43 @@
                     return fechaB - fechaA;
                 });
 
-                displayMovimientosUnificados(movimientos);
+                // Guardar todos los movimientos y resetear paginación
+                allMovimientos = movimientos;
+                currentPage = 1;
+                displayMovimientosUnificados();
             } catch (error) {
                 console.error('Error cargando movimientos unificados:', error);
                 showAlert('Error al cargar movimientos unificados', 'danger');
             }
         }
 
-        // Mostrar movimientos unificados
-        function displayMovimientosUnificados(movimientos) {
+        // Mostrar movimientos unificados con paginación
+        function displayMovimientosUnificados() {
             // Aplicar filtro si está activo
-            let movimientosFiltrados = movimientos;
+            let movimientosFiltrados = allMovimientos;
             if (movimientosFilter) {
                 switch (movimientosFilter) {
                     case 'acreditacion':
-                        movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'acreditacion');
+                        movimientosFiltrados = allMovimientos.filter(mov => mov.tipo === 'acreditacion');
                         break;
                     case 'comprobante':
-                        movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'comprobante');
+                        movimientosFiltrados = allMovimientos.filter(mov => mov.tipo === 'comprobante');
                         break;
                     case 'credito':
-                        movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'movimiento' && mov.tipo_pago === 'credito');
+                        movimientosFiltrados = allMovimientos.filter(mov => mov.tipo === 'movimiento' && mov.tipo_pago === 'credito');
                         break;
                     case 'pago':
-                        movimientosFiltrados = movimientos.filter(mov => mov.tipo === 'movimiento' && mov.tipo_pago === 'egreso');
+                        movimientosFiltrados = allMovimientos.filter(mov => mov.tipo === 'movimiento' && mov.tipo_pago === 'egreso');
                         break;
                     default:
-                        movimientosFiltrados = movimientos;
+                        movimientosFiltrados = allMovimientos;
                 }
             }
 
             const tbody = document.getElementById('movimientosUnificadosTableBody');
+            const total = movimientosFiltrados.length;
             
-            if (movimientosFiltrados.length === 0) {
+            if (total === 0) {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="7" class="text-center py-4 text-muted">
@@ -569,10 +583,22 @@
                         </td>
                     </tr>
                 `;
+                updatePaginationInfo(0, 0, 0);
+                updatePaginationControls(0);
                 return;
             }
 
-            tbody.innerHTML = movimientosFiltrados.map(mov => {
+            // Calcular paginación
+            const totalPages = Math.ceil(total / movimientosPerPage);
+            const startIndex = (currentPage - 1) * movimientosPerPage;
+            const endIndex = Math.min(startIndex + movimientosPerPage, total);
+            const movimientosPagina = movimientosFiltrados.slice(startIndex, endIndex);
+
+            // Actualizar información de paginación
+            updatePaginationInfo(startIndex + 1, endIndex, total);
+            updatePaginationControls(totalPages);
+
+            tbody.innerHTML = movimientosPagina.map(mov => {
                 const isEntrada = mov.es_entrada;
                 const importeClass = isEntrada ? 'text-success' : 'text-danger';
                 const importeSign = isEntrada ? '+' : '-';
@@ -631,8 +657,97 @@
             // Actualizar contador de movimientos
             const movimientosCountElement = document.getElementById('movimientosCount');
             if (movimientosCountElement) {
-                movimientosCountElement.textContent = movimientosFiltrados.length;
+                movimientosCountElement.textContent = total;
             }
+        }
+
+        // Actualizar información de paginación
+        function updatePaginationInfo(start, end, total) {
+            const infoElement = document.getElementById('movimientosUnificadosPaginationInfo');
+            infoElement.textContent = `Mostrando ${start} a ${end} de ${total} movimientos`;
+        }
+
+        // Actualizar controles de paginación
+        function updatePaginationControls(totalPages) {
+            const paginationElement = document.getElementById('movimientosUnificadosPagination');
+            
+            if (totalPages <= 1) {
+                paginationElement.innerHTML = '';
+                return;
+            }
+            
+            let paginationHTML = '';
+            
+            // Botón anterior
+            paginationHTML += `
+                <li class="page-item ${currentPage <= 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+            `;
+            
+            // Páginas
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+            
+            // Primera página si no está visible
+            if (startPage > 1) {
+                paginationHTML += `
+                    <li class="page-item">
+                        <a class="page-link" href="#" onclick="goToPage(1); return false;">1</a>
+                    </li>
+                `;
+                if (startPage > 2) {
+                    paginationHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+            
+            // Páginas visibles
+            for (let i = startPage; i <= endPage; i++) {
+                paginationHTML += `
+                    <li class="page-item ${i === currentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a>
+                    </li>
+                `;
+            }
+            
+            // Última página si no está visible
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+                paginationHTML += `
+                    <li class="page-item">
+                        <a class="page-link" href="#" onclick="goToPage(${totalPages}); return false;">${totalPages}</a>
+                    </li>
+                `;
+            }
+            
+            // Botón siguiente
+            paginationHTML += `
+                <li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+            `;
+            
+            paginationElement.innerHTML = paginationHTML;
+        }
+
+        // Ir a página específica
+        function goToPage(page) {
+            currentPage = page;
+            displayMovimientosUnificados();
+        }
+
+        // Cambiar cantidad de movimientos por página
+        function changeMovimientosPerPage() {
+            const select = document.getElementById('movimientosPerPage');
+            movimientosPerPage = parseInt(select.value);
+            currentPage = 1; // Resetear a primera página
+            displayMovimientosUnificados();
         }
 
         // Actualizar paginación de movimientos
@@ -686,6 +801,7 @@
         // Filtrar movimientos
         function filterMovimientos(tipo) {
             movimientosFilter = tipo;
+            currentPage = 1; // Resetear paginación al filtrar
             
             // Actualizar estado visual de los botones
             const buttons = document.querySelectorAll('.btn-group .btn');
@@ -701,7 +817,7 @@
                 activeButton.classList.add('active');
             }
             
-            loadMovimientosUnificados();
+            displayMovimientosUnificados(); // Usar display en lugar de loadMovimientosUnificados
         }
 
         // Ordenar movimientos (simplificado para la vista unificada)
