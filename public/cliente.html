@@ -39,9 +39,9 @@
       </div>
     </div>
 
-    <!-- Tarjetas de Resumen -->
+    <!-- Primera fila: Contadores de Comprobantes -->
     <div class="row mb-4">
-      <div class="col-md-3">
+      <div class="col-md-4">
         <div class="card bg-primary text-white">
           <div class="card-body">
             <div class="d-flex justify-content-between">
@@ -56,7 +56,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-4">
         <div class="card bg-success text-white">
           <div class="card-body">
             <div class="d-flex justify-content-between">
@@ -71,7 +71,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-4">
         <div class="card bg-warning text-white">
           <div class="card-body">
             <div class="d-flex justify-content-between">
@@ -86,8 +86,42 @@
           </div>
         </div>
       </div>
-      <div class="col-md-3">
+    </div>
+
+    <!-- Segunda fila: Montos -->
+    <div class="row mb-4">
+      <div class="col-md-4">
         <div class="card bg-info text-white">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h4 id="totalMontoAsignados">$0.00</h4>
+                <p class="mb-0">Total Comprobantes Asignados</p>
+              </div>
+              <div class="align-self-center">
+                <i class="fas fa-money-bill fa-2x"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card bg-secondary text-white">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h4 id="totalComisionesAsignadas">$0.00</h4>
+                <p class="mb-0">Total Comisiones</p>
+              </div>
+              <div class="align-self-center">
+                <i class="fas fa-percentage fa-2x"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card bg-danger text-white">
           <div class="card-body">
             <div class="d-flex justify-content-between">
               <div>
@@ -96,40 +130,6 @@
               </div>
               <div class="align-self-center">
                 <i class="fas fa-dollar-sign fa-2x"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tarjetas de Pagos -->
-    <div class="row mb-4">
-      <div class="col-md-6">
-        <div class="card bg-danger text-white">
-          <div class="card-body">
-            <div class="d-flex justify-content-between">
-              <div>
-                <h4 id="totalPagos">0</h4>
-                <p class="mb-0">Pagos Realizados</p>
-              </div>
-              <div class="align-self-center">
-                <i class="fas fa-credit-card fa-2x"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card bg-secondary text-white">
-          <div class="card-body">
-            <div class="d-flex justify-content-between">
-              <div>
-                <h4 id="totalImportePagos">$0.00</h4>
-                <p class="mb-0">Total Pagos</p>
-              </div>
-              <div class="align-self-center">
-                <i class="fas fa-calculator fa-2x"></i>
               </div>
             </div>
           </div>
@@ -335,18 +335,25 @@
       // Saldo
       updateElement('saldoCliente', `$${resumen.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
       
-      // Tarjetas de resumen - usando estadísticas de comprobantes
+      // Primera fila: Contadores de comprobantes
       updateElement('totalAcreditaciones', resumen.comprobantes.total_comprobantes || 0);
       updateElement('acreditacionesCotejadas', resumen.comprobantes.comprobantes_asignados || 0);
       updateElement('acreditacionesPendientes', resumen.comprobantes.comprobantes_sin_asignar || 0);
-      // Calcular total pendiente: usar datos de acreditaciones pendientes + comprobantes sin asignar
+      
+      // Segunda fila: Montos
+      // Total de comprobantes asignados en monto (acreditaciones cotejadas)
+      const totalMontoAsignados = resumen.acreditaciones?.total_importe_cotejadas || 0;
+      updateElement('totalMontoAsignados', `$${totalMontoAsignados.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
+      
+      // Total comisiones (de acreditaciones cotejadas)
+      const totalComisionesAsignadas = resumen.acreditaciones?.total_comisiones_cotejadas || 0;
+      updateElement('totalComisionesAsignadas', `$${totalComisionesAsignadas.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
+      
+      // Total pendiente: acreditaciones pendientes - comisiones pendientes
       const acreditacionesPendientes = resumen.acreditaciones?.total_importe_pendientes || 0;
       const comisionesPendientes = resumen.acreditaciones?.total_comisiones_pendientes || 0;
       const totalPendiente = acreditacionesPendientes - comisionesPendientes;
-      
       updateElement('totalComisiones', `$${totalPendiente.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
-      updateElement('totalPagos', resumen.pagos.total_pagos || 0);
-      updateElement('totalImportePagos', `$${(resumen.pagos.total_importe_pagos || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
     }
 
     // Función para limpiar CUIT (quitar guiones y dejar solo números)
