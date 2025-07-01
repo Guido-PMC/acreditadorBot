@@ -35,9 +35,9 @@ async function makeRequestWithRetry(requestFunction, maxRetries = MAX_RETRIES) {
             return await requestFunction();
         } catch (error) {
             if (error.response?.status === 429) {
-                const retryAfter = error.response.headers['retry-after'] || 30;
-                const waitTime = Math.min(retryAfter * 1000, attempt * 2000); // Backoff exponencial
-                console.log(`⚠️  Rate limit alcanzado (intento ${attempt}/${maxRetries}). Esperando ${waitTime}ms...`);
+                const waitTime = 45000; // 45 segundos fijos para error 429
+                console.log(`⚠️  Rate limit alcanzado (intento ${attempt}/${maxRetries}). Esperando ${waitTime/1000} segundos...`);
+                console.log(`🕒 Esto puede tardar un poco, pero es necesario para respetar los límites del servidor`);
                 
                 if (attempt === maxRetries) {
                     throw error;
