@@ -159,6 +159,27 @@
               <span class="badge bg-info" id="movimientosCount">0</span>
             </div>
           </div>
+          
+          <!-- Filtros de Movimientos -->
+          <div class="card-body border-bottom">
+            <div class="d-flex justify-content-center">
+              <div class="btn-group btn-group-sm" role="group" aria-label="Filtros de movimientos">
+                <button type="button" class="btn btn-outline-primary active" onclick="filterMovimientos('todos')" id="filter-todos">
+                  <i class="fas fa-list me-1"></i>Todos
+                </button>
+                <button type="button" class="btn btn-outline-warning" onclick="filterMovimientos('pendientes')" id="filter-pendientes">
+                  <i class="fas fa-clock me-1"></i>Comprobantes Pendientes
+                </button>
+                <button type="button" class="btn btn-outline-success" onclick="filterMovimientos('cobros')" id="filter-cobros">
+                  <i class="fas fa-plus-circle me-1"></i>Cobros
+                </button>
+                <button type="button" class="btn btn-outline-danger" onclick="filterMovimientos('pagos')" id="filter-pagos">
+                  <i class="fas fa-minus-circle me-1"></i>Pagos
+                </button>
+              </div>
+            </div>
+          </div>
+          
           <div class="card-body">
             <div id="movimientosContainer">
               <div class="text-center text-muted">Cargando movimientos...</div>
@@ -279,6 +300,8 @@
   <script src="js/navbar.js"></script>
   <script>
     let clienteId = null;
+    let allMovimientos = []; // Todos los movimientos cargados
+    let currentFilter = 'todos'; // Filtro actual
 
     // Obtener ID del cliente de la URL
     function getClienteId() {
@@ -566,13 +589,13 @@
         }));
 
         // Combinar todos los movimientos
-        const todosMovimientos = [...comprobantes, ...pagos];
+        allMovimientos = [...comprobantes, ...pagos];
 
         // Ordenar por fecha (más reciente primero)
-        todosMovimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+        allMovimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
-        renderMovimientosUnificados(todosMovimientos);
-        document.getElementById('movimientosCount').textContent = todosMovimientos.length;
+        // Aplicar filtro actual
+        applyCurrentFilter();
       } catch (error) {
         console.error('Error cargando movimientos:', error);
         showAlert('danger', 'Error al cargar movimientos');
@@ -736,6 +759,65 @@
           <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
       `;
+    }
+
+    // Función para filtrar movimientos
+    function filterMovimientos(tipo) {
+      currentFilter = tipo;
+      
+      // Actualizar estado visual de los botones
+      document.querySelectorAll('.btn-group .btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.classList.add('btn-outline-primary', 'btn-outline-warning', 'btn-outline-success', 'btn-outline-danger');
+      });
+      
+      // Activar el botón seleccionado
+      const activeButton = document.getElementById(`filter-${tipo}`);
+      if (activeButton) {
+        activeButton.classList.remove('btn-outline-primary', 'btn-outline-warning', 'btn-outline-success', 'btn-outline-danger');
+        activeButton.classList.add('active');
+        
+        // Agregar clase específica según el tipo
+        if (tipo === 'todos') activeButton.classList.add('btn-primary');
+        else if (tipo === 'pendientes') activeButton.classList.add('btn-warning');
+        else if (tipo === 'cobros') activeButton.classList.add('btn-success');
+        else if (tipo === 'pagos') activeButton.classList.add('btn-danger');
+      }
+      
+      applyCurrentFilter();
+    }
+
+    // Aplicar filtro actual
+    function applyCurrentFilter() {
+      let movimientosFiltrados = allMovimientos;
+      
+      switch (currentFilter) {
+        case 'pendientes':
+          // Comprobantes sin acreditación
+          movimientosFiltrados = allMovimientos.filter(mov => 
+            mov.tipo === 'comprobante' && !mov.id_acreditacion
+          );
+          break;
+        case 'cobros':
+          // Comprobantes acreditados y créditos
+          movimientosFiltrados = allMovimientos.filter(mov => 
+            (mov.tipo === 'comprobante' && mov.id_acreditacion) || mov.tipo === 'credito'
+          );
+          break;
+        case 'pagos':
+          // Solo pagos
+          movimientosFiltrados = allMovimientos.filter(mov => 
+            mov.tipo === 'pago'
+          );
+          break;
+        case 'todos':
+        default:
+          movimientosFiltrados = allMovimientos;
+          break;
+      }
+      
+      renderMovimientosUnificados(movimientosFiltrados);
+      document.getElementById('movimientosCount').textContent = movimientosFiltrados.length;
     }
 
     // Inicializar cuando el DOM esté listo

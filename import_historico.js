@@ -454,12 +454,30 @@ async function procesarCSV() {
                         break;
 
                     case 'transferencia saliente':
+                        // Crear pago con método transferencia
+                        // Usar valor absoluto porque los pagos representan salidas
+                        const importeTransferencia = Math.abs(monto);
+                        if (monto !== importeTransferencia) {
+                            console.log(`💰 Convirtiendo monto negativo ${monto} a positivo ${importeTransferencia} para transferencia saliente`);
+                        }
+                        
+                        await crearPagoHTTP({
+                            importe: importeTransferencia,
+                            titular,
+                            fecha_comprob: fechaComprob,
+                            cliente_id: cliente.id,
+                            metodo_pago: 'transferencia'
+                        });
+                        
+                        contador.pagos++;
+                        break;
+
                     case 'pago':
-                        // Crear pago - usar valor absoluto porque los pagos representan salidas
-                        // Si el CSV ya trae signo negativo, lo convertimos a positivo
+                        // Crear pago con método efectivo
+                        // Usar valor absoluto porque los pagos representan salidas
                         const importePago = Math.abs(monto);
                         if (monto !== importePago) {
-                            console.log(`💰 Convirtiendo monto negativo ${monto} a positivo ${importePago} para pago`);
+                            console.log(`💰 Convirtiendo monto negativo ${monto} a positivo ${importePago} para pago en efectivo`);
                         }
                         
                         await crearPagoHTTP({
@@ -467,7 +485,7 @@ async function procesarCSV() {
                             titular,
                             fecha_comprob: fechaComprob,
                             cliente_id: cliente.id,
-                            metodo_pago: 'transferencia'
+                            metodo_pago: 'efectivo'
                         });
                         
                         contador.pagos++;
