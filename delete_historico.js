@@ -3,7 +3,9 @@ const axios = require('axios');
 const readline = require('readline');
 
 // Configuración
-const API_URL = process.env.API_URL || 'http://localhost:3000';
+const API_URL = process.env.API_URL || 'https://acreditadorbot-production.up.railway.app';
+
+
 
 // Configuración de la interfaz de línea de comandos
 const rl = readline.createInterface({

@@ -1422,6 +1422,7 @@ router.get('/clientes/:id/comprobantes', async (req, res) => {
     const dataQuery = `
       SELECT 
         c.*,
+        COALESCE(c.fuente, 'whatsapp') as fuente,
         a.id as id_acreditacion,
         a.importe as acreditacion_importe,
         a.fecha_hora as acreditacion_fecha
@@ -2169,7 +2170,7 @@ router.get('/clientes/:id/pagos', async (req, res) => {
 
     // Query para obtener datos
     const dataQuery = `
-      SELECT * FROM pagos
+      SELECT *, COALESCE(fuente, 'manual') as fuente FROM pagos
       WHERE id_cliente = $1
       ORDER BY fecha_pago DESC
       LIMIT $2 OFFSET $3

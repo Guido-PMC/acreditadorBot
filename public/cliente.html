@@ -412,6 +412,38 @@
       return cuit.replace(/[^0-9]/g, '');
     }
 
+    // Función para obtener el color del badge según la fuente
+    function getFuenteBadgeClass(fuente) {
+      switch (fuente?.toLowerCase()) {
+        case 'historico':
+          return 'bg-primary';
+        case 'whatsapp':
+          return 'bg-success';
+        case 'csv':
+          return 'bg-warning';
+        case 'manual':
+          return 'bg-secondary';
+        default:
+          return 'bg-info';
+      }
+    }
+
+    // Función para obtener el texto de la fuente
+    function getFuenteText(fuente) {
+      switch (fuente?.toLowerCase()) {
+        case 'historico':
+          return 'Histórico';
+        case 'whatsapp':
+          return 'WhatsApp';
+        case 'csv':
+          return 'CSV';
+        case 'manual':
+          return 'Manual';
+        default:
+          return fuente || 'N/A';
+      }
+    }
+
     // Abrir modal de pago
     function openPagoModal() {
       document.getElementById('pagoForm').reset();
@@ -585,7 +617,8 @@
           metodo_pago: pago.metodo_pago,
           referencia: pago.referencia,
           observaciones: pago.observaciones,
-          estado: pago.estado
+          estado: pago.estado,
+          fuente: pago.fuente
         }));
 
         // Combinar todos los movimientos
@@ -645,7 +678,7 @@
                     <strong>${mov.concepto}</strong>
                     <span class="badge ${badgeClass} ms-2">${badgeText}</span>
                     <span class="badge bg-secondary ms-1">${tipoText}</span>
-                    ${mov.fuente ? `<span class="badge bg-info ms-1">${mov.fuente}</span>` : ''}
+                    ${mov.fuente ? `<span class="badge ${getFuenteBadgeClass(mov.fuente)} ms-1">${getFuenteText(mov.fuente)}</span>` : ''}
                   </div>
                   
                   <div class="row">
