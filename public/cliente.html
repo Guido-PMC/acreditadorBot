@@ -142,38 +142,38 @@
       <!-- Movimientos Unificados -->
       <div class="col-12">
         <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-              <i class="fas fa-list me-2"></i>Todos los Movimientos
-            </h5>
-            <div>
-              <button class="btn btn-sm btn-success me-2" onclick="openCreditoModal()">
-                <i class="fas fa-plus me-1"></i>Nuevo Crédito
-              </button>
-              <button class="btn btn-sm btn-danger me-2" onclick="openPagoModal()">
-                <i class="fas fa-minus me-1"></i>Nuevo Pago
-              </button>
-              <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadClienteData()" title="Recargar datos">
-                <i class="fas fa-sync-alt"></i>
-              </button>
-              <span class="badge bg-info" id="movimientosCount">0</span>
+          <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>Todos los Movimientos
+              </h5>
+              <div>
+                <button class="btn btn-sm btn-success me-2" onclick="openCreditoModal()">
+                  <i class="fas fa-plus me-1"></i>Nuevo Crédito
+                </button>
+                <button class="btn btn-sm btn-danger me-2" onclick="openPagoModal()">
+                  <i class="fas fa-minus me-1"></i>Nuevo Pago
+                </button>
+                <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadClienteData()" title="Recargar datos">
+                  <i class="fas fa-sync-alt"></i>
+                </button>
+                <span class="badge bg-info" id="movimientosCount">0</span>
+              </div>
             </div>
-          </div>
-          
-          <!-- Filtros de Movimientos -->
-          <div class="card-body border-bottom">
+            
+            <!-- Filtros de Movimientos -->
             <div class="d-flex justify-content-center">
               <div class="btn-group btn-group-sm" role="group" aria-label="Filtros de movimientos">
-                <button type="button" class="btn btn-outline-primary active" onclick="filterMovimientos('todos')" id="filter-todos">
+                <button type="button" class="btn btn-primary" onclick="filterMovimientos('todos')" id="filter-todos">
                   <i class="fas fa-list me-1"></i>Todos
                 </button>
                 <button type="button" class="btn btn-outline-warning" onclick="filterMovimientos('pendientes')" id="filter-pendientes">
-                  <i class="fas fa-clock me-1"></i>Comprobantes Pendientes
+                  <i class="fas fa-clock me-1"></i>Pendientes
                 </button>
                 <button type="button" class="btn btn-outline-success" onclick="filterMovimientos('cobros')" id="filter-cobros">
                   <i class="fas fa-plus-circle me-1"></i>Cobros
                 </button>
-                <button type="button" class="btn btn-outline-danger" onclick="filterMovimientos('pagos')" id="filter-pagos">
+                <button type="button" class="btn btn-outline-secondary" onclick="filterMovimientos('pagos')" id="filter-pagos">
                   <i class="fas fa-minus-circle me-1"></i>Pagos
                 </button>
               </div>
@@ -765,23 +765,30 @@
     function filterMovimientos(tipo) {
       currentFilter = tipo;
       
-      // Actualizar estado visual de los botones
+      // Resetear todos los botones a su estado outline
       document.querySelectorAll('.btn-group .btn').forEach(btn => {
-        btn.classList.remove('active');
-        btn.classList.add('btn-outline-primary', 'btn-outline-warning', 'btn-outline-success', 'btn-outline-danger');
+        btn.className = 'btn btn-outline-primary btn-sm'; // Reset base classes
       });
+      
+      // Configurar cada botón según su tipo
+      document.getElementById('filter-todos').className = 'btn btn-outline-primary btn-sm';
+      document.getElementById('filter-pendientes').className = 'btn btn-outline-warning btn-sm';
+      document.getElementById('filter-cobros').className = 'btn btn-outline-success btn-sm';
+      document.getElementById('filter-pagos').className = 'btn btn-outline-secondary btn-sm';
       
       // Activar el botón seleccionado
       const activeButton = document.getElementById(`filter-${tipo}`);
       if (activeButton) {
-        activeButton.classList.remove('btn-outline-primary', 'btn-outline-warning', 'btn-outline-success', 'btn-outline-danger');
-        activeButton.classList.add('active');
-        
-        // Agregar clase específica según el tipo
-        if (tipo === 'todos') activeButton.classList.add('btn-primary');
-        else if (tipo === 'pendientes') activeButton.classList.add('btn-warning');
-        else if (tipo === 'cobros') activeButton.classList.add('btn-success');
-        else if (tipo === 'pagos') activeButton.classList.add('btn-danger');
+        // Remover outline y agregar color sólido
+        if (tipo === 'todos') {
+          activeButton.className = 'btn btn-primary btn-sm';
+        } else if (tipo === 'pendientes') {
+          activeButton.className = 'btn btn-warning btn-sm';
+        } else if (tipo === 'cobros') {
+          activeButton.className = 'btn btn-success btn-sm';
+        } else if (tipo === 'pagos') {
+          activeButton.className = 'btn btn-secondary btn-sm';
+        }
       }
       
       applyCurrentFilter();
