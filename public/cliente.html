@@ -343,17 +343,38 @@
       // Segunda fila: Montos
       // Total de comprobantes asignados en monto (acreditaciones cotejadas)
       const totalMontoAsignados = resumen.acreditaciones?.total_importe_cotejadas || 0;
-      updateElement('totalMontoAsignados', `$${totalMontoAsignados.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
+      console.log('🔍 totalMontoAsignados original:', totalMontoAsignados);
+      const montoAsignadosFormatted = formatCurrency(totalMontoAsignados);
+      console.log('🔍 totalMontoAsignados formateado:', montoAsignadosFormatted);
+      updateElement('totalMontoAsignados', montoAsignadosFormatted);
       
       // Total comisiones (de acreditaciones cotejadas)
       const totalComisionesAsignadas = resumen.acreditaciones?.total_comisiones_cotejadas || 0;
-      updateElement('totalComisionesAsignadas', `$${totalComisionesAsignadas.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
+      updateElement('totalComisionesAsignadas', formatCurrency(totalComisionesAsignadas));
       
       // Total pendiente: acreditaciones pendientes - comisiones pendientes
       const acreditacionesPendientes = resumen.acreditaciones?.total_importe_pendientes || 0;
       const comisionesPendientes = resumen.acreditaciones?.total_comisiones_pendientes || 0;
       const totalPendiente = acreditacionesPendientes - comisionesPendientes;
-      updateElement('totalComisiones', `$${totalPendiente.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
+      updateElement('totalComisiones', formatCurrency(totalPendiente));
+    }
+
+    // Función para formatear moneda en español argentino
+    function formatCurrency(amount) {
+      if (amount === null || amount === undefined || isNaN(amount)) {
+        return '$0,00';
+      }
+      
+      // Asegurar que sea un número
+      const numAmount = parseFloat(amount);
+      
+      // Formatear con separador de miles español (punto) y decimales (coma)
+      const formatted = numAmount.toLocaleString('es-AR', { 
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      
+      return `$${formatted}`;
     }
 
     // Función para limpiar CUIT (quitar guiones y dejar solo números)
