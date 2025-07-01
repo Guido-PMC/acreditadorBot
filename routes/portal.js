@@ -415,7 +415,7 @@ router.get('/resumen', authenticateToken, async (req, res) => {
       WHERE id_cliente = $1
     `, [cliente_id]);
 
-    // Estadísticas de movimientos
+    // Estadísticas de movimientos (solo confirmados)
     const movimientosStats = await client.query(`
       SELECT 
         COUNT(*) as total_movimientos,
@@ -424,7 +424,7 @@ router.get('/resumen', authenticateToken, async (req, res) => {
         SUM(CASE WHEN tipo_pago = 'egreso' THEN importe ELSE 0 END) as total_importe_pagos,
         SUM(CASE WHEN tipo_pago = 'credito' THEN importe ELSE 0 END) as total_importe_creditos
       FROM pagos 
-      WHERE CAST(id_cliente AS INTEGER) = $1
+      WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = 'confirmado'
     `, [cliente_id]);
 
     // Estadísticas de comprobantes pendientes (sin asignar)
@@ -437,10 +437,21 @@ router.get('/resumen', authenticateToken, async (req, res) => {
     `, [cliente_id]);
 
     // Calcular saldo actual (acreditaciones cotejadas - comisiones + créditos - pagos)
-    const saldo_actual = (acreditacionesStats.rows[0].total_importe_cotejadas || 0) - 
-                         (acreditacionesStats.rows[0].total_comisiones_cotejadas || 0) + 
-                         (movimientosStats.rows[0].total_importe_creditos || 0) - 
-                         (movimientosStats.rows[0].total_importe_pagos || 0);
+    const totalImporteCotejadas = parseFloat(acreditacionesStats.rows[0].total_importe_cotejadas || 0);
+    const totalComisionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_comisiones_cotejadas || 0);
+    const totalCreditos = parseFloat(movimientosStats.rows[0].total_importe_creditos || 0);
+    const totalPagos = parseFloat(movimientosStats.rows[0].total_importe_pagos || 0);
+    
+    const saldo_actual = totalImporteCotejadas - totalComisionesCotejadas + totalCreditos - totalPagos;
+    
+    console.log('🔍 Debug Saldo Actual Portal:', {
+      cliente_id,
+      totalImporteCotejadas,
+      totalComisionesCotejadas,
+      totalCreditos,
+      totalPagos,
+      saldo_actual
+    });
 
     // Saldo pendiente (acreditaciones no cotejadas - comisiones)
     // NOTA: No incluimos comprobantes pendientes porque pueden ser duplicados/erróneos
