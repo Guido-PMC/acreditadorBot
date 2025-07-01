@@ -137,20 +137,22 @@ async function crearAcreditacionHTTP(datos) {
             fuente: 'historico',
             cotejado: true
         });
-        const response = await axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/notifications`, {
-            id_transaccion,
-            importe,
-            titular,
-            cuit: cleanCUIT(cuit),
-            fecha_hora: parseFecha(fecha_comprob),
-            id_cliente: cliente_id,
-            comision,
-            importe_comision,
-            tipo: 'Transferencia entrante',
-            estado: 'confirmado',
-            fuente: 'historico',
-            cotejado: true
-        });
+        const response = await makeRequestWithRetry(() =>
+            axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/notifications`, {
+                id_transaccion,
+                importe,
+                titular,
+                cuit: cleanCUIT(cuit),
+                fecha_hora: parseFecha(fecha_comprob),
+                id_cliente: cliente_id,
+                comision,
+                importe_comision,
+                tipo: 'Transferencia entrante',
+                estado: 'confirmado',
+                fuente: 'historico',
+                cotejado: true
+            })
+        );
         console.log('⬅️ Respuesta:', response.status, response.data);
         if (response.status !== 200 && response.status !== 201) {
             throw new Error(`HTTP ${response.status}: ${response.data}`);
@@ -198,9 +200,11 @@ async function crearComprobanteHTTP(datos, acreditacion_id) {
 
         // Asignar el comprobante a la acreditación (esto los coteja automáticamente)
         console.log(`🔄 Asignando comprobante ${comprobante_id} a acreditación ${acreditacion_id}`);
-        const asignacionResponse = await axios.put(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/comprobantes/${comprobante_id}/asignar`, {
-            id_acreditacion: acreditacion_id
-        });
+        const asignacionResponse = await makeRequestWithRetry(() =>
+            axios.put(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/comprobantes/${comprobante_id}/asignar`, {
+                id_acreditacion: acreditacion_id
+            })
+        );
 
         if (asignacionResponse.status !== 200 && asignacionResponse.status !== 201) {
             throw new Error(`HTTP ${asignacionResponse.status}: ${asignacionResponse.data}`);
@@ -225,16 +229,18 @@ async function crearCreditoHTTP(datos) {
     } = datos;
 
     try {
-        const response = await axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/pagos`, {
-            id_cliente: cliente_id,
-            concepto: `Crédito histórico: ${titular}`,
-            importe,
-            fecha_pago: parseFecha(fecha_comprob),
-            tipo_pago: 'credito',
-            metodo_pago,
-            estado: 'confirmado',
-            fuente: 'historico'
-        });
+        const response = await makeRequestWithRetry(() =>
+            axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/pagos`, {
+                id_cliente: cliente_id,
+                concepto: `Crédito histórico: ${titular}`,
+                importe,
+                fecha_pago: parseFecha(fecha_comprob),
+                tipo_pago: 'credito',
+                metodo_pago,
+                estado: 'confirmado',
+                fuente: 'historico'
+            })
+        );
 
         if (response.status !== 200 && response.status !== 201) {
             throw new Error(`HTTP ${response.status}: ${response.data}`);
@@ -258,16 +264,18 @@ async function crearPagoHTTP(datos) {
     } = datos;
 
     try {
-        const response = await axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/pagos`, {
-            id_cliente: cliente_id,
-            concepto: `Pago histórico: ${titular}`,
-            importe,
-            fecha_pago: parseFecha(fecha_comprob),
-            tipo_pago: 'egreso',
-            metodo_pago,
-            estado: 'confirmado',
-            fuente: 'historico'
-        });
+        const response = await makeRequestWithRetry(() =>
+            axios.post(`${process.env.API_URL || 'https://acreditadorbot-production.up.railway.app'}/api/pagos`, {
+                id_cliente: cliente_id,
+                concepto: `Pago histórico: ${titular}`,
+                importe,
+                fecha_pago: parseFecha(fecha_comprob),
+                tipo_pago: 'egreso',
+                metodo_pago,
+                estado: 'confirmado',
+                fuente: 'historico'
+            })
+        );
 
         if (response.status !== 200 && response.status !== 201) {
             throw new Error(`HTTP ${response.status}: ${response.data}`);

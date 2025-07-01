@@ -92,7 +92,7 @@
             <div class="d-flex justify-content-between">
               <div>
                 <h4 id="totalComisiones">$0.00</h4>
-                <p class="mb-0">Total Importe</p>
+                <p class="mb-0">Total Pendiente</p>
               </div>
               <div class="align-self-center">
                 <i class="fas fa-dollar-sign fa-2x"></i>
@@ -339,7 +339,12 @@
       updateElement('totalAcreditaciones', resumen.comprobantes.total_comprobantes || 0);
       updateElement('acreditacionesCotejadas', resumen.comprobantes.comprobantes_asignados || 0);
       updateElement('acreditacionesPendientes', resumen.comprobantes.comprobantes_sin_asignar || 0);
-      updateElement('totalComisiones', `$${(resumen.comprobantes.total_importe_comprobantes || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
+      // Calcular total pendiente: usar datos de acreditaciones pendientes + comprobantes sin asignar
+      const acreditacionesPendientes = resumen.acreditaciones?.total_importe_pendientes || 0;
+      const comisionesPendientes = resumen.acreditaciones?.total_comisiones_pendientes || 0;
+      const totalPendiente = acreditacionesPendientes - comisionesPendientes;
+      
+      updateElement('totalComisiones', `$${totalPendiente.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
       updateElement('totalPagos', resumen.pagos.total_pagos || 0);
       updateElement('totalImportePagos', `$${(resumen.pagos.total_importe_pagos || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
     }
