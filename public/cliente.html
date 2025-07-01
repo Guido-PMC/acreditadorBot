@@ -353,9 +353,15 @@
       updateElement('totalComisionesAsignadas', formatCurrency(totalComisionesAsignadas));
       
       // Total pendiente: acreditaciones pendientes - comisiones pendientes
+      // NOTA: No incluimos comprobantes sin asignar porque pueden ser duplicados/erróneos
       const acreditacionesPendientes = resumen.acreditaciones?.total_importe_pendientes || 0;
       const comisionesPendientes = resumen.acreditaciones?.total_comisiones_pendientes || 0;
       const totalPendiente = acreditacionesPendientes - comisionesPendientes;
+      console.log('🔍 Cálculo Total Pendiente (solo acreditaciones):', {
+        acreditacionesPendientes,
+        comisionesPendientes,
+        totalPendiente
+      });
       updateElement('totalComisiones', formatCurrency(totalPendiente));
     }
 
