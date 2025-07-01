@@ -276,6 +276,7 @@
         let allMovimientos = []; // Todos los movimientos cargados
         let currentPage = 1;
         let movimientosPerPage = 25;
+        let currentSort = { field: 'fecha', order: 'desc' }; // Estado del ordenamiento
 
         // Inicializar
         document.addEventListener('DOMContentLoaded', function() {
@@ -541,6 +542,10 @@
                 // Guardar todos los movimientos y resetear paginación
                 allMovimientos = movimientos;
                 currentPage = 1;
+                
+                // Inicializar indicadores de ordenamiento
+                updateSortIndicators(currentSort.field);
+                
                 displayMovimientosUnificados();
             } catch (error) {
                 console.error('Error cargando movimientos unificados:', error);
@@ -820,10 +825,73 @@
             displayMovimientosUnificados(); // Usar display en lugar de loadMovimientosUnificados
         }
 
-        // Ordenar movimientos (simplificado para la vista unificada)
+        // Ordenar movimientos
         function sortMovimientos(field) {
-            // Por ahora, solo recargamos los datos ya que el ordenamiento se hace en el cliente
-            loadMovimientosUnificados();
+            // Cambiar orden si es el mismo campo, sino usar ascendente
+            if (currentSort.field === field) {
+                currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.field = field;
+                currentSort.order = 'asc';
+            }
+            
+            // Aplicar ordenamiento a todos los movimientos
+            allMovimientos.sort((a, b) => {
+                let valueA, valueB;
+                
+                switch (field) {
+                    case 'fecha':
+                        valueA = a.fecha_original ? new Date(a.fecha_original) : new Date(0);
+                        valueB = b.fecha_original ? new Date(b.fecha_original) : new Date(0);
+                        break;
+                    case 'tipo':
+                        valueA = a.tipo || '';
+                        valueB = b.tipo || '';
+                        break;
+                    case 'concepto':
+                        valueA = a.concepto || '';
+                        valueB = b.concepto || '';
+                        break;
+                    case 'importe':
+                        valueA = parseFloat(a.importe) || 0;
+                        valueB = parseFloat(b.importe) || 0;
+                        break;
+                    default:
+                        return 0;
+                }
+                
+                // Comparar valores
+                let comparison = 0;
+                if (valueA > valueB) {
+                    comparison = 1;
+                } else if (valueA < valueB) {
+                    comparison = -1;
+                }
+                
+                // Aplicar orden
+                return currentSort.order === 'desc' ? -comparison : comparison;
+            });
+            
+            // Actualizar indicadores visuales en los headers
+            updateSortIndicators(field);
+            
+            // Resetear a primera página y mostrar
+            currentPage = 1;
+            displayMovimientosUnificados();
+        }
+        
+        // Actualizar indicadores visuales de ordenamiento
+        function updateSortIndicators(activeField) {
+            // Remover todos los indicadores existentes
+            document.querySelectorAll('.sortable').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+            });
+            
+            // Agregar indicador al campo activo
+            const activeHeader = document.querySelector(`th[onclick="sortMovimientos('${activeField}')"]`);
+            if (activeHeader) {
+                activeHeader.classList.add(`sort-${currentSort.order}`);
+            }
         }
 
         // Mostrar perfil
