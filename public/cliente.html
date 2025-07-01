@@ -335,10 +335,10 @@
       // Saldo
       updateElement('saldoCliente', `$${resumen.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
       
-      // Primera fila: Contadores de comprobantes
-      updateElement('totalAcreditaciones', resumen.comprobantes.total_comprobantes || 0);
-      updateElement('acreditacionesCotejadas', resumen.comprobantes.comprobantes_asignados || 0);
-      updateElement('acreditacionesPendientes', resumen.comprobantes.comprobantes_sin_asignar || 0);
+      // Primera fila: Contadores de comprobantes (con formato de miles)
+      updateElement('totalAcreditaciones', (resumen.comprobantes.total_comprobantes || 0).toLocaleString('es-AR'));
+      updateElement('acreditacionesCotejadas', (resumen.comprobantes.comprobantes_asignados || 0).toLocaleString('es-AR'));
+      updateElement('acreditacionesPendientes', (resumen.comprobantes.comprobantes_sin_asignar || 0).toLocaleString('es-AR'));
       
       // Segunda fila: Montos
       // Total de comprobantes asignados en monto (acreditaciones cotejadas)
