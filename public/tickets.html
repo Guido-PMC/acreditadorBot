@@ -188,11 +188,12 @@
                                 </th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
+                                <th>ID Acreditación</th>
                             </tr>
                         </thead>
                         <tbody id="ticketsTable">
                             <tr>
-                                <td colspan="8" class="text-center">Cargando...</td>
+                                <td colspan="9" class="text-center">Cargando...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -326,7 +327,7 @@
             const tbody = document.getElementById('ticketsTable');
             tbody.innerHTML = '';
             if (!tickets.length) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center">No hay tickets para mostrar</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center">No hay tickets para mostrar</td></tr>`;
                 return;
             }
             tickets.forEach(ticket => {
@@ -347,6 +348,7 @@
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>
+                        <td>${ticket.id_acreditacion || '-'}</td>
                     </tr>
                 `;
             });

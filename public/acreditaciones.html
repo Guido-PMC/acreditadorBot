@@ -219,13 +219,14 @@
                                     Fecha <i class="fas fa-sort" id="dateSortIcon"></i>
                                 </th>
                                 <th>Fuente</th>
+                                <th>ID Comprobante</th>
                                 <th>Cotejo</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="acreditacionesTable">
                             <tr>
-                                <td colspan="10" class="text-center">Cargando...</td>
+                                <td colspan="12" class="text-center">Cargando...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -423,7 +424,7 @@
             } catch (error) {
                 console.error('Error cargando acreditaciones:', error);
                 document.getElementById('acreditacionesTable').innerHTML = 
-                    '<tr><td colspan="12" class="text-center text-danger">Error al cargar datos</td></tr>';
+                    '<tr><td colspan="13" class="text-center text-danger">Error al cargar datos</td></tr>';
             }
         }
 
@@ -431,7 +432,7 @@
             const tbody = document.getElementById('acreditacionesTable');
             
             if (acreditaciones.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="12" class="text-center">No se encontraron acreditaciones</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="13" class="text-center">No se encontraron acreditaciones</td></tr>';
                 return;
             }
 
@@ -468,6 +469,9 @@
                         <span class="badge ${acred.fuente === 'api' ? 'bg-primary' : 'bg-success'} badge-fuente">
                             ${acred.fuente.toUpperCase()}
                         </span>
+                    </td>
+                    <td>
+                        ${formatComprobanteId(acred.id_comprobante_whatsapp)}
                     </td>
                     <td>
                         <span class="badge ${acred.cotejado ? 'bg-success' : 'bg-warning'}">
@@ -868,6 +872,21 @@
                 hour: '2-digit',
                 minute: '2-digit'
             });
+        }
+
+        function formatComprobanteId(comprobanteId) {
+            if (!comprobanteId || comprobanteId === null) {
+                return '<span class="text-muted">-</span>';
+            }
+            
+            const id = comprobanteId.toString();
+            if (id.length <= 6) {
+                return `<small><code>${id}</code></small>`;
+            }
+            
+            const firstThree = id.substring(0, 3);
+            const lastThree = id.substring(id.length - 3);
+            return `<small><code title="${id}">${firstThree}...${lastThree}</code></small>`;
         }
     </script>
 </body>
