@@ -681,6 +681,17 @@
           importeClass = 'text-danger';
         }
 
+        // Si es comprobante con acreditación, usar los campos de la acreditación
+        let comision = 0;
+        let importeComision = 0;
+        if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
+          comision = parseFloat(mov.comision) || 0;
+          importeComision = parseFloat(mov.importe_comision) || 0;
+        } else {
+          comision = parseFloat(mov.comision) || 0;
+          importeComision = parseFloat(mov.importe_comision) || 0;
+        }
+
         return `
           <div class="card mb-2">
             <div class="card-body p-3">
@@ -730,10 +741,10 @@
                       <small class="text-warning"><strong>⚠️ Sin vincular a acreditación</strong></small>
                     </div>
                   ` : ''}
-                  ${parseFloat(mov.comision) > 0 && ((mov.tipo === 'credito') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
+                  ${comision > 0 && ((mov.tipo === 'credito') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
                     <div class="mt-1">
-                      <small class="text-muted"><strong>Comisión:</strong> ${parseFloat(mov.comision)}%<br>
-                      <span class="text-danger">- $${parseFloat(mov.importe_comision || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></small>
+                      <small class="text-muted"><strong>Comisión:</strong> ${comision}%<br>
+                      <span class="text-danger">- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></small>
                     </div>
                   ` : ''}
                 </div>
@@ -742,8 +753,8 @@
                   <div class="h5 mb-0 ${importeClass}">
                     ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </div>
-                  ${parseFloat(mov.comision) > 0 && ((mov.tipo === 'credito') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
-                    <div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - parseFloat(mov.importe_comision || 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                  ${comision > 0 && ((mov.tipo === 'credito') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
+                    <div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - importeComision).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
                   ` : ''}
                   <div class="btn-group-vertical btn-group-sm mt-1">
                     ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `
