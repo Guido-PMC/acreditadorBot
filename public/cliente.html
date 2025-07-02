@@ -694,7 +694,7 @@
                   <div class="h5 mb-0 ${importeClass}" 
                        ${mov.fecha_estimada_liberacion ? `data-bs-toggle="tooltip" data-bs-placement="top" title="Fecha estimada de liberación: ${mov.fecha_estimada_liberacion}"` : ''}>
                     ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                    ${mov.fecha_estimada_liberacion ? '<i class="fas fa-clock text-muted ms-1" style="font-size: 0.8em;"></i>' : ''}
+                    ${mov.fecha_estimada_liberacion ? (mov.esta_liberado ? '<i class="fas fa-check-circle text-success ms-1" style="font-size: 0.8em;" title="Fondo liberado"></i>' : '<i class="fas fa-clock text-muted ms-1" style="font-size: 0.8em;" title="Pendiente de liberación"></i>') : ''}
                   </div>
                   ${comision > 0 ? `<div class="text-muted small"><strong>Comisión:</strong> ${comision}%<br><span class="text-danger">- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></div>` : ''}
                   ${comision > 0 ? `<div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - importeComision).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>` : ''}

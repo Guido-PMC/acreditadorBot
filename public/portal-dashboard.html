@@ -87,6 +87,12 @@
             color: #6c757d;
             font-weight: bold;
         }
+        .stats-card.primary {
+            border-left: 4px solid #007bff;
+        }
+        .stats-card.success {
+            border-left: 4px solid #28a745;
+        }
     </style>
 </head>
 <body>
@@ -140,7 +146,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
+            <div class="col-md-3 mb-3">
                 <div class="card stats-card warning">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -155,7 +161,22 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
+            <div class="col-md-3 mb-3">
+                <div class="card stats-card primary">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title">Por Acreditar</h6>
+                                <h3 id="porAcreditar">-</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-clock fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
                 <div class="card stats-card info">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -165,6 +186,21 @@
                             </div>
                             <div class="align-self-center">
                                 <i class="fas fa-wallet fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card stats-card success">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title">Saldo Total</h6>
+                                <h3 id="saldoTotal">-</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-calculator fa-2x"></i>
                             </div>
                         </div>
                     </div>
@@ -406,6 +442,22 @@
                         style: 'currency',
                         currency: 'ARS'
                     }).format(saldoPendiente);
+
+                    // Saldo total (disponible + pendiente)
+                    const saldoTotal = disponible + saldoPendiente;
+                    const saldoTotalElement = document.getElementById('saldoTotal');
+                    saldoTotalElement.textContent = new Intl.NumberFormat('es-AR', {
+                        style: 'currency',
+                        currency: 'ARS'
+                    }).format(saldoTotal);
+
+                    if (saldoTotal > 0) {
+                        saldoTotalElement.className = 'balance-positive';
+                    } else if (saldoTotal < 0) {
+                        saldoTotalElement.className = 'balance-negative';
+                    } else {
+                        saldoTotalElement.className = 'balance-zero';
+                    }
                 }
             } catch (error) {
                 console.error('Error cargando resumen:', error);
@@ -575,7 +627,7 @@
                             <div class="h5 mb-0 ${importeClass}" 
                                  ${mov.fecha_estimada_liberacion ? `data-bs-toggle="tooltip" data-bs-placement="top" title="Fecha estimada de liberación: ${mov.fecha_estimada_liberacion}"` : ''}>
                                 ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                ${mov.fecha_estimada_liberacion ? '<i class="fas fa-clock text-muted ms-1" style="font-size: 0.8em;"></i>' : ''}
+                                ${mov.fecha_estimada_liberacion ? (mov.esta_liberado ? '<i class="fas fa-check-circle text-success ms-1" style="font-size: 0.8em;" title="Fondo liberado"></i>' : '<i class="fas fa-clock text-muted ms-1" style="font-size: 0.8em;" title="Pendiente de liberación"></i>') : ''}
                             </div>
                         </td>
                         <td>

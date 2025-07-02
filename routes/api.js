@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
-const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto, formatearFechaLiberacion } = require('../utils/liberacionFondos');
+const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto, formatearFechaLiberacion, estaLiberado } = require('../utils/liberacionFondos');
 const router = express.Router();
 
 // Funciones de normalización y matching inteligente
@@ -4381,9 +4381,11 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
       if (mov.tipo === 'acreditacion' || mov.tipo === 'comprobante') {
         const fechaRecepcion = mov.fecha_recepcion || mov.fecha;
         mov.fecha_estimada_liberacion = formatearFechaLiberacion(fechaRecepcion, plazoAcreditacion);
+        mov.esta_liberado = estaLiberado(fechaRecepcion, plazoAcreditacion);
       } else if (mov.tipo === 'pago' && mov.concepto && mov.concepto.toLowerCase().includes('deposito')) {
         // Los pagos tipo depósito también tienen plazo de acreditación
         mov.fecha_estimada_liberacion = formatearFechaLiberacion(mov.fecha, plazoAcreditacion);
+        mov.esta_liberado = estaLiberado(mov.fecha, plazoAcreditacion);
       }
       return mov;
     });
