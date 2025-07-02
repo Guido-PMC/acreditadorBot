@@ -669,7 +669,7 @@
                     <tr>
                         <td>${mov.fecha}</td>
                         <td>
-                            <span class="badge ${badgeClass} status-badge">${badgeText}</span>
+                            <span class="badge ${badgeClass} ms-1">${tipoText || (mov.tipo === 'acreditacion' ? 'Acreditación' : mov.tipo === 'comprobante' ? 'Comprobante' : mov.tipo === 'credito' ? 'Crédito' : mov.tipo === 'pago' ? 'Pago' : 'Movimiento')}</span>
                         </td>
                         <td><strong>${mov.concepto}</strong></td>
                         <td>

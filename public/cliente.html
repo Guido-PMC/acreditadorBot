@@ -709,7 +709,7 @@
                     <i class="${icon} me-2"></i>
                     <strong>${mov.concepto}</strong>
                     <span class="badge ${badgeClass} ms-2">${badgeText}</span>
-                    <span class="badge bg-secondary ms-1">${tipoText}</span>
+                    <span class="badge ${badgeClass} ms-1">${tipoText || (mov.tipo === 'acreditacion' ? 'Acreditación' : mov.tipo === 'comprobante' ? 'Comprobante' : mov.tipo === 'credito' ? 'Crédito' : mov.tipo === 'pago' ? 'Pago' : 'Movimiento')}</span>
                     ${mov.fuente ? `<span class="badge ${getFuenteBadgeClass(mov.fuente)} ms-1">${getFuenteText(mov.fuente)}</span>` : ''}
                   </div>
                   
