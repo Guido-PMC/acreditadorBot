@@ -708,8 +708,8 @@
                   <div class="d-flex align-items-center mb-1">
                     <i class="${icon} me-2"></i>
                     <strong>${mov.concepto}</strong>
-                    <span class="badge ${badgeClass} ms-2">${badgeText}</span>
-                    <span class="badge ${badgeClass} ms-1">${tipoText || (mov.tipo === 'acreditacion' ? 'Acreditación' : mov.tipo === 'comprobante' ? 'Comprobante' : mov.tipo === 'credito' ? 'Crédito' : mov.tipo === 'pago' ? 'Pago' : 'Movimiento')}</span>
+                    <span class="badge ${badgeClass} text-white ms-2">${badgeText}</span>
+                    <span class="badge ${badgeClass} text-white ms-1">${tipoText || (mov.tipo === 'acreditacion' ? 'Acreditación' : mov.tipo === 'comprobante' ? 'Comprobante' : mov.tipo === 'credito' ? 'Crédito' : mov.tipo === 'pago' ? 'Pago' : 'Movimiento')}</span>
                     ${mov.fuente ? `<span class="badge ${getFuenteBadgeClass(mov.fuente)} ms-1">${getFuenteText(mov.fuente)}</span>` : ''}
                   </div>
                   
@@ -738,9 +738,9 @@
                     </div>
                   ` : ''}
                   
-                  ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `
+                  ${(mov.tipo === 'comprobante' && mov.id_acreditacion) || mov.tipo === 'acreditacion' ? `
                     <div class="mt-1">
-                      <small class="text-success"><strong>🔗 Vinculado a Acreditación:</strong> ${mov.id_acreditacion}</small>
+                      <small class="text-success"><strong>�� ID Acreditación:</strong> ${mov.id_acreditacion}</small>
                     </div>
                   ` : ''}
                   
@@ -749,7 +749,7 @@
                       <small class="text-warning"><strong>⚠️ Sin vincular a acreditación</strong></small>
                     </div>
                   ` : ''}
-                  ${comision > 0 && ((mov.tipo === 'credito') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
+                  ${(typeof comision !== 'undefined') && ((mov.tipo === 'credito') || (mov.tipo === 'acreditacion') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
                     <div class="mt-1">
                       <small class="text-muted"><strong>Comisión:</strong> ${comision}%<br>
                       <span class="text-danger">- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></small>
@@ -761,7 +761,7 @@
                   <div class="h5 mb-0 ${importeClass}">
                     ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </div>
-                  ${comision > 0 && ((mov.tipo === 'credito') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
+                  ${(typeof comision !== 'undefined') && ((mov.tipo === 'credito') || (mov.tipo === 'acreditacion') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
                     <div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - importeComision).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
                   ` : ''}
                   <div class="btn-group-vertical btn-group-sm mt-1">
