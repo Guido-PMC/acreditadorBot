@@ -2076,14 +2076,9 @@ router.get('/clientes/:id/resumen', async (req, res) => {
     const montoPorAcreditar = calcularMontoPorAcreditarCompleto(acreditaciones, pagos, plazoAcreditacion);
     const montoDisponible = calcularMontoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
 
-    // Calcular saldo real (acreditaciones cotejadas - comisiones + créditos - comisiones créditos - pagos)
-    const totalAcreditacionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_importe_cotejadas || 0);
+    // Calcular saldo actual (solo fondos liberados menos comisiones)
     const totalComisionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_comisiones_cotejadas || 0);
-    const totalPagos = parseFloat(pagosStats.rows[0].total_importe_pagos || 0);
-    const totalCreditos = parseFloat(pagosStats.rows[0].total_importe_creditos || 0);
-    const totalComisionCreditos = parseFloat(pagosStats.rows[0].total_importe_comision_creditos || 0);
-    
-    const saldo = totalAcreditacionesCotejadas - totalComisionesCotejadas + (totalCreditos - totalComisionCreditos) - totalPagos;
+    const saldo = montoDisponible - totalComisionesCotejadas;
 
     res.json({
       success: true,
@@ -4319,7 +4314,7 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
       )
       UNION ALL
       (
-        -- Comprobantes
+        -- Comprobantes (solo pendientes, no los ya acreditados)
         SELECT 
           CAST(id AS INTEGER) as id,
           'comprobante' as tipo,
@@ -4341,7 +4336,7 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
           nombre_remitente,
           'whatsapp' as fuente
         FROM comprobantes_whatsapp 
-        WHERE CAST(id_cliente AS INTEGER) = $1
+        WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
       )
       UNION ALL
       (

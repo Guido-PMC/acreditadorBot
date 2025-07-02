@@ -459,7 +459,7 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
       )
       UNION ALL
       (
-        -- Comprobantes
+        -- Comprobantes (solo pendientes, no los ya acreditados)
         SELECT 
           CAST(id AS INTEGER) as id,
           'comprobante' as tipo,
@@ -481,7 +481,7 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
           nombre_remitente,
           'whatsapp' as fuente
         FROM comprobantes_whatsapp 
-        WHERE CAST(id_cliente AS INTEGER) = $1
+        WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
       )
       UNION ALL
       (
@@ -626,15 +626,9 @@ router.get('/resumen', authenticateToken, async (req, res) => {
       WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
     `, [cliente_id]);
 
-    // Calcular saldo actual (solo fondos liberados)
-    const totalImporteCotejadas = parseFloat(acreditacionesStats.rows[0].total_importe_cotejadas || 0);
+    // Calcular saldo actual (solo fondos liberados menos comisiones)
     const totalComisionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_comisiones_cotejadas || 0);
-    const totalCreditos = parseFloat(movimientosStats.rows[0].total_importe_creditos || 0);
-    const totalComisionesCreditos = parseFloat(movimientosStats.rows[0].total_comisiones_creditos || 0);
-    const totalPagos = parseFloat(movimientosStats.rows[0].total_importe_pagos || 0);
-
-    // Nuevo saldo: solo fondos liberados
-    const saldo_actual = montoDisponible - totalComisionesCotejadas + (totalCreditos - totalComisionesCreditos) - totalPagos;
+    const saldo_actual = montoDisponible - totalComisionesCotejadas;
 
     // Saldo pendiente (acreditaciones no cotejadas - comisiones)
     const saldo_pendiente = (acreditacionesStats.rows[0].total_importe_pendientes || 0) - 

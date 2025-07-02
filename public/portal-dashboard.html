@@ -131,7 +131,7 @@
 
         <!-- Resumen de estadísticas -->
         <div class="row mb-4" id="statsRow">
-            <div class="col-md-4 mb-3">
+            <div class="col-md-3 mb-3">
                 <div class="card stats-card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -186,21 +186,6 @@
                             </div>
                             <div class="align-self-center">
                                 <i class="fas fa-wallet fa-2x"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="card stats-card success">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="card-title">Saldo Total</h6>
-                                <h3 id="saldoTotal">-</h3>
-                            </div>
-                            <div class="align-self-center">
-                                <i class="fas fa-calculator fa-2x"></i>
                             </div>
                         </div>
                     </div>
@@ -443,21 +428,7 @@
                         currency: 'ARS'
                     }).format(saldoPendiente);
 
-                    // Saldo total (disponible + pendiente)
-                    const saldoTotal = disponible + saldoPendiente;
-                    const saldoTotalElement = document.getElementById('saldoTotal');
-                    saldoTotalElement.textContent = new Intl.NumberFormat('es-AR', {
-                        style: 'currency',
-                        currency: 'ARS'
-                    }).format(saldoTotal);
 
-                    if (saldoTotal > 0) {
-                        saldoTotalElement.className = 'balance-positive';
-                    } else if (saldoTotal < 0) {
-                        saldoTotalElement.className = 'balance-negative';
-                    } else {
-                        saldoTotalElement.className = 'balance-zero';
-                    }
                 }
             } catch (error) {
                 console.error('Error cargando resumen:', error);
