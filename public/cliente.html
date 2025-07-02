@@ -698,86 +698,42 @@
 
         return `
           <div class="card mb-2">
-            <div class="card-body p-3">
+            <div class="card-body p-2">
               <div class="d-flex justify-content-between align-items-start">
                 <div class="flex-grow-1">
                   <div class="d-flex align-items-center mb-1">
                     <i class="${icon} me-2"></i>
-                    <strong>${mov.concepto}</strong>
-                    <span class="badge ${badgeClass} text-white ms-2">${badgeText}</span>
-                    <span class="badge ${badgeClass} text-white ms-1">${tipoText || (mov.tipo === 'acreditacion' ? 'Acreditación' : mov.tipo === 'comprobante' ? 'Comprobante' : mov.tipo === 'credito' ? 'Crédito' : mov.tipo === 'pago' ? 'Pago' : 'Movimiento')}</span>
+                    <strong>${(mov.tipo === 'acreditacion' && mov.nombre_remitente) ? mov.nombre_remitente : (mov.concepto || '').replace(/^\s*[^\w\s]*\s*/, '')}</strong>
+                    <span class="badge ${mov.tipo === 'acreditacion' ? 'bg-success' : badgeClass} text-white ms-2">${badgeText && badgeText !== 'undefined' ? badgeText : 'Acreditación'}</span>
+                    <span class="badge ${mov.tipo === 'acreditacion' ? 'bg-success' : badgeClass} text-white ms-1">${tipoText && tipoText !== 'undefined' ? tipoText : (mov.tipo === 'acreditacion' ? 'Acreditación' : mov.tipo === 'comprobante' ? 'Comprobante' : mov.tipo === 'credito' ? 'Crédito' : mov.tipo === 'pago' ? 'Pago' : 'Movimiento')}</span>
                     ${mov.fuente ? `<span class="badge ${getFuenteBadgeClass(mov.fuente)} ms-1">${getFuenteText(mov.fuente)}</span>` : ''}
                   </div>
-                  
                   <div class="row">
                     <div class="col-md-6">
                       <small class="text-muted">
                         <strong>Fecha:</strong> ${new Date(mov.fecha).toLocaleDateString()} ${new Date(mov.fecha).toLocaleTimeString()}
                       </small>
-                      ${mov.fecha_recepcion ? `
-                        <br><small class="text-muted">
-                          <strong>Fecha Recepción:</strong> ${new Date(mov.fecha_recepcion).toLocaleDateString()} ${new Date(mov.fecha_recepcion).toLocaleTimeString()}
-                        </small>
-                      ` : ''}
+                      ${mov.fecha_recepcion ? `<br><small class="text-muted"><strong>Fecha Recepción:</strong> ${new Date(mov.fecha_recepcion).toLocaleDateString()} ${new Date(mov.fecha_recepcion).toLocaleTimeString()}</small>` : ''}
                     </div>
                     <div class="col-md-6">
                       ${mov.cuit ? `<small class="text-muted"><strong>CUIT:</strong> ${cleanCUIT(mov.cuit)}</small><br>` : ''}
                       ${mov.metodo_pago ? `<small class="text-muted"><strong>Método:</strong> ${mov.metodo_pago}</small><br>` : ''}
                       ${mov.referencia ? `<small class="text-muted"><strong>Referencia:</strong> ${mov.referencia}</small><br>` : ''}
                       ${mov.id_comprobante ? `<small class="text-muted"><strong>ID Comprobante:</strong> ${mov.id_comprobante}</small><br>` : ''}
+                      ${(mov.id_acreditacion && (mov.tipo === 'comprobante' || mov.tipo === 'acreditacion')) ? `<small class="text-success"><strong>ID Acreditación:</strong> ${mov.id_acreditacion}</small><br>` : ''}
                     </div>
                   </div>
-                  
-                  ${mov.observaciones ? `
-                    <div class="mt-1">
-                      <small class="text-muted"><strong>Observaciones:</strong> ${mov.observaciones}</small>
-                    </div>
-                  ` : ''}
-                  
-                  ${(mov.tipo === 'comprobante' && mov.id_acreditacion) || mov.tipo === 'acreditacion' ? `
-                    <div class="mt-1">
-                      <small class="text-success"><strong>�� ID Acreditación:</strong> ${mov.id_acreditacion}</small>
-                    </div>
-                  ` : ''}
-                  
-                  ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `
-                    <div class="mt-1">
-                      <small class="text-warning"><strong>⚠️ Sin vincular a acreditación</strong></small>
-                    </div>
-                  ` : ''}
-                  ${comision > 0 ? `
-                    <div class="mt-1">
-                      <small class="text-muted"><strong>Comisión:</strong> ${comision}%<br>
-                      <span class="text-danger">- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></small>
-                    </div>
-                  ` : ''}
+                  ${mov.observaciones ? `<div class="mt-1"><small class="text-muted"><strong>Observaciones:</strong> ${mov.observaciones}</small></div>` : ''}
+                  ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `<div class="mt-1"><small class="text-warning"><strong>⚠️ Sin vincular a acreditación</strong></small></div>` : ''}
                 </div>
-                
                 <div class="text-end ms-3">
-                  <div class="h5 mb-0 ${importeClass}">
-                    ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                  </div>
-                  ${comision > 0 ? `
-                    <div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - importeComision).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-                  ` : ''}
+                  <div class="h5 mb-0 ${importeClass}">${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                  ${comision > 0 ? `<div class="text-muted small"><strong>Comisión:</strong> ${comision}%<br><span class="text-danger">- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></div>` : ''}
+                  ${comision > 0 ? `<div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - importeComision).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>` : ''}
                   <div class="btn-group-vertical btn-group-sm mt-1">
-                    ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `
-                      <button class="btn btn-outline-warning" onclick="desasignarComprobante(${mov.id})" title="Desasignar comprobante">
-                        <i class="fas fa-unlink"></i> Desasignar
-                      </button>
-                    ` : ''}
-                    
-                    ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `
-                      <button class="btn btn-outline-primary" onclick="window.open('/asignacion.html', '_blank')" title="Ir a asignación manual">
-                        <i class="fas fa-link"></i> Asignar
-                      </button>
-                    ` : ''}
-                    
-                    ${mov.tipo === 'pago' || mov.tipo === 'credito' ? `
-                      <button class="btn btn-outline-danger" onclick="deletePago(${mov.id})" title="Eliminar ${mov.tipo}">
-                        <i class="fas fa-trash"></i> Eliminar
-                      </button>
-                    ` : ''}
+                    ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `<button class="btn btn-outline-warning" onclick="desasignarComprobante(${mov.id})" title="Desasignar comprobante"><i class="fas fa-unlink"></i> Desasignar</button>` : ''}
+                    ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `<button class="btn btn-outline-primary" onclick="window.open('/asignacion.html', '_blank')" title="Ir a asignación manual"><i class="fas fa-link"></i> Asignar</button>` : ''}
+                    ${(mov.tipo === 'pago' || mov.tipo === 'credito') ? `<button class="btn btn-outline-danger" onclick="deletePago(${mov.id})" title="Eliminar ${mov.tipo}"><i class="fas fa-trash"></i> Eliminar</button>` : ''}
                   </div>
                 </div>
               </div>
