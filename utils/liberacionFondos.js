@@ -131,11 +131,69 @@ function calcularMontoDisponible(acreditaciones, plazoHoras) {
   }, 0);
 }
 
+/**
+ * Calcula el monto por acreditar incluyendo pagos tipo depósito
+ * @param {Array} acreditaciones - Array de acreditaciones
+ * @param {Array} pagos - Array de pagos
+ * @param {number} plazoHoras - Plazo en horas del cliente
+ * @returns {number} - Monto total por acreditar
+ */
+function calcularMontoPorAcreditarCompleto(acreditaciones, pagos, plazoHoras) {
+  let total = 0;
+  
+  // Acreditaciones no liberadas
+  acreditaciones.forEach(acreditacion => {
+    if (!estaLiberado(acreditacion.fecha_hora, plazoHoras)) {
+      total += parseFloat(acreditacion.importe || 0);
+    }
+  });
+  
+  // Pagos tipo depósito no liberados
+  pagos.forEach(pago => {
+    if (pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
+        !estaLiberado(pago.fecha_pago, plazoHoras)) {
+      total += parseFloat(pago.importe || 0);
+    }
+  });
+  
+  return total;
+}
+
+/**
+ * Calcula el monto disponible incluyendo pagos tipo depósito
+ * @param {Array} acreditaciones - Array de acreditaciones
+ * @param {Array} pagos - Array de pagos
+ * @param {number} plazoHoras - Plazo en horas del cliente
+ * @returns {number} - Monto total disponible
+ */
+function calcularMontoDisponibleCompleto(acreditaciones, pagos, plazoHoras) {
+  let total = 0;
+  
+  // Acreditaciones liberadas
+  acreditaciones.forEach(acreditacion => {
+    if (estaLiberado(acreditacion.fecha_hora, plazoHoras)) {
+      total += parseFloat(acreditacion.importe || 0);
+    }
+  });
+  
+  // Pagos tipo depósito liberados
+  pagos.forEach(pago => {
+    if (pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
+        estaLiberado(pago.fecha_pago, plazoHoras)) {
+      total += parseFloat(pago.importe || 0);
+    }
+  });
+  
+  return total;
+}
+
 module.exports = {
   calcularFechaLiberacion,
   estaLiberado,
   horasRestantes,
   formatearFechaLiberacion,
   calcularMontoPorAcreditar,
-  calcularMontoDisponible
+  calcularMontoDisponible,
+  calcularMontoPorAcreditarCompleto,
+  calcularMontoDisponibleCompleto
 }; 

@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
-const { calcularMontoPorAcreditar, calcularMontoDisponible, formatearFechaLiberacion } = require('../utils/liberacionFondos');
+const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto, formatearFechaLiberacion } = require('../utils/liberacionFondos');
 
 const router = express.Router();
 
@@ -516,11 +516,14 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
     params.push(parseInt(limit), offset);
     const dataResult = await client.query(dataQuery, params);
 
-    // Calcular fechas estimadas de liberación para acreditaciones y comprobantes
+    // Calcular fechas estimadas de liberación para acreditaciones, comprobantes y pagos tipo depósito
     const movimientosConFechas = dataResult.rows.map(mov => {
       if (mov.tipo === 'acreditacion' || mov.tipo === 'comprobante') {
         const fechaRecepcion = mov.fecha_recepcion || mov.fecha;
         mov.fecha_estimada_liberacion = formatearFechaLiberacion(fechaRecepcion, plazoAcreditacion);
+      } else if (mov.tipo === 'pago' && mov.concepto && mov.concepto.toLowerCase().includes('deposito')) {
+        // Los pagos tipo depósito también tienen plazo de acreditación
+        mov.fecha_estimada_liberacion = formatearFechaLiberacion(mov.fecha, plazoAcreditacion);
       }
       return mov;
     });
@@ -575,9 +578,13 @@ router.get('/resumen', authenticateToken, async (req, res) => {
     const acreditacionesResult = await client.query('SELECT importe, fecha_hora, comision, importe_comision FROM acreditaciones WHERE id_cliente = $1', [cliente_id]);
     const acreditaciones = acreditacionesResult.rows;
 
-    // Calcular montos por acreditar y disponibles
-    const montoPorAcreditar = calcularMontoPorAcreditar(acreditaciones, plazoAcreditacion);
-    const montoDisponible = calcularMontoDisponible(acreditaciones, plazoAcreditacion);
+    // Obtener todos los pagos del cliente (para incluir depósitos)
+    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = \'confirmado\'', [cliente_id]);
+    const pagos = pagosResult.rows;
+
+    // Calcular montos por acreditar y disponibles (incluyendo depósitos)
+    const montoPorAcreditar = calcularMontoPorAcreditarCompleto(acreditaciones, pagos, plazoAcreditacion);
+    const montoDisponible = calcularMontoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
 
     // Estadísticas de acreditaciones (considerando comisiones)
     const acreditacionesStats = await client.query(`
