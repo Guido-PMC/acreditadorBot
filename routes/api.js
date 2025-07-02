@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
-const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto } = require('../utils/liberacionFondos');
+const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto, formatearFechaLiberacion } = require('../utils/liberacionFondos');
 const router = express.Router();
 
 // Funciones de normalización y matching inteligente
