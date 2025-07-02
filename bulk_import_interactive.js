@@ -82,24 +82,24 @@ function parseDate(dateStr) {
   return null;
 }
 
+// Obtener nombre de archivo por argumento o usar por defecto
+const archivoCSV = process.argv[2] || 'datosFULL.csv';
+
 // Función para analizar el CSV y extraer clientes únicos
 async function analyzeCSV() {
-  console.log('📊 Analizando clientes en datosFULL.csv...\n');
+  console.log(`📊 Analizando clientes en ${archivoCSV}...\n`);
   
   const clientesEnCSV = new Set();
   const estadisticasPorCliente = {};
   let totalLineas = 0;
-  const maxRows = 1000;
   
   return new Promise((resolve, reject) => {
-    fs.createReadStream('datosFULL.csv')
+    fs.createReadStream(archivoCSV)
       .pipe(csv({
         headers: ['ID', 'FECHA', 'ID_TRANSACCION', 'TIPO_OPERACION', 'MONTO', 'TITULAR', 'CUIT', 'FECHA_COMPROB', 'CLIENTE', 'COMISION', 'NETO', 'SALDO']
       }))
       .on('data', (row) => {
         totalLineas++;
-        
-        if (totalLineas > maxRows) return;
         
         const cliente = row.CLIENTE?.trim();
         const tipoOperacion = row.TIPO_OPERACION?.trim();
@@ -202,36 +202,51 @@ async function crearMapeoClientes(clientesCSV, clientesSistema, estadisticas) {
 
 // Función para importar datos con el mapeo
 async function importarConMapeo(mapeo) {
-  console.log('\n🚀 INICIANDO IMPORTACIÓN...\n');
+  console.log(`\n🚀 INICIANDO IMPORTACIÓN DE ${archivoCSV}...\n`);
   
   const acreditaciones = [];
   const comprobantes = [];
   const pagos = [];
   let processedRows = 0;
-  const maxRows = 1000;
+  let lastRow = null;
   
   return new Promise((resolve, reject) => {
-    fs.createReadStream('datosFULL.csv')
+    fs.createReadStream(archivoCSV)
       .pipe(csv({
         headers: ['ID', 'FECHA', 'ID_TRANSACCION', 'TIPO_OPERACION', 'MONTO', 'TITULAR', 'CUIT', 'FECHA_COMPROB', 'CLIENTE', 'COMISION', 'NETO', 'SALDO']
       }))
       .on('data', (row) => {
+        lastRow = row;
         processedRows++;
         
-        if (processedRows > maxRows) return;
-        
         const tipoOperacion = row.TIPO_OPERACION?.trim();
-        const monto = parseAmount(row.MONTO);
+        const montoOriginal = row.MONTO;
+        const monto = parseAmount(montoOriginal);
         const fecha = parseDate(row.FECHA);
         const cliente = row.CLIENTE?.trim();
+        const idTransaccion = row.ID_TRANSACCION || `HIST_${processedRows}`;
         
         // Saltar saldos anteriores
         if (tipoOperacion === 'SALDO ANTERIOR') return;
         
+        // LOG DETALLADO para SUPLEMENTOS PROFIT y Transferencia entrante
+        if (tipoOperacion === 'Transferencia entrante' && cliente === 'SUPLEMENTOS PROFIT') {
+          let motivo = null;
+          let existeEnArray = acreditaciones.some(a => a.id_transaccion === idTransaccion);
+          let idCliente = mapeo[cliente];
+          if (!cliente || idCliente === null || idCliente === undefined) {
+            motivo = 'Cliente no mapeado';
+          } else if (!monto || isNaN(monto) || monto <= 0) {
+            motivo = 'Monto inválido';
+          } else if (existeEnArray) {
+            motivo = 'ID_TRANSACCION duplicado en array';
+          }
+          console.log(`[LOG] Línea ${processedRows} | Cliente: ${cliente} | Monto original: "${montoOriginal}" | Monto parseado: ${monto} | ID_TRANSACCION: ${idTransaccion} | idCliente: ${idCliente} | Ya en array: ${existeEnArray} ${motivo ? '| MOTIVO: ' + motivo : ''}`);
+        }
+        
         // Verificar si el cliente tiene mapeo
         const idCliente = mapeo[cliente];
         if (idCliente === null || idCliente === undefined) {
-          console.log(`⏭️  Saltando línea ${processedRows}: Cliente "${cliente}" no mapeado`);
           return;
         }
         
@@ -239,9 +254,11 @@ async function importarConMapeo(mapeo) {
         
         if (tipoOperacion === 'Transferencia entrante' && monto > 0) {
           // Es una acreditación
-          const comisionStr = row.COMISION?.replace('%', '') || '0';
+          console.log(`[DEBUG] Valor crudo de la celda COMISION:`, row.COMISION);
+          const comisionStr = (row.COMISION || '0').replace('%', '').replace(',', '.');
           const comision = parseFloat(comisionStr) || 0;
           const importeComision = monto * (comision / 100);
+          console.log(`[DEBUG] Comisión para acreditación: original="${row.COMISION}" | parseada=${comision} | monto=${monto} | importeComision=${importeComision}`);
           const idTransaccion = row.ID_TRANSACCION || `HIST_${processedRows}`;
           
           acreditaciones.push({
@@ -277,6 +294,26 @@ async function importarConMapeo(mapeo) {
             id_cliente: idCliente
           });
         } 
+        // NUEVO: Procesar DEPOSITO como COBRO
+        else if (tipoOperacion === 'DEPOSITO' && monto > 0) {
+          const idTransaccion = row.ID_TRANSACCION || `HIST_${processedRows}`;
+          acreditaciones.push({
+            id_transaccion: idTransaccion,
+            tipo: 'cobro',
+            concepto: 'Depósito bancario',
+            importe: monto,
+            estado: 'confirmado',
+            titular: row.TITULAR || '',
+            cuit: row.CUIT || '',
+            fecha_hora: fecha || new Date(),
+            fuente: 'historico',
+            id_cliente: idCliente,
+            comision: 0,
+            importe_comision: 0,
+            procesado: true,
+            cotejado: true
+          });
+        }
         else if ((tipoOperacion === 'Transferencia saliente' || tipoOperacion === 'PAGO' || tipoOperacion === 'TRANSFERENCIA SALIENTE') && monto !== 0) {
           // Es un pago/egreso
           const montoAbsoluto = Math.abs(monto);
@@ -301,11 +338,51 @@ async function importarConMapeo(mapeo) {
       })
       .on('end', async () => {
         try {
+          // Log de la última línea leída antes del EOF
+          console.log(`\n🟢 Última línea leída antes de EOF:`, lastRow);
+
+          // Log de la última línea procesada
+          console.log(`\n🔚 Última línea procesada: ${processedRows}`);
+
+          // Separar acreditaciones y cobros
+          const acreditacionesTransfer = acreditaciones.filter(a => a.tipo === 'transferencia_entrante');
+          const cobros = acreditaciones.filter(a => a.tipo === 'cobro');
+
           console.log(`\n📊 RESUMEN FINAL:`);
           console.log(`- Líneas procesadas: ${processedRows}`);
-          console.log(`- Acreditaciones a insertar: ${acreditaciones.length}`);
+          console.log(`- Acreditaciones a insertar: ${acreditacionesTransfer.length}`);
+          console.log(`- Cobros a insertar: ${cobros.length}`);
           console.log(`- Comprobantes a insertar: ${comprobantes.length}`);
           console.log(`- Pagos a insertar: ${pagos.length}`);
+
+          // Mostrar detalle de acreditaciones (transferencias entrantes)
+          if (acreditacionesTransfer.length > 0) {
+            console.log('\n🔎 Detalle de acreditaciones a insertar:');
+            acreditacionesTransfer.forEach((a, i) => {
+              console.log(`${i+1}. [${a.tipo}] | Importe: $${a.importe} | Fecha: ${a.fecha_hora}`);
+            });
+          }
+          // Mostrar detalle de cobros
+          if (cobros.length > 0) {
+            console.log('\n🔎 Detalle de cobros a insertar:');
+            cobros.forEach((a, i) => {
+              console.log(`${i+1}. [${a.tipo}] | Importe: $${a.importe} | Fecha: ${a.fecha_hora}`);
+            });
+          }
+          // Mostrar detalle de comprobantes
+          if (comprobantes.length > 0) {
+            console.log('\n🔎 Detalle de comprobantes a insertar:');
+            comprobantes.forEach((c, i) => {
+              console.log(`${i+1}. Importe: $${c.importe} | Fecha: ${c.fecha_envio}`);
+            });
+          }
+          // Mostrar detalle de pagos
+          if (pagos.length > 0) {
+            console.log('\n🔎 Detalle de pagos a insertar:');
+            pagos.forEach((p, i) => {
+              console.log(`${i+1}. | Importe: $${p.importe} | Fecha: ${p.fecha_pago}`);
+            });
+          }
           
           // Confirmar antes de insertar
           const confirmar = await question('\n❓ ¿Proceder con la inserción en la base de datos? (s/n): ');
@@ -315,13 +392,13 @@ async function importarConMapeo(mapeo) {
             return;
           }
           
-          // Insertar acreditaciones
-          if (acreditaciones.length > 0) {
+          // Insertar acreditaciones y establecer vinculaciones
+          if (acreditacionesTransfer.length > 0) {
             console.log('\n💰 Insertando acreditaciones...');
             const batchSize = 50;
             
-            for (let i = 0; i < acreditaciones.length; i += batchSize) {
-              const batch = acreditaciones.slice(i, i + batchSize);
+            for (let i = 0; i < acreditacionesTransfer.length; i += batchSize) {
+              const batch = acreditacionesTransfer.slice(i, i + batchSize);
               
               const values = batch.map(acred => 
                 `('${acred.id_transaccion}', '${acred.tipo}', '${acred.concepto}', ${acred.importe}, '${acred.estado}', '${acred.titular.replace(/'/g, "''")}', '${acred.cuit}', '${acred.fecha_hora.toISOString()}', '${acred.fuente}', ${acred.id_cliente}, ${acred.comision}, ${acred.importe_comision}, ${acred.procesado}, ${acred.cotejado})`
@@ -340,7 +417,7 @@ async function importarConMapeo(mapeo) {
             }
           }
           
-          // Insertar comprobantes WhatsApp simulados
+          // Insertar comprobantes WhatsApp simulados con vinculación correcta
           if (comprobantes.length > 0) {
             console.log('\n📱 Insertando comprobantes WhatsApp simulados...');
             const batchSize = 50;
@@ -348,20 +425,47 @@ async function importarConMapeo(mapeo) {
             for (let i = 0; i < comprobantes.length; i += batchSize) {
               const batch = comprobantes.slice(i, i + batchSize);
               
-              const values = batch.map(comp => 
-                `('${comp.id_comprobante}', '${comp.nombre_remitente.replace(/'/g, "''")}', '${comp.cuit}', ${comp.importe}, '${comp.fecha_envio.toISOString()}', '${comp.fecha_recepcion.toISOString()}', '${comp.estado}', ${comp.procesado}, ${comp.cotejado}, '${comp.id_acreditacion}', ${comp.id_cliente})`
-              ).join(',');
+              // Insertar comprobantes uno por uno para obtener vinculaciones correctas
+              for (const comp of batch) {
+                // Obtener el ID real de la acreditación
+                const acredResult = await db.query(
+                  'SELECT id FROM acreditaciones WHERE id_transaccion = $1', 
+                  [comp.id_acreditacion]
+                );
+                
+                if (acredResult.rows.length > 0) {
+                  const idAcreditacionReal = acredResult.rows[0].id;
+                  
+                  // Insertar comprobante con ID real de acreditación (como string)
+                  await db.query(`
+                    INSERT INTO comprobantes_whatsapp (
+                      id_comprobante, nombre_remitente, cuit, importe, fecha_envio, 
+                      fecha_recepcion, estado, procesado, cotejado, id_acreditacion, id_cliente
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                    ON CONFLICT (id_comprobante) DO NOTHING
+                  `, [
+                    comp.id_comprobante,
+                    comp.nombre_remitente,
+                    comp.cuit,
+                    comp.importe,
+                    comp.fecha_envio,
+                    comp.fecha_recepcion,
+                    comp.estado,
+                    comp.procesado,
+                    comp.cotejado,
+                    idAcreditacionReal.toString(), // Convertir a string para coincidir con el tipo VARCHAR
+                    comp.id_cliente
+                  ]);
+                  
+                  // Actualizar acreditación con id_comprobante_whatsapp
+                  await db.query(
+                    'UPDATE acreditaciones SET id_comprobante_whatsapp = $1 WHERE id = $2',
+                    [comp.id_comprobante, idAcreditacionReal]
+                  );
+                }
+              }
               
-              const query = `
-                INSERT INTO comprobantes_whatsapp (
-                  id_comprobante, nombre_remitente, cuit, importe, fecha_envio, 
-                  fecha_recepcion, estado, procesado, cotejado, id_acreditacion, id_cliente
-                ) VALUES ${values}
-                ON CONFLICT (id_comprobante) DO NOTHING
-              `;
-              
-              await db.query(query);
-              console.log(`  ✅ Lote ${Math.floor(i/batchSize) + 1}: ${batch.length} comprobantes`);
+              console.log(`  ✅ Lote ${Math.floor(i/batchSize) + 1}: ${batch.length} comprobantes con vinculaciones`);
             }
           }
           
@@ -400,14 +504,31 @@ async function importarConMapeo(mapeo) {
           console.log(`- Comprobantes históricos: ${statsComprob.rows[0].total}`);
           console.log(`- Pagos históricos: ${statsPagos.rows[0].total}`);
           
-          // Verificar vinculaciones
+          // Verificar vinculaciones bidireccionales
           const vinculaciones = await db.query(`
             SELECT COUNT(*) as total 
             FROM acreditaciones a 
-            INNER JOIN comprobantes_whatsapp c ON a.id_transaccion = c.id_acreditacion 
+            INNER JOIN comprobantes_whatsapp c ON a.id = c.id_acreditacion::integer 
             WHERE a.fuente = 'historico' AND c.id_comprobante LIKE 'HIST_WH_%'
+            AND a.id_comprobante_whatsapp = c.id_comprobante
           `);
-          console.log(`- Vinculaciones acreditación ↔ comprobante: ${vinculaciones.rows[0].total}`);
+          console.log(`- Vinculaciones bidireccionales acreditación ↔ comprobante: ${vinculaciones.rows[0].total}`);
+          
+          // Verificar acreditaciones sin comprobante
+          const sinComprobante = await db.query(`
+            SELECT COUNT(*) as total 
+            FROM acreditaciones 
+            WHERE fuente = 'historico' AND id_comprobante_whatsapp IS NULL
+          `);
+          console.log(`- Acreditaciones sin comprobante vinculado: ${sinComprobante.rows[0].total}`);
+          
+          // Verificar comprobantes sin acreditación
+          const sinAcreditacion = await db.query(`
+            SELECT COUNT(*) as total 
+            FROM comprobantes_whatsapp 
+            WHERE id_comprobante LIKE 'HIST_WH_%' AND id_acreditacion IS NULL
+          `);
+          console.log(`- Comprobantes sin acreditación vinculada: ${sinAcreditacion.rows[0].total}`);
           
           resolve();
           
@@ -423,8 +544,8 @@ async function importarConMapeo(mapeo) {
 // Función principal
 async function main() {
   try {
-    console.log('🚀 IMPORTACIÓN INTERACTIVA DE datosFULL.csv');
-    console.log('📋 Procesando primeras 1000 líneas\n');
+    console.log(`🚀 IMPORTACIÓN INTERACTIVA DE ${archivoCSV}`);
+    console.log('📋 Procesando archivo completo\n');
     
     // Conectar a la base de datos
     console.log('🔌 Conectando a la base de datos...');
@@ -549,4 +670,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { main }; 
+module.exports = { main };

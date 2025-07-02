@@ -721,7 +721,7 @@
                 
                 <div class="text-end ms-3">
                   <div class="h5 mb-0 ${importeClass}">
-                    ${mov.tipo === 'pago' ? '-' : ''}$${(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </div>
                   
                   <div class="btn-group-vertical btn-group-sm mt-1">
@@ -875,6 +875,4 @@
     });
   </script>
 </body>
-</html> 
-</html> 
 </html> 
