@@ -607,7 +607,15 @@
             updatePaginationInfo(startIndex + 1, endIndex, total);
             updatePaginationControls(totalPages);
 
-            tbody.innerHTML = movimientosPagina.map(mov => {
+            // Transformar comprobantes con acreditación vinculada a tipo 'acreditacion'
+            const movimientosTransformados = movimientosPagina.map(mov => {
+                if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
+                    return { ...mov, tipo: 'acreditacion' };
+                }
+                return mov;
+            });
+
+            tbody.innerHTML = movimientosTransformados.map(mov => {
                 const isEntrada = mov.es_entrada;
                 let icon = '';
                 let badgeClass = '';

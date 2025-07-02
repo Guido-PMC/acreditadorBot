@@ -650,7 +650,15 @@
         return;
       }
 
-      container.innerHTML = movimientos.map(mov => {
+      // Transformar comprobantes con acreditación vinculada a tipo 'acreditacion'
+      const movimientosTransformados = movimientos.map(mov => {
+        if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
+          return { ...mov, tipo: 'acreditacion' };
+        }
+        return mov;
+      });
+
+      container.innerHTML = movimientosTransformados.map(mov => {
         let icon, badgeClass, badgeText, tipoText, importeClass;
         
         if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
