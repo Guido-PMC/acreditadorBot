@@ -463,7 +463,7 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
         SELECT 
           id,
           'comprobante' as tipo,
-          concepto,
+          nombre_remitente as concepto,
           importe,
           fecha_envio as fecha,
           fecha_envio as fecha_original,
@@ -471,7 +471,7 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
           cuit,
           NULL as metodo_pago,
           NULL as referencia,
-          observaciones,
+          NULL as observaciones,
           'confirmado' as estado,
           0 as comision,
           0 as importe_comision,
