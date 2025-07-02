@@ -424,7 +424,8 @@ router.get('/resumen', authenticateToken, async (req, res) => {
         COUNT(CASE WHEN tipo_pago = 'egreso' THEN 1 END) as total_pagos,
         COUNT(CASE WHEN tipo_pago = 'credito' THEN 1 END) as total_creditos,
         SUM(CASE WHEN tipo_pago = 'egreso' THEN importe ELSE 0 END) as total_importe_pagos,
-        SUM(CASE WHEN tipo_pago = 'credito' THEN importe ELSE 0 END) as total_importe_creditos
+        SUM(CASE WHEN tipo_pago = 'credito' THEN importe ELSE 0 END) as total_importe_creditos,
+        SUM(CASE WHEN tipo_pago = 'credito' THEN importe_comision ELSE 0 END) as total_comisiones_creditos
       FROM pagos 
       WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = 'confirmado'
     `, [cliente_id]);
@@ -438,19 +439,21 @@ router.get('/resumen', authenticateToken, async (req, res) => {
       WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
     `, [cliente_id]);
 
-    // Calcular saldo actual (acreditaciones cotejadas - comisiones + créditos - pagos)
+    // Calcular saldo actual (acreditaciones cotejadas - comisiones + créditos - comisiones créditos - pagos)
     const totalImporteCotejadas = parseFloat(acreditacionesStats.rows[0].total_importe_cotejadas || 0);
     const totalComisionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_comisiones_cotejadas || 0);
     const totalCreditos = parseFloat(movimientosStats.rows[0].total_importe_creditos || 0);
+    const totalComisionesCreditos = parseFloat(movimientosStats.rows[0].total_comisiones_creditos || 0);
     const totalPagos = parseFloat(movimientosStats.rows[0].total_importe_pagos || 0);
 
-    const saldo_actual = totalImporteCotejadas - totalComisionesCotejadas + totalCreditos - totalPagos;
+    const saldo_actual = totalImporteCotejadas - totalComisionesCotejadas + totalCreditos - totalComisionesCreditos - totalPagos;
     
     console.log('🔍 Debug Saldo Actual Portal:', {
       cliente_id,
       totalImporteCotejadas,
       totalComisionesCotejadas,
       totalCreditos,
+      totalComisionesCreditos,
       totalPagos,
       saldo_actual
     });

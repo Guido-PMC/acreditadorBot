@@ -682,14 +682,12 @@
                             <div class="h5 mb-0 ${importeClass}">
                                 ${mov.tipo === 'pago' || (mov.tipo === 'movimiento' && mov.tipo_pago === 'egreso') ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                             </div>
-                            ${comision > 0 ? `<div class='text-muted small'><strong>Comisión:</strong> ${comision}%<br><span class='text-danger'>- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></div>` : ''}
-                            ${comision > 0 ? `<div class='text-muted small'>Neto: $${neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>` : ''}
                         </td>
                         <td>
-                            ${comision > 0 ? `<div class='text-muted small'><strong>Comisión:</strong> ${comision}%<br><span class='text-danger'>- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></div>` : ''}
+                            ${comision > 0 ? `${comision}%` : '-'}
                         </td>
                         <td>
-                            ${comision > 0 ? `<div class='text-muted small'>Neto: $${neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>` : ''}
+                            ${comision > 0 ? `$${neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : '-'}
                         </td>
                         <td>
                             ${mov.cuit ? `<small><strong>CUIT:</strong> ${mov.cuit}</small><br>` : ''}
