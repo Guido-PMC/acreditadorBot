@@ -582,8 +582,8 @@
       try {
         console.log('🔍 Cargando todos los movimientos del cliente:', clienteId);
         
-        // Usar la nueva ruta unificada que incluye fechas estimadas
-        const response = await fetch(`/portal/movimientos-unificados?limit=100`);
+        // Usar la nueva ruta unificada que incluye fechas estimadas (sin autenticación)
+        const response = await fetch(`/api/clientes/${clienteId}/movimientos-unificados?limit=100`);
         const result = await response.json();
         
         if (!result.success) {
