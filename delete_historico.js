@@ -1,11 +1,12 @@
 require('dotenv').config();
-const axios = require('axios');
+const { Pool } = require('pg');
 const readline = require('readline');
 
-// Configuración
-const API_URL = process.env.API_URL || 'https://acreditadorbot-production.up.railway.app';
-
-
+// Configuración de la base de datos
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
 // Configuración de la interfaz de línea de comandos
 const rl = readline.createInterface({
@@ -24,11 +25,11 @@ function pregunta(pregunta) {
 
 // Función para confirmar la eliminación
 async function confirmarEliminacion() {
-    console.log('⚠️  ADVERTENCIA: Esta operación eliminará PERMANENTEMENTE todos los registros con fuente "historico"');
+    console.log('⚠️  ADVERTENCIA: Esta operación eliminará PERMANENTEMENTE todos los datos históricos y de CSV');
     console.log('📊 Esto incluye:');
-    console.log('   - Acreditaciones con fuente = "historico"');
-    console.log('   - Comprobantes con fuente = "historico"');
-    console.log('   - Pagos con fuente = "historico"');
+    console.log('   - Comprobantes con id_comprobante que empiecen con "HIST_"');
+    console.log('   - Acreditaciones con fuente = "historico" o "csv"');
+    console.log('   - Pagos con fuente = "historico" o "csv"');
     console.log('');
     
     const confirmacion1 = await pregunta('¿Está seguro de que desea continuar? (escriba "SI" para confirmar): ');
@@ -37,7 +38,7 @@ async function confirmarEliminacion() {
         return false;
     }
     
-    const confirmacion2 = await pregunta('⚠️  ÚLTIMA CONFIRMACIÓN: ¿Realmente desea ELIMINAR todos los datos históricos? (escriba "CONFIRMO" para proceder): ');
+    const confirmacion2 = await pregunta('⚠️  ÚLTIMA CONFIRMACIÓN: ¿Realmente desea ELIMINAR todos los datos históricos y de CSV? (escriba "CONFIRMO" para proceder): ');
     if (confirmacion2 !== 'CONFIRMO') {
         console.log('❌ Operación cancelada.');
         return false;
@@ -46,58 +47,46 @@ async function confirmarEliminacion() {
     return true;
 }
 
-// Función para contar registros históricos via API
-async function contarRegistrosHistoricos() {
+// Función para contar registros históricos
+async function contarHistoricos() {
     try {
-        console.log(`🌐 Consultando: ${API_URL}/api/stats`);
+        console.log('🔌 Conectando a Railway...');
         
-        // Primero intentamos obtener estadísticas generales para verificar conectividad
-        const statsResponse = await axios.get(`${API_URL}/api/stats`);
-        
-        if (!statsResponse.data.success) {
-            throw new Error('Error obteniendo estadísticas del servidor');
-        }
-        
-        console.log('✅ Conexión con el servidor establecida');
-        
-        // Para contar específicamente los históricos, necesitamos hacer consultas específicas
-        // Como no tenemos un endpoint específico para contar históricos, usaremos el endpoint de eliminación 
-        // en modo "dry-run" (pero como no lo implementamos así, haremos una estimación)
-        
-        // Por ahora, hacemos una estimación basada en que el endpoint de eliminación nos dará el conteo
-        console.log('📊 Para obtener el conteo exacto de registros históricos, se consultará el endpoint de eliminación...');
+        const comprobantes = await pool.query(`SELECT COUNT(*) as total FROM comprobantes_whatsapp WHERE id_comprobante LIKE 'HIST_%'`);
+        const acreditaciones = await pool.query(`SELECT COUNT(*) as total FROM acreditaciones WHERE fuente = 'historico' OR fuente = 'csv'`);
+        const pagos = await pool.query(`SELECT COUNT(*) as total FROM pagos WHERE fuente = 'historico' OR fuente = 'csv'`);
         
         return {
-            acreditaciones: '?',
-            comprobantes: '?', 
-            pagos: '?',
-            nota: 'El conteo exacto se obtendrá al ejecutar la eliminación'
+            comprobantes: parseInt(comprobantes.rows[0].total),
+            acreditaciones: parseInt(acreditaciones.rows[0].total),
+            pagos: parseInt(pagos.rows[0].total)
         };
         
     } catch (error) {
-        if (error.code === 'ECONNREFUSED') {
-            throw new Error(`No se pudo conectar al servidor en ${API_URL}. ¿Está ejecutándose el servidor?`);
-        }
-        console.error('Error consultando registros históricos:', error.message);
+        console.error('❌ Error contando registros históricos/CSV:', error.message);
         throw error;
     }
 }
 
-// Función principal para eliminar datos históricos via API
-async function eliminarDatosHistoricos() {
+// Función principal para eliminar registros históricos
+async function eliminarHistoricos() {
     try {
-        console.log(`🌐 Conectando al servidor: ${API_URL}\n`);
+        console.log('🗑️  Script de Eliminación de Datos Históricos y CSV');
+        console.log('=======================================================\n');
         
-        // Verificar conectividad y obtener información inicial
-        const infoInicial = await contarRegistrosHistoricos();
+        // Contar registros históricos y CSV
+        console.log('📊 Consultando registros históricos y CSV...');
+        const totalesAntes = await contarHistoricos();
+        console.log(`   - Comprobantes históricos: ${totalesAntes.comprobantes}`);
+        console.log(`   - Acreditaciones históricas/CSV: ${totalesAntes.acreditaciones}`);
+        console.log(`   - Pagos históricos/CSV: ${totalesAntes.pagos}`);
+        const total = totalesAntes.comprobantes + totalesAntes.acreditaciones + totalesAntes.pagos;
         
-        console.log('📊 Información de registros históricos:');
-        console.log(`   - Acreditaciones: ${infoInicial.acreditaciones}`);
-        console.log(`   - Comprobantes: ${infoInicial.comprobantes}`);
-        console.log(`   - Pagos: ${infoInicial.pagos}`);
-        if (infoInicial.nota) {
-            console.log(`   ℹ️  ${infoInicial.nota}`);
+        if (total === 0) {
+            console.log('ℹ️  No hay registros históricos ni CSV para eliminar.');
+            return;
         }
+        
         console.log('');
         
         // Confirmar eliminación
@@ -106,65 +95,61 @@ async function eliminarDatosHistoricos() {
             return;
         }
         
-        console.log('\n🗑️  Iniciando eliminación via API...\n');
-        console.log(`🌐 Llamando: DELETE ${API_URL}/api/historico/limpiar`);
+        console.log('\n🗑️  Iniciando eliminación...\n');
         
-        // Llamar al endpoint de eliminación
-        const response = await axios.delete(`${API_URL}/api/historico/limpiar`);
+        // Eliminar pagos históricos y CSV
+        console.log('🔄 Eliminando pagos históricos y CSV...');
+        const deletePagos = await pool.query(`DELETE FROM pagos WHERE fuente = 'historico' OR fuente = 'csv'`);
         
-        if (!response.data.success) {
-            throw new Error(`Error del servidor: ${response.data.message || 'Error desconocido'}`);
-        }
+        // Eliminar acreditaciones históricas y CSV
+        console.log('🔄 Eliminando acreditaciones históricas y CSV...');
+        const deleteAcred = await pool.query(`DELETE FROM acreditaciones WHERE fuente = 'historico' OR fuente = 'csv'`);
         
-        const resultado = response.data.data;
+        // Eliminar comprobantes históricos
+        console.log('🔄 Eliminando comprobantes históricos...');
+        const deleteComprob = await pool.query(`DELETE FROM comprobantes_whatsapp WHERE id_comprobante LIKE 'HIST_%'`);
+        
+        const comprobantesEliminados = deleteComprob.rowCount;
+        const acreditacionesEliminadas = deleteAcred.rowCount;
+        const pagosEliminados = deletePagos.rowCount;
         
         console.log('\n✅ Eliminación completada exitosamente!');
         console.log('\n📊 Resumen de eliminación:');
-        console.log(`   - Comprobantes eliminados: ${resultado.eliminados.comprobantes}`);
-        console.log(`   - Pagos eliminados: ${resultado.eliminados.pagos}`);
-        console.log(`   - Acreditaciones eliminadas: ${resultado.eliminados.acreditaciones}`);
-        console.log(`   - TOTAL ELIMINADO: ${resultado.total_eliminado}`);
+        console.log(`   - Comprobantes eliminados: ${comprobantesEliminados}`);
+        console.log(`   - Acreditaciones históricas/CSV eliminadas: ${acreditacionesEliminadas}`);
+        console.log(`   - Pagos históricos/CSV eliminados: ${pagosEliminados}`);
         
-        if (resultado.conteo_inicial) {
-            console.log('\n📊 Conteo inicial encontrado:');
-            console.log(`   - Acreditaciones: ${resultado.conteo_inicial.acreditaciones}`);
-            console.log(`   - Comprobantes: ${resultado.conteo_inicial.comprobantes}`);
-            console.log(`   - Pagos: ${resultado.conteo_inicial.pagos}`);
+        if (comprobantesEliminados === 0 && acreditacionesEliminadas === 0 && pagosEliminados === 0) {
+            console.log('\nℹ️  No había registros históricos ni CSV para eliminar.');
+        } else {
+            console.log(`\n✅ Eliminación exitosa: ${comprobantesEliminados} comprobantes históricos, ${acreditacionesEliminadas} acreditaciones históricas/CSV y ${pagosEliminados} pagos históricos/CSV eliminados del sistema.`);
         }
         
-        if (resultado.total_eliminado === 0) {
-            console.log('\nℹ️  No había registros históricos para eliminar.');
+        // Verificar que se eliminaron correctamente
+        console.log('\n🔍 Verificando eliminación...');
+        const totalesDespues = await contarHistoricos();
+        console.log(`   - Comprobantes históricos restantes: ${totalesDespues.comprobantes}`);
+        console.log(`   - Acreditaciones históricas/CSV restantes: ${totalesDespues.acreditaciones}`);
+        console.log(`   - Pagos históricos/CSV restantes: ${totalesDespues.pagos}`);
+        
+        if (totalesDespues.comprobantes === 0 && totalesDespues.acreditaciones === 0 && totalesDespues.pagos === 0) {
+            console.log('✅ Verificación exitosa: No quedan registros históricos ni CSV en el sistema.');
         } else {
-            console.log(`\n✅ Eliminación exitosa: ${resultado.total_eliminado} registros históricos eliminados del sistema.`);
+            console.log('⚠️  Advertencia: Aún quedan registros históricos o CSV en el sistema.');
         }
         
     } catch (error) {
-        if (error.response) {
-            // Error de respuesta HTTP
-            console.error(`❌ Error HTTP ${error.response.status}:`, error.response.data.message || error.response.data.error);
-            if (error.response.data.details) {
-                console.error('   Detalles:', error.response.data.details);
-            }
-        } else if (error.code === 'ECONNREFUSED') {
-            console.error(`❌ No se pudo conectar al servidor en ${API_URL}`);
-            console.error('   ¿Está ejecutándose el servidor? Puedes iniciarlo con: npm start');
-        } else {
-            console.error('❌ Error durante la eliminación:', error.message);
-        }
+        console.error('❌ Error durante la eliminación:', error.message);
         throw error;
         
     } finally {
+        await pool.end();
         rl.close();
     }
 }
 
 // Ejecutar el script
-console.log('🗑️  Script de Eliminación de Datos Históricos (via HTTP API)');
-console.log('========================================================');
-console.log(`🌐 Servidor: ${API_URL}`);
-console.log('========================================================\n');
-
-eliminarDatosHistoricos()
+eliminarHistoricos()
     .then(() => {
         console.log('\n✅ Script completado exitosamente!');
         process.exit(0);
