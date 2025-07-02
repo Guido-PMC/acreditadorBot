@@ -641,6 +641,18 @@
                     badgeText = 'Sin acreditar';
                     tipoText = 'Comprobante';
                     importeClass = 'text-primary';
+                } else if (mov.tipo === 'movimiento' && mov.tipo_pago === 'credito') {
+                    icon = 'fas fa-plus-circle';
+                    badgeClass = 'bg-success';
+                    badgeText = mov.estado || 'Confirmado';
+                    tipoText = 'Crédito';
+                    importeClass = 'text-success';
+                } else if (mov.tipo === 'movimiento' && mov.tipo_pago === 'egreso') {
+                    icon = 'fas fa-minus-circle';
+                    badgeClass = 'bg-danger';
+                    badgeText = mov.estado || 'Confirmado';
+                    tipoText = 'Pago';
+                    importeClass = 'text-danger';
                 } else if (mov.tipo === 'credito') {
                     icon = 'fas fa-plus-circle';
                     badgeClass = 'bg-success';
@@ -668,7 +680,7 @@
                         <td><strong>${(mov.concepto || '').replace(/^\s*[^\w\s]*\s*/, '')}</strong></td>
                         <td>
                             <div class="h5 mb-0 ${importeClass}">
-                                ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                ${mov.tipo === 'pago' || (mov.tipo === 'movimiento' && mov.tipo_pago === 'egreso') ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                             </div>
                             ${comision > 0 ? `<div class='text-muted small'><strong>Comisión:</strong> ${comision}%<br><span class='text-danger'>- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></div>` : ''}
                             ${comision > 0 ? `<div class='text-muted small'>Neto: $${neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>` : ''}
@@ -1009,6 +1021,80 @@
                 }
             }, 5000);
         }
+
+        // Función de debug para portal-dashboard
+        window.debugPortalDashboard = function() {
+            console.log('🔍 === DEBUG PORTAL DASHBOARD ===');
+            console.log('📊 allMovimientos:', allMovimientos);
+            console.log('🔧 movimientosFilter:', movimientosFilter);
+            console.log('📄 currentUser:', currentUser);
+            
+            console.log('\n📋 === ANÁLISIS DE MOVIMIENTOS ===');
+            allMovimientos.forEach((mov, index) => {
+                console.log(`Movimiento ${index}:`, {
+                    id: mov.id,
+                    tipo: mov.tipo,
+                    tipo_pago: mov.tipo_pago,
+                    concepto: mov.concepto,
+                    importe: mov.importe,
+                    comision: mov.comision,
+                    importe_comision: mov.importe_comision,
+                    es_entrada: mov.es_entrada,
+                    estado: mov.estado,
+                    cotejado: mov.cotejado
+                });
+            });
+            
+            console.log('\n🎯 === FILTROS ===');
+            console.log('Filtro actual:', movimientosFilter);
+            console.log('Movimientos filtrados por tipo:');
+            console.log('- Acreditaciones:', allMovimientos.filter(m => m.tipo === 'acreditacion').length);
+            console.log('- Comprobantes:', allMovimientos.filter(m => m.tipo === 'comprobante').length);
+            console.log('- Créditos:', allMovimientos.filter(m => m.tipo === 'movimiento' && m.tipo_pago === 'credito').length);
+            console.log('- Pagos:', allMovimientos.filter(m => m.tipo === 'movimiento' && m.tipo_pago === 'egreso').length);
+            
+            console.log('\n💰 === CÁLCULO DE SALDO ===');
+            const acreditaciones = allMovimientos.filter(m => m.tipo === 'acreditacion');
+            const creditos = allMovimientos.filter(m => m.tipo === 'movimiento' && m.tipo_pago === 'credito');
+            const pagos = allMovimientos.filter(m => m.tipo === 'movimiento' && m.tipo_pago === 'egreso');
+            
+            const totalAcreditaciones = acreditaciones.reduce((sum, m) => sum + parseFloat(m.importe || 0), 0);
+            const totalComisionesAcreditaciones = acreditaciones.reduce((sum, m) => sum + parseFloat(m.importe_comision || 0), 0);
+            const totalCreditos = creditos.reduce((sum, m) => sum + parseFloat(m.importe || 0), 0);
+            const totalComisionesCreditos = creditos.reduce((sum, m) => sum + parseFloat(m.importe_comision || 0), 0);
+            const totalPagos = pagos.reduce((sum, m) => sum + parseFloat(m.importe || 0), 0);
+            
+            console.log('Total acreditaciones:', totalAcreditaciones);
+            console.log('Total comisiones acreditaciones:', totalComisionesAcreditaciones);
+            console.log('Total créditos:', totalCreditos);
+            console.log('Total comisiones créditos:', totalComisionesCreditos);
+            console.log('Total pagos:', totalPagos);
+            
+            const saldoCalculado = totalAcreditaciones - totalComisionesAcreditaciones + (totalCreditos - totalComisionesCreditos) - totalPagos;
+            console.log('Saldo calculado:', saldoCalculado);
+            
+            console.log('\n🎨 === BADGES ===');
+            allMovimientos.forEach((mov, index) => {
+                let badgeClass = '';
+                let tipoText = '';
+                
+                if (mov.tipo === 'acreditacion') {
+                    badgeClass = 'bg-success';
+                    tipoText = 'Acreditación';
+                } else if (mov.tipo === 'comprobante') {
+                    badgeClass = 'bg-warning';
+                    tipoText = 'Comprobante';
+                } else if (mov.tipo === 'movimiento' && mov.tipo_pago === 'credito') {
+                    badgeClass = 'bg-success';
+                    tipoText = 'Crédito';
+                } else if (mov.tipo === 'movimiento' && mov.tipo_pago === 'egreso') {
+                    badgeClass = 'bg-danger';
+                    tipoText = 'Pago';
+                }
+                
+                console.log(`Movimiento ${index} (${mov.tipo}): badgeClass="${badgeClass}", tipoText="${tipoText}"`);
+            });
+        };
     </script>
 </body>
 </html> 
