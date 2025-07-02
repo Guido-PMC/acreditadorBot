@@ -187,8 +187,8 @@
                                     Fecha <i class="fas fa-sort" id="dateSortIcon"></i>
                                 </th>
                                 <th>Estado</th>
-                                <th>Acciones</th>
                                 <th>ID Acreditación</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="ticketsTable">
@@ -340,6 +340,7 @@
                         <td class="text-end">${parseFloat(ticket.importe || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>
                         <td>${ticket.fecha_envio ? new Date(ticket.fecha_envio).toLocaleDateString() : ''}</td>
                         <td>${ticket.cotejado ? '<span class="badge bg-success">Cotejado</span>' : '<span class="badge bg-warning text-dark">Pendiente</span>'}</td>
+                        <td>${ticket.id_acreditacion || '-'}</td>
                         <td>
                             <button class="btn btn-sm btn-info me-1" onclick="verTicket(${ticket.id})" title="Ver detalles">
                                 <i class="fas fa-eye"></i>
@@ -348,7 +349,6 @@
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>
-                        <td>${ticket.id_acreditacion || '-'}</td>
                     </tr>
                 `;
             });

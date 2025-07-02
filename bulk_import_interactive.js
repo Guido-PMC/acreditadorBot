@@ -14,7 +14,7 @@ const pool = new Pool({
   port: 39888,
   database: 'railway',
   user: 'postgres',
-  password: 'qxxDSdtjcfdBpkVonqkYHFIsjVvzFDNz'|| '',
+  password: 'qxxDSdtjcfdBpkVonqkYHFIsjVvzFDNz' || '',
   ssl: { rejectUnauthorized: false }
 });
 
@@ -430,18 +430,88 @@ async function main() {
     console.log('🔌 Conectando a la base de datos...');
     await db.connect();
     
-    // Analizar CSV
+    // Preguntar si quiere importar solo un cliente
+    console.log('🎯 MODO DE IMPORTACIÓN');
+    console.log('='.repeat(50));
+    console.log('1. Importar todos los clientes (modo completo)');
+    console.log('2. Importar datos de UN SOLO cliente específico');
+    
+    let modoImportacion;
+    do {
+      modoImportacion = await question('\n👉 Selecciona el modo (1 o 2): ');
+      modoImportacion = parseInt(modoImportacion);
+    } while (modoImportacion !== 1 && modoImportacion !== 2);
+    
+    let clienteEspecifico = null;
+    if (modoImportacion === 2) {
+      // Analizar CSV para mostrar clientes disponibles
+      const { clientesEnCSV } = await analyzeCSV();
+      
+      console.log('\n📄 CLIENTES DISPONIBLES EN EL CSV:');
+      console.log('='.repeat(50));
+      const clientesLimpios = clientesEnCSV.filter(cliente => cliente && cliente !== 'CLIENTE');
+      clientesLimpios.forEach((cliente, index) => {
+        console.log(`${index + 1}. ${cliente}`);
+      });
+      
+      console.log('\n👥 También puedes escribir el nombre exacto si no aparece en la lista');
+      console.log('💡 Tip: Puedes escribir solo una parte del nombre para buscar');
+      clienteEspecifico = await question('\n👉 Ingresa el nombre del cliente a importar: ');
+      clienteEspecifico = clienteEspecifico.trim();
+      
+      console.log(`\n✅ Modo seleccionado: Importar SOLO datos de "${clienteEspecifico}"`);
+    } else {
+      console.log('\n✅ Modo seleccionado: Importar TODOS los clientes');
+    }
+    
+    // Analizar CSV (completo o filtrado)
     const { clientesEnCSV, estadisticasPorCliente } = await analyzeCSV();
+    
+    // Filtrar clientes si se seleccionó modo específico
+    let clientesFiltrados = clientesEnCSV;
+    if (clienteEspecifico) {
+      clientesFiltrados = clientesEnCSV.filter(cliente => 
+        cliente && cliente.toLowerCase().includes(clienteEspecifico.toLowerCase())
+      );
+      
+      if (clientesFiltrados.length === 0) {
+        console.log(`\n❌ No se encontró el cliente "${clienteEspecifico}" en el CSV`);
+        console.log('Los clientes disponibles son:');
+        clientesEnCSV.forEach(cliente => {
+          if (cliente && cliente !== 'CLIENTE') {
+            console.log(`  - ${cliente}`);
+          }
+        });
+        return;
+      }
+      
+      if (clientesFiltrados.length > 1) {
+        console.log(`\n⚠️  Se encontraron múltiples coincidencias para "${clienteEspecifico}":`);
+        clientesFiltrados.forEach((cliente, index) => {
+          console.log(`${index + 1}. ${cliente}`);
+        });
+        
+        let seleccion;
+        do {
+          seleccion = await question(`\n👉 Selecciona el cliente exacto (1-${clientesFiltrados.length}): `);
+          seleccion = parseInt(seleccion);
+        } while (isNaN(seleccion) || seleccion < 1 || seleccion > clientesFiltrados.length);
+        
+        clientesFiltrados = [clientesFiltrados[seleccion - 1]];
+      }
+      
+      console.log(`\n🎯 Cliente seleccionado: "${clientesFiltrados[0]}"`);
+    }
     
     // Obtener clientes del sistema
     const clientesSistema = await getClientesDelSistema();
     
     console.log(`\n✅ Análisis completado:`);
-    console.log(`- Clientes únicos en CSV: ${clientesEnCSV.length}`);
+    console.log(`- Clientes a procesar: ${clientesFiltrados.length}`);
     console.log(`- Clientes en sistema: ${clientesSistema.length}`);
     
-    // Crear mapeo interactivo
-    const mapeo = await crearMapeoClientes(clientesEnCSV, clientesSistema, estadisticasPorCliente);
+    // Crear mapeo interactivo (solo para los clientes filtrados)
+    const mapeo = await crearMapeoClientes(clientesFiltrados, clientesSistema, estadisticasPorCliente);
     
     console.log('\n📋 RESUMEN DEL MAPEO:');
     console.log('='.repeat(50));
