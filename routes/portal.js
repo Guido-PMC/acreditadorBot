@@ -358,7 +358,9 @@ router.get('/movimientos', authenticateToken, async (req, res) => {
         p.referencia,
         p.observaciones,
         p.estado,
-        p.fecha_creacion
+        p.fecha_creacion,
+        p.comision,
+        p.importe_comision
       FROM pagos p
       ${whereClause}
       ORDER BY p.${campoOrden} ${ordenValido}
