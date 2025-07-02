@@ -1386,73 +1386,22 @@ router.delete('/clientes/:id', async (req, res) => {
 // GET /api/clientes/:id/comprobantes - Obtener comprobantes de un cliente
 router.get('/clientes/:id/comprobantes', async (req, res) => {
   const client = await db.getClient();
-  
   try {
     const { id } = req.params;
-    const { 
-      page = 1, 
-      limit = 50 
-    } = req.query;
-
-    // Verificar si el cliente existe
-    const existingClient = await client.query(
-      'SELECT nombre, apellido FROM clientes WHERE id = $1',
-      [id]
-    );
-
-    if (existingClient.rows.length === 0) {
-      return res.status(404).json({
-        error: 'Cliente no encontrado',
-        message: 'El cliente especificado no existe'
-      });
-    }
-
-    const offset = (page - 1) * limit;
-
-    // Query para contar total
-    const countQuery = `
-      SELECT COUNT(*) 
-      FROM comprobantes_whatsapp 
-      WHERE id_cliente = $1
-    `;
-    const countResult = await client.query(countQuery, [id]);
-    const total = parseInt(countResult.rows[0].count);
-
-    // Query para obtener datos
-    const dataQuery = `
-      SELECT 
-        c.*,
-        COALESCE(c.fuente, 'whatsapp') as fuente,
-        a.id as id_acreditacion,
-        a.importe as acreditacion_importe,
-        a.fecha_hora as acreditacion_fecha
+    const { limit = 100 } = req.query;
+    // Traer comprobantes y, si tienen acreditación vinculada, traer los datos de la acreditación
+    const result = await client.query(`
+      SELECT c.*, a.comision, a.importe_comision, a.estado as estado_acreditacion, a.id as id_acreditacion, a.cotejado, a.importe as importe_acreditacion
       FROM comprobantes_whatsapp c
-      LEFT JOIN acreditaciones a ON c.id_acreditacion::integer = a.id
+      LEFT JOIN acreditaciones a ON a.id = c.id_acreditacion::integer
       WHERE c.id_cliente = $1
-      ORDER BY c.fecha_recepcion DESC
-      LIMIT $2 OFFSET $3
-    `;
-    
-    const dataResult = await client.query(dataQuery, [id, parseInt(limit), offset]);
-
-    res.json({
-      success: true,
-      data: dataResult.rows,
-      cliente: existingClient.rows[0],
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    });
-
+      ORDER BY c.fecha_envio DESC
+      LIMIT $2
+    `, [id, parseInt(limit)]);
+    res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Error obteniendo comprobantes del cliente:', error);
-    res.status(500).json({
-      error: 'Error interno del servidor',
-      message: 'No se pudieron obtener los comprobantes del cliente'
-    });
+    res.status(500).json({ error: 'Error interno del servidor', message: 'No se pudieron obtener los comprobantes del cliente' });
   } finally {
     client.release();
   }
@@ -2096,18 +2045,21 @@ router.get('/clientes/:id/resumen', async (req, res) => {
       SELECT 
         COUNT(*) as total_pagos,
         SUM(CASE WHEN tipo_pago = 'egreso' THEN importe ELSE 0 END) as total_importe_pagos,
-        SUM(CASE WHEN tipo_pago = 'credito' THEN importe ELSE 0 END) as total_importe_creditos
+        SUM(CASE WHEN tipo_pago = 'credito' THEN importe ELSE 0 END) as total_importe_creditos,
+        SUM(CASE WHEN tipo_pago = 'credito' THEN comision ELSE 0 END) as total_comision_creditos,
+        SUM(CASE WHEN tipo_pago = 'credito' THEN importe_comision ELSE 0 END) as total_importe_comision_creditos
       FROM pagos 
       WHERE id_cliente = $1 AND estado = 'confirmado'
     `, [id]);
 
-    // Calcular saldo real (acreditaciones cotejadas - comisiones + créditos - pagos)
+    // Calcular saldo real (acreditaciones cotejadas - comisiones + créditos - comisiones créditos - pagos)
     const totalAcreditacionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_importe_cotejadas || 0);
     const totalComisionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_comisiones_cotejadas || 0);
     const totalPagos = parseFloat(pagosStats.rows[0].total_importe_pagos || 0);
     const totalCreditos = parseFloat(pagosStats.rows[0].total_importe_creditos || 0);
+    const totalComisionCreditos = parseFloat(pagosStats.rows[0].total_importe_comision_creditos || 0);
     
-    const saldo = totalAcreditacionesCotejadas - totalComisionesCotejadas + totalCreditos - totalPagos;
+    const saldo = totalAcreditacionesCotejadas - totalComisionesCotejadas + (totalCreditos - totalComisionCreditos) - totalPagos;
 
     res.json({
       success: true,

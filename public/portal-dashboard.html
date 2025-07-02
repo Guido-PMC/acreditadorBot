@@ -519,7 +519,7 @@
 
                     movimientos.push({
                         id: `mov_${mov.id}`,
-                        tipo: 'movimiento',
+                        tipo: mov.tipo,
                         concepto: mov.concepto,
                         importe: mov.importe,
                         fecha: fechaFormateada,
@@ -530,7 +530,9 @@
                         estado: mov.estado,
                         es_entrada: mov.tipo_pago === 'credito',
                         comision: mov.comision || 0,
-                        importe_comision: mov.importe_comision || 0
+                        importe_comision: mov.importe_comision || 0,
+                        id_acreditacion: mov.id_acreditacion || null,
+                        cotejado: mov.cotejado || false
                     });
                 });
 
@@ -607,13 +609,39 @@
 
             tbody.innerHTML = movimientosPagina.map(mov => {
                 const isEntrada = mov.es_entrada;
-                const importeClass = isEntrada ? 'text-success' : 'text-danger';
-                const importeSign = isEntrada ? '+' : '-';
-                const tipoBadge = mov.tipo === 'acreditacion' ? 
-                    '<span class="badge bg-primary status-badge">Acreditación</span>' : 
-                    mov.tipo === 'comprobante' ?
-                    '<span class="badge bg-warning status-badge">Comprobante Pendiente</span>' :
-                    `<span class="badge bg-${mov.tipo_pago === 'credito' ? 'success' : 'danger'} status-badge">${mov.tipo_pago === 'credito' ? 'Crédito' : 'Pago'}</span>`;
+                let icon = '';
+                let badgeClass = '';
+                let badgeText = '';
+                let tipoText = '';
+                let importeClass = '';
+
+                if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
+                    // Mostrar como acreditación vinculada
+                    icon = 'fas fa-university';
+                    badgeClass = mov.cotejado ? 'bg-success' : 'bg-primary';
+                    badgeText = mov.cotejado ? 'Cotejada' : 'Acreditación';
+                    tipoText = 'Acreditación';
+                    importeClass = 'text-primary';
+                } else if (mov.tipo === 'comprobante') {
+                    // Comprobante pendiente
+                    icon = 'fas fa-file-alt';
+                    badgeClass = 'bg-warning';
+                    badgeText = 'Sin acreditar';
+                    tipoText = 'Comprobante';
+                    importeClass = 'text-primary';
+                } else if (mov.tipo === 'credito') {
+                    icon = 'fas fa-plus-circle';
+                    badgeClass = 'bg-success';
+                    badgeText = mov.estado || 'Confirmado';
+                    tipoText = 'Crédito';
+                    importeClass = 'text-success';
+                } else if (mov.tipo === 'pago') {
+                    icon = 'fas fa-minus-circle';
+                    badgeClass = 'bg-danger';
+                    badgeText = mov.estado || 'Confirmado';
+                    tipoText = 'Pago';
+                    importeClass = 'text-danger';
+                }
 
                 // Calcular comisión y neto
                 const comision = mov.comision || 0;
@@ -623,39 +651,42 @@
                 return `
                     <tr>
                         <td>${mov.fecha}</td>
-                        <td>${tipoBadge}</td>
+                        <td>
+                            <span class="badge ${badgeClass} status-badge">${badgeText}</span>
+                        </td>
                         <td><strong>${mov.concepto}</strong></td>
                         <td>
-                            <span class="${importeClass}">
-                                <strong>${importeSign}${new Intl.NumberFormat('es-AR', {
-                                    style: 'currency',
-                                    currency: 'ARS'
-                                }).format(mov.importe)}</strong>
-                            </span>
+                            <div class="h5 mb-0 ${importeClass}">
+                                ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                            </div>
+                            ${parseFloat(mov.comision) > 0 && ((mov.tipo === 'credito') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
+                                <div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - parseFloat(mov.importe_comision || 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                            ` : ''}
                         </td>
                         <td>
-                            ${comision > 0 ? `
-                                <small class="text-muted">
-                                    ${comision}%<br>
-                                    <span class="text-danger">-${new Intl.NumberFormat('es-AR', {
-                                        style: 'currency',
-                                        currency: 'ARS'
-                                    }).format(importeComision)}</span>
-                                </small>
-                            ` : '<small class="text-muted">0%</small>'}
-                        </td>
-                        <td>
-                            <span class="${isEntrada ? 'text-success' : 'text-danger'}">
-                                <strong>${importeSign}${new Intl.NumberFormat('es-AR', {
-                                    style: 'currency',
-                                    currency: 'ARS'
-                                }).format(neto)}</strong>
-                            </span>
+                            ${parseFloat(mov.comision) > 0 && ((mov.tipo === 'credito') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
+                                <div class="mt-1">
+                                    <small class="text-muted"><strong>Comisión:</strong> ${parseFloat(mov.comision)}%<br>
+                                    <span class="text-danger">- $${parseFloat(mov.importe_comision || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></small>
+                                </div>
+                            ` : ''}
                         </td>
                         <td>
                             ${mov.cuit ? `<small><strong>CUIT:</strong> ${mov.cuit}</small><br>` : ''}
                             ${mov.metodo_pago ? `<small><strong>Método:</strong> ${mov.metodo_pago}</small><br>` : ''}
                             ${mov.referencia ? `<small><strong>Ref:</strong> ${mov.referencia}</small><br>` : ''}
+                        </td>
+                        <td>
+                            ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `
+                                <div class="mt-1">
+                                    <small class="text-success"><strong>🔗 Vinculado a Acreditación:</strong> ${mov.id_acreditacion}</small>
+                                </div>
+                            ` : ''}
+                            ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `
+                                <div class="mt-1">
+                                    <small class="text-warning"><strong>⚠️ Sin vincular a acreditación</strong></small>
+                                </div>
+                            ` : ''}
                         </td>
                     </tr>
                 `;

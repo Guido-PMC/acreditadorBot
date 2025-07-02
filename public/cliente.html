@@ -653,11 +653,18 @@
       container.innerHTML = movimientos.map(mov => {
         let icon, badgeClass, badgeText, tipoText, importeClass;
         
-        if (mov.tipo === 'comprobante') {
-          const isAcreditado = mov.id_acreditacion;
+        if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
+          // Mostrar como acreditación vinculada
+          icon = 'fas fa-university';
+          badgeClass = mov.cotejado ? 'bg-success' : 'bg-primary';
+          badgeText = mov.cotejado ? 'Cotejada' : 'Acreditación';
+          tipoText = 'Acreditación';
+          importeClass = 'text-primary';
+        } else if (mov.tipo === 'comprobante') {
+          // Comprobante pendiente
           icon = 'fas fa-file-alt';
-          badgeClass = isAcreditado ? 'bg-success' : 'bg-warning';
-          badgeText = isAcreditado ? 'Acreditado' : 'Sin acreditar';
+          badgeClass = 'bg-warning';
+          badgeText = 'Sin acreditar';
           tipoText = 'Comprobante';
           importeClass = 'text-primary';
         } else if (mov.tipo === 'credito') {
@@ -723,7 +730,7 @@
                       <small class="text-warning"><strong>⚠️ Sin vincular a acreditación</strong></small>
                     </div>
                   ` : ''}
-                  ${parseFloat(mov.comision) > 0 && (mov.tipo === 'credito' || mov.tipo === 'comprobante') ? `
+                  ${parseFloat(mov.comision) > 0 && ((mov.tipo === 'credito') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
                     <div class="mt-1">
                       <small class="text-muted"><strong>Comisión:</strong> ${parseFloat(mov.comision)}%<br>
                       <span class="text-danger">- $${parseFloat(mov.importe_comision || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></small>
@@ -735,7 +742,7 @@
                   <div class="h5 mb-0 ${importeClass}">
                     ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </div>
-                  ${parseFloat(mov.comision) > 0 && (mov.tipo === 'credito' || mov.tipo === 'comprobante') ? `
+                  ${parseFloat(mov.comision) > 0 && ((mov.tipo === 'credito') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
                     <div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - parseFloat(mov.importe_comision || 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
                   ` : ''}
                   <div class="btn-group-vertical btn-group-sm mt-1">
