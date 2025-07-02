@@ -723,15 +723,9 @@
                       <small class="text-warning"><strong>⚠️ Sin vincular a acreditación</strong></small>
                     </div>
                   ` : ''}
-                  ${mov.tipo === 'credito' && mov.comision && mov.comision > 0 ? `
+                  ${parseFloat(mov.comision) > 0 && (mov.tipo === 'credito' || mov.tipo === 'comprobante') ? `
                     <div class="mt-1">
-                      <small class="text-muted"><strong>Comisión:</strong> ${mov.comision}%<br>
-                      <span class="text-danger">- $${parseFloat(mov.importe_comision || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></small>
-                    </div>
-                  ` : ''}
-                  ${mov.tipo === 'comprobante' && mov.comision && mov.comision > 0 ? `
-                    <div class="mt-1">
-                      <small class="text-muted"><strong>Comisión:</strong> ${mov.comision}%<br>
+                      <small class="text-muted"><strong>Comisión:</strong> ${parseFloat(mov.comision)}%<br>
                       <span class="text-danger">- $${parseFloat(mov.importe_comision || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></small>
                     </div>
                   ` : ''}
@@ -741,8 +735,8 @@
                   <div class="h5 mb-0 ${importeClass}">
                     ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </div>
-                  ${(mov.tipo === 'credito' || mov.tipo === 'comprobante') && mov.comision && mov.comision > 0 ? `
-                    <div class="text-muted small">Neto: $${parseFloat((mov.importe - mov.importe_comision) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                  ${parseFloat(mov.comision) > 0 && (mov.tipo === 'credito' || mov.tipo === 'comprobante') ? `
+                    <div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - parseFloat(mov.importe_comision || 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
                   ` : ''}
                   <div class="btn-group-vertical btn-group-sm mt-1">
                     ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `
