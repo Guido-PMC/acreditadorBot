@@ -528,18 +528,18 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
       return mov;
     });
 
-    // Query para contar total
+    // Query para contar total usando UNION
     const countQuery = `
-      (
-        SELECT COUNT(*) FROM acreditaciones WHERE CAST(id_cliente AS INTEGER) = $1
-      ) + (
-        SELECT COUNT(*) FROM comprobantes_whatsapp WHERE CAST(id_cliente AS INTEGER) = $1
-      ) + (
-        SELECT COUNT(*) FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1
-      )
+      SELECT COUNT(*) as total FROM (
+        SELECT 1 FROM acreditaciones WHERE CAST(id_cliente AS INTEGER) = $1
+        UNION ALL
+        SELECT 1 FROM comprobantes_whatsapp WHERE CAST(id_cliente AS INTEGER) = $1
+        UNION ALL
+        SELECT 1 FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1
+      ) as combined_movements
     `;
     const countResult = await client.query(countQuery, [cliente_id]);
-    const total = parseInt(countResult.rows[0].count || 0);
+    const total = parseInt(countResult.rows[0].total || 0);
 
     res.json({
       success: true,
