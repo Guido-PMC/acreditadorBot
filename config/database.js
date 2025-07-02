@@ -158,7 +158,9 @@ class Database {
           referencia VARCHAR(100),
           observaciones TEXT,
           estado VARCHAR(20) DEFAULT 'confirmado',
-          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          comision DECIMAL(10,2) DEFAULT 0,
+          importe_comision DECIMAL(15,2) DEFAULT 0
         )
       `);
 

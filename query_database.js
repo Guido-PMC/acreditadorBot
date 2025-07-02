@@ -33,6 +33,49 @@ const db = {
   async disconnect() {
     await pool.end();
     console.log('🔌 Conexión a Railway cerrada');
+
+    console.log('\n🔍 SCHEMA DE TABLA ACREDITACIONES (COLUMNAS DE COMPROBANTES):');
+    console.log('======================================================================');
+
+    const schemaQuery = `
+      SELECT column_name, data_type, is_nullable, column_default 
+      FROM information_schema.columns 
+      WHERE table_name = 'acreditaciones' 
+      AND column_name LIKE '%comprobante%'
+      ORDER BY column_name
+    `;
+
+    try {
+      await client.query('SELECT 1'); // Verificar conexión
+      const schemaResult = await client.query(schemaQuery);
+      
+      if (schemaResult.rows.length > 0) {
+        console.log('📋 Columnas relacionadas con comprobantes:');
+        schemaResult.rows.forEach(row => {
+          console.log(`   - ${row.column_name}: ${row.data_type} (nullable: ${row.is_nullable}, default: ${row.column_default || 'NULL'})`);
+        });
+      } else {
+        console.log('❌ No se encontraron columnas relacionadas con comprobantes');
+      }
+      
+      // También verificar si existe la columna id_comprobante
+      const allColumnsQuery = `
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'acreditaciones' 
+        AND column_name IN ('id_comprobante', 'id_comprobante_whatsapp')
+        ORDER BY column_name
+      `;
+      
+      const allColumnsResult = await client.query(allColumnsQuery);
+      console.log('\n📋 Columnas específicas de comprobante:');
+      allColumnsResult.rows.forEach(row => {
+        console.log(`   - ${row.column_name}: ${row.data_type}`);
+      });
+      
+    } catch (error) {
+      console.error('❌ Error consultando schema:', error.message);
+    }
   }
 };
 

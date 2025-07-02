@@ -294,24 +294,24 @@ async function importarConMapeo(mapeo) {
             id_cliente: idCliente
           });
         } 
-        // NUEVO: Procesar DEPOSITO como COBRO
+        // NUEVO: Procesar DEPOSITO como CRÉDITO en pagos
         else if (tipoOperacion === 'DEPOSITO' && monto > 0) {
           const idTransaccion = row.ID_TRANSACCION || `HIST_${processedRows}`;
-          acreditaciones.push({
-            id_transaccion: idTransaccion,
-            tipo: 'cobro',
-            concepto: 'Depósito bancario',
-            importe: monto,
-            estado: 'confirmado',
-            titular: row.TITULAR || '',
-            cuit: row.CUIT || '',
-            fecha_hora: fecha || new Date(),
-            fuente: 'historico',
+          const comisionStr = (row.COMISION || '0').replace('%', '').replace(',', '.');
+          const comision = parseFloat(comisionStr) || 0;
+          const importeComision = monto * (comision / 100);
+          pagos.push({
             id_cliente: idCliente,
-            comision: 0,
-            importe_comision: 0,
-            procesado: true,
-            cotejado: true
+            concepto: row.TITULAR || 'Depósito bancario',
+            importe: monto,
+            fecha_pago: fecha || new Date(),
+            tipo_pago: 'credito',
+            metodo_pago: 'deposito',
+            referencia: idTransaccion,
+            estado: 'confirmado',
+            fuente: 'historico',
+            comision: comision,
+            importe_comision: importeComision
           });
         }
         else if ((tipoOperacion === 'Transferencia saliente' || tipoOperacion === 'PAGO' || tipoOperacion === 'TRANSFERENCIA SALIENTE') && monto !== 0) {
@@ -478,12 +478,12 @@ async function importarConMapeo(mapeo) {
               const batch = pagos.slice(i, i + batchSize);
               
               const values = batch.map(pago => 
-                `(${pago.id_cliente}, '${pago.concepto.replace(/'/g, "''")}', ${pago.importe}, '${pago.fecha_pago.toISOString()}', '${pago.tipo_pago}', '${pago.metodo_pago}', '${pago.referencia}', '${pago.estado}', '${pago.fuente}')`
+                `(${pago.id_cliente}, '${pago.concepto.replace(/'/g, "''")}', ${pago.importe}, '${pago.fecha_pago.toISOString()}', '${pago.tipo_pago}', '${pago.metodo_pago}', '${pago.referencia}', '${pago.estado}', '${pago.fuente}', ${pago.comision ?? 0}, ${pago.importe_comision ?? 0})`
               ).join(',');
               
               const query = `
                 INSERT INTO pagos (
-                  id_cliente, concepto, importe, fecha_pago, tipo_pago, metodo_pago, referencia, estado, fuente
+                  id_cliente, concepto, importe, fecha_pago, tipo_pago, metodo_pago, referencia, estado, fuente, comision, importe_comision
                 ) VALUES ${values}
               `;
               

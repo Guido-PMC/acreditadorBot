@@ -1983,8 +1983,8 @@ router.delete('/comprobantes/:id', async (req, res) => {
       // Buscar por id_comprobante (string)
       comprobante = await client.query(
         'SELECT id, id_comprobante, id_acreditacion FROM comprobantes_whatsapp WHERE id_comprobante = $1',
-        [id]
-      );
+      [id]
+    );
     }
 
     if (comprobante.rows.length === 0) {
@@ -2170,7 +2170,7 @@ router.get('/clientes/:id/pagos', async (req, res) => {
 
     // Query para obtener datos
     const dataQuery = `
-      SELECT *, COALESCE(fuente, 'manual') as fuente FROM pagos
+      SELECT *, COALESCE(fuente, 'manual') as fuente, COALESCE(comision, 0) as comision, COALESCE(importe_comision, 0) as importe_comision FROM pagos
       WHERE id_cliente = $1
       ORDER BY fecha_pago DESC
       LIMIT $2 OFFSET $3
@@ -2227,7 +2227,9 @@ router.post('/pagos', [
       metodo_pago,
       referencia,
       observaciones,
-      fuente = 'manual'
+      fuente = 'manual',
+      comision = 0,
+      importe_comision = 0
     } = req.body;
 
     // Verificar que el cliente existe
@@ -2254,9 +2256,11 @@ router.post('/pagos', [
         metodo_pago,
         referencia,
         observaciones,
-        fuente
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id, concepto, importe
+        fuente,
+        comision,
+        importe_comision
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING id, concepto, importe, comision, importe_comision
     `, [
       id_cliente,
       concepto,
@@ -2266,7 +2270,9 @@ router.post('/pagos', [
       metodo_pago || null,
       referencia || null,
       observaciones || null,
-      fuente
+      fuente,
+      comision,
+      importe_comision
     ]);
 
     // Registrar log
@@ -2520,14 +2526,22 @@ router.delete('/historico/limpiar', async (req, res) => {
 
     // Función para contar registros
     const contarRegistros = async () => {
-      const acreditaciones = await client.query(`SELECT COUNT(*) as total FROM acreditaciones WHERE fuente = 'historico'`);
-      // Los comprobantes históricos son aquellos que están vinculados a acreditaciones históricas
+      // Los comprobantes históricos son aquellos cuyo id_comprobante comienza con 'HIST_'
       const comprobantes = await client.query(`
         SELECT COUNT(*) as total 
-        FROM comprobantes_whatsapp cw
-        INNER JOIN acreditaciones a ON cw.id_acreditacion = CAST(a.id AS VARCHAR)
-        WHERE a.fuente = 'historico'
+        FROM comprobantes_whatsapp 
+        WHERE id_comprobante LIKE 'HIST_%'
       `);
+      
+      // Las acreditaciones históricas son aquellas vinculadas a comprobantes históricos
+      const acreditaciones = await client.query(`
+        SELECT COUNT(*) as total 
+        FROM acreditaciones a
+        WHERE a.id_comprobante_whatsapp IN (
+          SELECT id_comprobante FROM comprobantes_whatsapp WHERE id_comprobante LIKE 'HIST_%'
+        )
+      `);
+      
       const pagos = await client.query(`SELECT COUNT(*) as total FROM pagos WHERE fuente = 'historico'`);
       
       return {
@@ -2563,14 +2577,12 @@ router.delete('/historico/limpiar', async (req, res) => {
     
     let eliminados = { comprobantes: 0, pagos: 0, acreditaciones: 0 };
     
-    // 1. Eliminar comprobantes primero (tienen FK a acreditaciones)
+    // 1. Eliminar comprobantes históricos (aquellos que comienzan con 'HIST_')
     if (conteoInicial.comprobantes > 0) {
       console.log('🗑️  Eliminando comprobantes históricos...');
       const resultComprobantes = await client.query(`
         DELETE FROM comprobantes_whatsapp 
-        WHERE id_acreditacion IN (
-          SELECT CAST(id AS VARCHAR) FROM acreditaciones WHERE fuente = 'historico'
-        )
+        WHERE id_comprobante LIKE 'HIST_%'
       `);
       eliminados.comprobantes = resultComprobantes.rowCount;
       console.log(`✅ Eliminados ${eliminados.comprobantes} comprobantes`);
@@ -2584,10 +2596,15 @@ router.delete('/historico/limpiar', async (req, res) => {
       console.log(`✅ Eliminados ${eliminados.pagos} pagos`);
     }
     
-    // 3. Eliminar acreditaciones al final
+    // 3. Eliminar acreditaciones vinculadas a comprobantes históricos
     if (conteoInicial.acreditaciones > 0) {
       console.log('🗑️  Eliminando acreditaciones históricas...');
-      const resultAcreditaciones = await client.query(`DELETE FROM acreditaciones WHERE fuente = 'historico'`);
+      const resultAcreditaciones = await client.query(`
+        DELETE FROM acreditaciones 
+        WHERE id_comprobante_whatsapp IN (
+          SELECT id_comprobante FROM comprobantes_whatsapp WHERE id_comprobante LIKE 'HIST_%'
+        )
+      `);
       eliminados.acreditaciones = resultAcreditaciones.rowCount;
       console.log(`✅ Eliminadas ${eliminados.acreditaciones} acreditaciones`);
     }

@@ -528,7 +528,9 @@
                         referencia: mov.referencia,
                         tipo_pago: mov.tipo_pago,
                         estado: mov.estado,
-                        es_entrada: mov.tipo_pago === 'credito'
+                        es_entrada: mov.tipo_pago === 'credito',
+                        comision: mov.comision || 0,
+                        importe_comision: mov.importe_comision || 0
                     });
                 });
 

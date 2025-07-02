@@ -441,7 +441,7 @@ router.get('/resumen', authenticateToken, async (req, res) => {
     const totalComisionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_comisiones_cotejadas || 0);
     const totalCreditos = parseFloat(movimientosStats.rows[0].total_importe_creditos || 0);
     const totalPagos = parseFloat(movimientosStats.rows[0].total_importe_pagos || 0);
-    
+
     const saldo_actual = totalImporteCotejadas - totalComisionesCotejadas + totalCreditos - totalPagos;
     
     console.log('🔍 Debug Saldo Actual Portal:', {
