@@ -435,7 +435,7 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
       (
         -- Acreditaciones
         SELECT 
-          id,
+          CAST(id AS INTEGER) as id,
           'acreditacion' as tipo,
           concepto,
           importe,
@@ -450,7 +450,7 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
           comision,
           importe_comision,
           NULL as id_comprobante,
-          id as id_acreditacion,
+          CAST(id AS VARCHAR) as id_acreditacion,
           cotejado,
           NULL as nombre_remitente,
           'historico' as fuente
@@ -461,7 +461,7 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
       (
         -- Comprobantes
         SELECT 
-          id,
+          CAST(id AS INTEGER) as id,
           'comprobante' as tipo,
           nombre_remitente as concepto,
           importe,
@@ -475,7 +475,7 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
           'confirmado' as estado,
           0 as comision,
           0 as importe_comision,
-          id as id_comprobante,
+          CAST(id AS VARCHAR) as id_comprobante,
           id_acreditacion,
           CASE WHEN id_acreditacion IS NOT NULL THEN true ELSE false END as cotejado,
           nombre_remitente,
@@ -487,7 +487,7 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
       (
         -- Pagos y Créditos
         SELECT 
-          id,
+          CAST(id AS INTEGER) as id,
           CASE WHEN tipo_pago = 'egreso' THEN 'pago' ELSE 'credito' END as tipo,
           concepto,
           importe,

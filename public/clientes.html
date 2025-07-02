@@ -141,7 +141,8 @@
             return {
               ...cliente,
               saldoTotal: saldoReal, // Saldo REAL que incluye todo
-              pendiente: acreditacionesPendientes - comisionesPendientes // Solo pendientes
+              porAcreditar: saldoData.data.resumen.porAcreditar || 0, // Monto por acreditar
+              disponible: saldoData.data.resumen.disponible || 0 // Monto disponible
             };
           }
         } catch (error) {
@@ -150,7 +151,8 @@
         return {
           ...cliente,
           saldoTotal: 0,
-          pendiente: 0
+          porAcreditar: 0,
+          disponible: 0
         };
       }));
       

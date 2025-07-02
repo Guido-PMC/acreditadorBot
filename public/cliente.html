@@ -577,66 +577,28 @@
       }
     }
 
-    // Cargar todos los movimientos del cliente (comprobantes, pagos y créditos)
+    // Cargar todos los movimientos del cliente usando la nueva ruta unificada
     async function loadMovimientosUnificados() {
       try {
         console.log('🔍 Cargando todos los movimientos del cliente:', clienteId);
         
-        // Cargar comprobantes del cliente
-        const comprobantesRes = await fetch(`/api/clientes/${clienteId}/comprobantes?limit=100`);
-        const comprobantesData = await comprobantesRes.json();
-
-        // Cargar pagos del cliente
-        const pagosRes = await fetch(`/api/clientes/${clienteId}/pagos?limit=100`);
-        const pagosData = await pagosRes.json();
-
-        if (!comprobantesData.success || !pagosData.success) {
+        // Usar la nueva ruta unificada que incluye fechas estimadas
+        const response = await fetch(`/portal/movimientos-unificados?limit=100`);
+        const result = await response.json();
+        
+        if (!result.success) {
+          console.error('Error al cargar movimientos unificados:', result);
           showAlert('danger', 'Error al cargar movimientos');
           return;
         }
 
-        console.log('📋 Comprobantes cargados:', comprobantesData.data);
-        console.log('💰 Pagos cargados:', pagosData.data);
+        console.log('📋 Movimientos unificados cargados:', result.data);
 
-        // Procesar comprobantes
-        const comprobantes = comprobantesData.data.map(comp => ({
-          id: comp.id,
-          tipo: 'comprobante',
-          concepto: comp.nombre_remitente || 'Sin nombre',
-          importe: comp.importe,
-          fecha: comp.fecha_envio,
-          fecha_envio: comp.fecha_envio,
-          fecha_recepcion: comp.fecha_recepcion,
-          cuit: comp.cuit,
-          estado: comp.id_acreditacion ? 'Acreditado' : 'Sin acreditar',
-          id_acreditacion: comp.id_acreditacion,
-          id_comprobante: comp.id_comprobante,
-          fuente: comp.fuente,
-          comision: comp.comision || 0,
-          importe_comision: comp.importe_comision || 0,
-          cotejado: comp.cotejado || false
-        }));
-
-        // Procesar pagos y créditos
-        const pagos = pagosData.data.map(pago => ({
-          id: pago.id,
-          tipo: pago.tipo_pago === 'credito' ? 'credito' : 'pago',
-          concepto: pago.concepto,
-          importe: pago.importe,
-          fecha: pago.fecha_pago,
-          fecha_pago: pago.fecha_pago,
-          metodo_pago: pago.metodo_pago,
-          referencia: pago.referencia,
-          observaciones: pago.observaciones,
-          estado: pago.estado,
-          fuente: pago.fuente
-        }));
-
-        // Combinar todos los movimientos
-        allMovimientos = [...comprobantes, ...pagos];
+        // Los datos ya vienen con la estructura correcta y fechas estimadas
+        allMovimientos = result.data;
 
         // Ordenar por fecha (más reciente primero)
-        allMovimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+        allMovimientos.sort((a, b) => new Date(b.fecha_original) - new Date(a.fecha_original));
 
         // Aplicar filtro actual
         applyCurrentFilter();

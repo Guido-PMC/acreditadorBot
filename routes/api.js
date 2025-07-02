@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
-const { calcularMontoPorAcreditar, calcularMontoDisponible } = require('../utils/liberacionFondos');
+const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto } = require('../utils/liberacionFondos');
 const router = express.Router();
 
 // Funciones de normalización y matching inteligente
@@ -2061,6 +2061,21 @@ router.get('/clientes/:id/resumen', async (req, res) => {
       WHERE id_cliente = $1 AND estado = 'confirmado'
     `, [id]);
 
+    // Obtener plazo de acreditación del cliente
+    const plazoAcreditacion = cliente.rows[0].plazo_acreditacion || 24;
+
+    // Obtener todas las acreditaciones del cliente para cálculo de liberación
+    const acreditacionesResult = await client.query('SELECT importe, fecha_hora, comision, importe_comision FROM acreditaciones WHERE id_cliente = $1', [id]);
+    const acreditaciones = acreditacionesResult.rows;
+
+    // Obtener todos los pagos del cliente (para incluir depósitos)
+    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago FROM pagos WHERE id_cliente = $1 AND estado = \'confirmado\'', [id]);
+    const pagos = pagosResult.rows;
+
+    // Calcular montos por acreditar y disponibles (incluyendo depósitos)
+    const montoPorAcreditar = calcularMontoPorAcreditarCompleto(acreditaciones, pagos, plazoAcreditacion);
+    const montoDisponible = calcularMontoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
+
     // Calcular saldo real (acreditaciones cotejadas - comisiones + créditos - comisiones créditos - pagos)
     const totalAcreditacionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_importe_cotejadas || 0);
     const totalComisionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_comisiones_cotejadas || 0);
@@ -2078,7 +2093,9 @@ router.get('/clientes/:id/resumen', async (req, res) => {
           comprobantes: comprobantesStats.rows[0],
           acreditaciones: acreditacionesStats.rows[0],
           pagos: pagosStats.rows[0],
-          saldo: saldo
+          saldo: saldo,
+          porAcreditar: montoPorAcreditar,
+          disponible: montoDisponible
         }
       }
     });
