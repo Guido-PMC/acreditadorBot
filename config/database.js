@@ -74,7 +74,8 @@ class Database {
           fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           estado VARCHAR(20) DEFAULT 'activo',
           observaciones TEXT,
-          comision DECIMAL(5,2) DEFAULT 0.00
+          comision DECIMAL(5,2) DEFAULT 0.00,
+          plazo_acreditacion INTEGER DEFAULT 24
         )
       `);
 
@@ -330,6 +331,21 @@ class Database {
         await client.query(`
           ALTER TABLE clientes 
           ADD COLUMN comision DECIMAL(5,2) DEFAULT 0.00
+        `);
+      }
+
+      // Verificar si la columna plazo_acreditacion existe en clientes
+      const clientesPlazoColumns = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'clientes' AND column_name = 'plazo_acreditacion'
+      `);
+      
+      if (clientesPlazoColumns.rows.length === 0) {
+        console.log('Agregando columna plazo_acreditacion a tabla clientes...');
+        await client.query(`
+          ALTER TABLE clientes 
+          ADD COLUMN plazo_acreditacion INTEGER DEFAULT 24
         `);
       }
 

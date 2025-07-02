@@ -1,0 +1,141 @@
+/**
+ * Utilidades para cálculo de liberación de fondos
+ * Reglas:
+ * - Corte a las 15:00 de cada día
+ * - Sábados y domingos no cuentan
+ * - Acreditaciones post 15:00 cuentan como día siguiente
+ */
+
+/**
+ * Calcula la fecha de liberación de un fondo
+ * @param {Date} fechaRecepcion - Fecha de recepción del fondo
+ * @param {number} plazoHoras - Plazo en horas (24, 48, 72, 96)
+ * @returns {Date} - Fecha de liberación
+ */
+function calcularFechaLiberacion(fechaRecepcion, plazoHoras) {
+  // Convertir a objeto Date si es string
+  const fecha = new Date(fechaRecepcion);
+  
+  // Aplicar corte de 15:00
+  const fechaCorte = new Date(fecha);
+  fechaCorte.setHours(15, 0, 0, 0);
+  
+  // Si la fecha es después de las 15:00, contar como día siguiente
+  let fechaInicio = fecha;
+  if (fecha > fechaCorte) {
+    fechaInicio = new Date(fecha);
+    fechaInicio.setDate(fechaInicio.getDate() + 1);
+    fechaInicio.setHours(0, 0, 0, 0);
+  } else {
+    fechaInicio = new Date(fecha);
+    fechaInicio.setHours(0, 0, 0, 0);
+  }
+  
+  // Calcular fecha de liberación
+  let fechaLiberacion = new Date(fechaInicio);
+  let horasAgregadas = 0;
+  
+  while (horasAgregadas < plazoHoras) {
+    fechaLiberacion.setHours(fechaLiberacion.getHours() + 1);
+    horasAgregadas++;
+    
+    // Si es sábado (6) o domingo (0), saltar al lunes
+    const diaSemana = fechaLiberacion.getDay();
+    if (diaSemana === 0) { // Domingo
+      fechaLiberacion.setDate(fechaLiberacion.getDate() + 1);
+      fechaLiberacion.setHours(0, 0, 0, 0);
+    } else if (diaSemana === 6) { // Sábado
+      fechaLiberacion.setDate(fechaLiberacion.getDate() + 2);
+      fechaLiberacion.setHours(0, 0, 0, 0);
+    }
+  }
+  
+  return fechaLiberacion;
+}
+
+/**
+ * Verifica si un fondo ya está liberado
+ * @param {Date} fechaRecepcion - Fecha de recepción
+ * @param {number} plazoHoras - Plazo en horas
+ * @returns {boolean} - true si está liberado, false si no
+ */
+function estaLiberado(fechaRecepcion, plazoHoras) {
+  const fechaLiberacion = calcularFechaLiberacion(fechaRecepcion, plazoHoras);
+  const ahora = new Date();
+  return ahora >= fechaLiberacion;
+}
+
+/**
+ * Calcula cuántas horas faltan para la liberación
+ * @param {Date} fechaRecepcion - Fecha de recepción
+ * @param {number} plazoHoras - Plazo en horas
+ * @returns {number} - Horas restantes (0 si ya está liberado)
+ */
+function horasRestantes(fechaRecepcion, plazoHoras) {
+  const fechaLiberacion = calcularFechaLiberacion(fechaRecepcion, plazoHoras);
+  const ahora = new Date();
+  
+  if (ahora >= fechaLiberacion) {
+    return 0;
+  }
+  
+  const diffMs = fechaLiberacion - ahora;
+  const diffHoras = Math.ceil(diffMs / (1000 * 60 * 60));
+  return Math.max(0, diffHoras);
+}
+
+/**
+ * Formatea la fecha de liberación para mostrar
+ * @param {Date} fechaRecepcion - Fecha de recepción
+ * @param {number} plazoHoras - Plazo en horas
+ * @returns {string} - Fecha formateada
+ */
+function formatearFechaLiberacion(fechaRecepcion, plazoHoras) {
+  const fechaLiberacion = calcularFechaLiberacion(fechaRecepcion, plazoHoras);
+  return fechaLiberacion.toLocaleString('es-AR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+/**
+ * Calcula el monto por acreditar (fondos no liberados)
+ * @param {Array} acreditaciones - Array de acreditaciones
+ * @param {number} plazoHoras - Plazo en horas del cliente
+ * @returns {number} - Monto total por acreditar
+ */
+function calcularMontoPorAcreditar(acreditaciones, plazoHoras) {
+  return acreditaciones.reduce((total, acreditacion) => {
+    if (!estaLiberado(acreditacion.fecha_hora, plazoHoras)) {
+      return total + parseFloat(acreditacion.importe || 0);
+    }
+    return total;
+  }, 0);
+}
+
+/**
+ * Calcula el monto disponible (fondos liberados)
+ * @param {Array} acreditaciones - Array de acreditaciones
+ * @param {number} plazoHoras - Plazo en horas del cliente
+ * @returns {number} - Monto total disponible
+ */
+function calcularMontoDisponible(acreditaciones, plazoHoras) {
+  return acreditaciones.reduce((total, acreditacion) => {
+    if (estaLiberado(acreditacion.fecha_hora, plazoHoras)) {
+      return total + parseFloat(acreditacion.importe || 0);
+    }
+    return total;
+  }, 0);
+}
+
+module.exports = {
+  calcularFechaLiberacion,
+  estaLiberado,
+  horasRestantes,
+  formatearFechaLiberacion,
+  calcularMontoPorAcreditar,
+  calcularMontoDisponible
+}; 

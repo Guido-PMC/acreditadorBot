@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
+const { calcularMontoPorAcreditar, calcularMontoDisponible } = require('../utils/liberacionFondos');
 
 const router = express.Router();
 
@@ -399,7 +400,17 @@ router.get('/resumen', authenticateToken, async (req, res) => {
   try {
     const cliente_id = parseInt(req.user.cliente_id);
 
-    console.log('🔍 Debug - cliente_id:', cliente_id, 'tipo:', typeof cliente_id);
+    // Obtener plazo de acreditación del cliente
+    const clienteResult = await client.query('SELECT plazo_acreditacion FROM clientes WHERE id = $1', [cliente_id]);
+    const plazoAcreditacion = clienteResult.rows[0]?.plazo_acreditacion || 24;
+
+    // Obtener todas las acreditaciones del cliente
+    const acreditacionesResult = await client.query('SELECT importe, fecha_hora, comision, importe_comision FROM acreditaciones WHERE id_cliente = $1', [cliente_id]);
+    const acreditaciones = acreditacionesResult.rows;
+
+    // Calcular montos por acreditar y disponibles
+    const montoPorAcreditar = calcularMontoPorAcreditar(acreditaciones, plazoAcreditacion);
+    const montoDisponible = calcularMontoDisponible(acreditaciones, plazoAcreditacion);
 
     // Estadísticas de acreditaciones (considerando comisiones)
     const acreditacionesStats = await client.query(`
@@ -439,27 +450,17 @@ router.get('/resumen', authenticateToken, async (req, res) => {
       WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
     `, [cliente_id]);
 
-    // Calcular saldo actual (acreditaciones cotejadas - comisiones + créditos - comisiones créditos - pagos)
+    // Calcular saldo actual (solo fondos liberados)
     const totalImporteCotejadas = parseFloat(acreditacionesStats.rows[0].total_importe_cotejadas || 0);
     const totalComisionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_comisiones_cotejadas || 0);
     const totalCreditos = parseFloat(movimientosStats.rows[0].total_importe_creditos || 0);
     const totalComisionesCreditos = parseFloat(movimientosStats.rows[0].total_comisiones_creditos || 0);
     const totalPagos = parseFloat(movimientosStats.rows[0].total_importe_pagos || 0);
 
-    const saldo_actual = totalImporteCotejadas - totalComisionesCotejadas + totalCreditos - totalComisionesCreditos - totalPagos;
-    
-    console.log('🔍 Debug Saldo Actual Portal:', {
-      cliente_id,
-      totalImporteCotejadas,
-      totalComisionesCotejadas,
-      totalCreditos,
-      totalComisionesCreditos,
-      totalPagos,
-      saldo_actual
-    });
+    // Nuevo saldo: solo fondos liberados
+    const saldo_actual = montoDisponible - totalComisionesCotejadas + (totalCreditos - totalComisionesCreditos) - totalPagos;
 
     // Saldo pendiente (acreditaciones no cotejadas - comisiones)
-    // NOTA: No incluimos comprobantes pendientes porque pueden ser duplicados/erróneos
     const saldo_pendiente = (acreditacionesStats.rows[0].total_importe_pendientes || 0) - 
                            (acreditacionesStats.rows[0].total_comisiones_pendientes || 0);
 
@@ -471,7 +472,9 @@ router.get('/resumen', authenticateToken, async (req, res) => {
         comprobantes_pendientes: comprobantesPendientesStats.rows[0],
         saldo_actual: saldo_actual,
         saldo_pendiente: saldo_pendiente,
-        saldo_total: saldo_actual + saldo_pendiente
+        saldo_total: saldo_actual + saldo_pendiente,
+        porAcreditar: montoPorAcreditar,
+        disponible: montoDisponible
       }
     });
 

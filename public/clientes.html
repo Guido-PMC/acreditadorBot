@@ -33,9 +33,10 @@
             <th>Nombre</th>
             <th>Apellido</th>
             <th>Comisión</th>
+            <th>Plazo</th>
             <th>Estado</th>
             <th>Saldo Total</th>
-            <th>Pendiente</th>
+            <th>Por Acreditar</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -74,6 +75,16 @@
               <label for="comision" class="form-label">Comisión (%)</label>
               <input type="number" class="form-control" id="comision" min="0" max="100" step="0.01" placeholder="0.00">
               <div class="form-text">Porcentaje de comisión que se aplicará a las acreditaciones (0-100%)</div>
+            </div>
+            <div class="mb-3">
+              <label for="plazo_acreditacion" class="form-label">Plazo de Acreditación</label>
+              <select class="form-select" id="plazo_acreditacion">
+                <option value="24">24 horas</option>
+                <option value="48">48 horas</option>
+                <option value="72">72 horas</option>
+                <option value="96">96 horas</option>
+              </select>
+              <div class="form-text">Tiempo que tardan en liberarse los fondos (corte a las 15:00)</div>
             </div>
             <div class="mb-3">
               <label for="estado" class="form-label">Estado</label>
@@ -151,15 +162,16 @@
       tbody.innerHTML = "";
       clientes.forEach(cliente => {
         const saldoTotal = parseFloat(cliente.saldoTotal || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS" });
-        const saldoPendiente = parseFloat(cliente.pendiente || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS" });
+        const porAcreditar = parseFloat(cliente.porAcreditar || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS" });
         tbody.innerHTML += `
           <tr>
             <td>${cliente.nombre}</td>
             <td>${cliente.apellido || ""}</td>
             <td>${cliente.comision || "0.00"}%</td>
+            <td>${cliente.plazo_acreditacion || 24}h</td>
             <td><span class="badge ${cliente.estado === "activo" ? "bg-success" : "bg-secondary"}">${cliente.estado}</span></td>
             <td class="text-end fw-bold ${parseFloat(cliente.saldoTotal || 0) > 0 ? "text-success" : "text-muted"}">${saldoTotal}</td>
-            <td class="text-end fw-bold ${parseFloat(cliente.pendiente || 0) > 0 ? "text-warning" : "text-muted"}">${saldoPendiente}</td>
+            <td class="text-end fw-bold ${parseFloat(cliente.porAcreditar || 0) > 0 ? "text-warning" : "text-muted"}">${porAcreditar}</td>
             <td>
               <button class="btn btn-sm btn-info me-1" onclick="viewComprobantes(${cliente.id})">Comprobantes</button>
               <button class="btn btn-sm btn-warning me-1" onclick="editCliente(${cliente.id})">Editar</button>
@@ -199,6 +211,7 @@
         apellido: document.getElementById('apellido').value,
         observaciones: document.getElementById('observaciones').value,
         comision: document.getElementById('comision').value,
+        plazo_acreditacion: document.getElementById('plazo_acreditacion').value,
         estado: document.getElementById('estado').value
       };
       let method = 'POST', url = '/api/clientes';
@@ -232,6 +245,7 @@
       document.getElementById('apellido').value = cliente.apellido || '';
       document.getElementById('observaciones').value = cliente.observaciones || '';
       document.getElementById('comision').value = cliente.comision || '0.00';
+      document.getElementById('plazo_acreditacion').value = cliente.plazo_acreditacion || '24';
       document.getElementById('estado').value = cliente.estado || 'activo';
       document.getElementById('clienteModalLabel').innerText = 'Editar Cliente';
       new bootstrap.Modal(document.getElementById('clienteModal')).show();

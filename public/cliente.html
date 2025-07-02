@@ -25,6 +25,8 @@
               <div class="text-end">
                 <h3 class="text-primary mb-0" id="saldoCliente">$0.00</h3>
                 <small class="text-muted">Saldo Actual</small>
+                <h3 class="text-warning mb-0" id="porAcreditar">$0.00</h3>
+                <small class="text-muted">Por Acreditar</small>
                 <br>
                 <button class="btn btn-sm btn-success me-2" onclick="openCreditoModal()" title="Nuevo Crédito">
                   <i class="fas fa-plus me-1"></i>Nuevo Crédito
@@ -358,7 +360,10 @@
       updateElement('clienteInfo', `Cliente ID: ${cliente.id} • Estado: ${cliente.estado}`);
       
       // Saldo
-      updateElement('saldoCliente', `$${resumen.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
+      const porAcreditar = data.resumen?.porAcreditar || 0;
+      const disponible = data.resumen?.disponible || 0;
+      updateElement('porAcreditar', formatCurrency(porAcreditar));
+      updateElement('saldoCliente', formatCurrency(disponible));
       
       // Primera fila: Contadores de comprobantes (con formato de miles)
       updateElement('totalAcreditaciones', (resumen.comprobantes.total_comprobantes || 0).toLocaleString('es-AR'));
@@ -724,7 +729,11 @@
                   ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `<div class="mt-1"><small class="text-warning"><strong>⚠️ Sin vincular a acreditación</strong></small></div>` : ''}
                 </div>
                 <div class="text-end ms-3">
-                  <div class="h5 mb-0 ${importeClass}">${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                  <div class="h5 mb-0 ${importeClass}" 
+                       ${mov.fecha_estimada_liberacion ? `data-bs-toggle="tooltip" data-bs-placement="top" title="Fecha estimada de liberación: ${mov.fecha_estimada_liberacion}"` : ''}>
+                    ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    ${mov.fecha_estimada_liberacion ? '<i class="fas fa-clock text-muted ms-1" style="font-size: 0.8em;"></i>' : ''}
+                  </div>
                   ${comision > 0 ? `<div class="text-muted small"><strong>Comisión:</strong> ${comision}%<br><span class="text-danger">- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></div>` : ''}
                   ${comision > 0 ? `<div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - importeComision).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>` : ''}
                   <div class="btn-group-vertical btn-group-sm mt-1">
@@ -738,6 +747,12 @@
           </div>
         `;
       }).join('');
+
+      // Inicializar tooltips después de poblar la tabla
+      const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
     }
 
     // Función de debug para verificar estado de la base de datos

@@ -372,17 +372,28 @@
                     
                     document.getElementById('totalAcreditaciones').textContent = data.acreditaciones.total_acreditaciones || 0;
                     
-                    // Saldo actual (acreditaciones cotejadas - comisiones + créditos - pagos)
-                    const saldoActual = data.saldo_actual || 0;
+                    const porAcreditar = data.porAcreditar || 0;
+                    const disponible = data.disponible || 0;
+
+                    // Mostrar el campo Por Acreditar
+                    const porAcreditarElement = document.getElementById('porAcreditar');
+                    if (porAcreditarElement) {
+                        porAcreditarElement.textContent = new Intl.NumberFormat('es-AR', {
+                            style: 'currency',
+                            currency: 'ARS'
+                        }).format(porAcreditar);
+                    }
+
+                    // Ajustar el saldo actual mostrado
                     const saldoActualElement = document.getElementById('saldoActual');
                     saldoActualElement.textContent = new Intl.NumberFormat('es-AR', {
                         style: 'currency',
                         currency: 'ARS'
-                    }).format(saldoActual);
-                    
-                    if (saldoActual > 0) {
+                    }).format(disponible);
+
+                    if (disponible > 0) {
                         saldoActualElement.className = 'balance-positive';
-                    } else if (saldoActual < 0) {
+                    } else if (disponible < 0) {
                         saldoActualElement.className = 'balance-negative';
                     } else {
                         saldoActualElement.className = 'balance-zero';
@@ -679,8 +690,10 @@
                         </td>
                         <td><strong>${(mov.concepto || '').replace(/^\s*[^\w\s]*\s*/, '')}</strong></td>
                         <td>
-                            <div class="h5 mb-0 ${importeClass}">
+                            <div class="h5 mb-0 ${importeClass}" 
+                                 ${mov.fecha_estimada_liberacion ? `data-bs-toggle="tooltip" data-bs-placement="top" title="Fecha estimada de liberación: ${mov.fecha_estimada_liberacion}"` : ''}>
                                 ${mov.tipo === 'pago' || (mov.tipo === 'movimiento' && mov.tipo_pago === 'egreso') ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                ${mov.fecha_estimada_liberacion ? '<i class="fas fa-clock text-muted ms-1" style="font-size: 0.8em;"></i>' : ''}
                             </div>
                         </td>
                         <td>
@@ -705,6 +718,12 @@
             if (movimientosCountElement) {
                 movimientosCountElement.textContent = total;
             }
+
+            // Inicializar tooltips después de poblar la tabla
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
         }
 
         // Actualizar información de paginación
@@ -1043,7 +1062,7 @@
                 });
             });
             
-            console.log('\n🎯 === FILTROS ===');
+            console.log('\n�� === FILTROS ===');
             console.log('Filtro actual:', movimientosFilter);
             console.log('Movimientos filtrados por tipo:');
             console.log('- Acreditaciones:', allMovimientos.filter(m => m.tipo === 'acreditacion').length);

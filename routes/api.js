@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
+const { calcularMontoPorAcreditar, calcularMontoDisponible } = require('../utils/liberacionFondos');
 const router = express.Router();
 
 // Funciones de normalización y matching inteligente
@@ -1134,7 +1135,7 @@ router.get('/clientes', async (req, res) => {
     const countResult = await client.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
 
-    // Query para obtener datos
+    // Query para obtener datos básicos de clientes
     const dataQuery = `
       SELECT 
         c.*,
@@ -1177,7 +1178,8 @@ router.get('/clientes', async (req, res) => {
 // POST /api/clientes - Crear cliente
 router.post('/clientes', [
   body('nombre').notEmpty().withMessage('Nombre es requerido'),
-  body('comision').optional().isFloat({ min: 0, max: 100 }).withMessage('Comisión debe ser un número entre 0 y 100')
+  body('comision').optional().isFloat({ min: 0, max: 100 }).withMessage('Comisión debe ser un número entre 0 y 100'),
+  body('plazo_acreditacion').optional().isInt({ min: 24, max: 96 }).withMessage('Plazo debe ser 24, 48, 72 o 96 horas')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -1194,7 +1196,8 @@ router.post('/clientes', [
       nombre,
       apellido,
       observaciones,
-      comision = 0.00
+      comision = 0.00,
+      plazo_acreditacion = 24
     } = req.body;
 
     // Insertar cliente
@@ -1203,14 +1206,16 @@ router.post('/clientes', [
         nombre,
         apellido,
         observaciones,
-        comision
-      ) VALUES ($1, $2, $3, $4)
+        comision,
+        plazo_acreditacion
+      ) VALUES ($1, $2, $3, $4, $5)
       RETURNING id
     `, [
       nombre,
       apellido,
       observaciones,
-      comision
+      comision,
+      plazo_acreditacion
     ]);
 
     // Registrar log
@@ -1249,7 +1254,8 @@ router.post('/clientes', [
 // PUT /api/clientes/:id - Actualizar cliente
 router.put('/clientes/:id', [
   body('nombre').notEmpty().withMessage('Nombre es requerido'),
-  body('comision').optional().isFloat({ min: 0, max: 100 }).withMessage('Comisión debe ser un número entre 0 y 100')
+  body('comision').optional().isFloat({ min: 0, max: 100 }).withMessage('Comisión debe ser un número entre 0 y 100'),
+  body('plazo_acreditacion').optional().isInt({ min: 24, max: 96 }).withMessage('Plazo debe ser 24, 48, 72 o 96 horas')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -1268,7 +1274,8 @@ router.put('/clientes/:id', [
       apellido,
       observaciones,
       estado,
-      comision
+      comision,
+      plazo_acreditacion
     } = req.body;
 
     // Verificar si el cliente existe
@@ -1291,14 +1298,16 @@ router.put('/clientes/:id', [
         apellido = $2,
         observaciones = $3,
         estado = $4,
-        comision = COALESCE($5, comision)
-      WHERE id = $6
+        comision = COALESCE($5, comision),
+        plazo_acreditacion = COALESCE($6, plazo_acreditacion)
+      WHERE id = $7
     `, [
       nombre,
       apellido,
       observaciones,
       estado || 'activo',
       comision,
+      plazo_acreditacion,
       id
     ]);
 
