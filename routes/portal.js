@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
-const { calcularMontoPorAcreditar, calcularMontoDisponible } = require('../utils/liberacionFondos');
+const { calcularMontoPorAcreditar, calcularMontoDisponible, formatearFechaLiberacion } = require('../utils/liberacionFondos');
 
 const router = express.Router();
 
@@ -384,6 +384,173 @@ router.get('/movimientos', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Error obteniendo movimientos:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron obtener los movimientos'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /portal/movimientos-unificados - Obtener todos los movimientos unificados del cliente
+router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { 
+      page = 1, 
+      limit = 25,
+      ordenar_por = 'fecha',
+      orden = 'DESC',
+      tipo = '' // 'acreditacion', 'comprobante', 'pago', 'credito', o vacío para todos
+    } = req.query;
+
+    const cliente_id = parseInt(req.user.cliente_id);
+    const offset = (page - 1) * limit;
+
+    // Obtener plazo de acreditación del cliente
+    const clienteResult = await client.query('SELECT plazo_acreditacion FROM clientes WHERE id = $1', [cliente_id]);
+    const plazoAcreditacion = clienteResult.rows[0]?.plazo_acreditacion || 24;
+
+    // Construir condiciones de filtro
+    let whereConditions = ['CAST(id_cliente AS INTEGER) = $1'];
+    let params = [cliente_id];
+    let paramIndex = 2;
+
+    if (tipo === 'acreditacion') {
+      whereConditions.push('tipo = \'acreditacion\'');
+    } else if (tipo === 'comprobante') {
+      whereConditions.push('tipo = \'comprobante\'');
+    } else if (tipo === 'pago') {
+      whereConditions.push('tipo = \'pago\'');
+    } else if (tipo === 'credito') {
+      whereConditions.push('tipo = \'credito\'');
+    }
+
+    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+
+    // Query para obtener todos los movimientos unificados
+    const dataQuery = `
+      (
+        -- Acreditaciones
+        SELECT 
+          id,
+          'acreditacion' as tipo,
+          concepto,
+          importe,
+          fecha_hora as fecha,
+          fecha_hora as fecha_original,
+          NULL as fecha_recepcion,
+          NULL as cuit,
+          NULL as metodo_pago,
+          NULL as referencia,
+          NULL as observaciones,
+          'confirmado' as estado,
+          comision,
+          importe_comision,
+          NULL as id_comprobante,
+          id as id_acreditacion,
+          cotejado,
+          NULL as nombre_remitente,
+          'historico' as fuente
+        FROM acreditaciones 
+        WHERE CAST(id_cliente AS INTEGER) = $1
+      )
+      UNION ALL
+      (
+        -- Comprobantes
+        SELECT 
+          id,
+          'comprobante' as tipo,
+          concepto,
+          importe,
+          fecha_envio as fecha,
+          fecha_envio as fecha_original,
+          fecha_recepcion,
+          cuit,
+          NULL as metodo_pago,
+          NULL as referencia,
+          observaciones,
+          'confirmado' as estado,
+          0 as comision,
+          0 as importe_comision,
+          id as id_comprobante,
+          id_acreditacion,
+          CASE WHEN id_acreditacion IS NOT NULL THEN true ELSE false END as cotejado,
+          nombre_remitente,
+          'whatsapp' as fuente
+        FROM comprobantes_whatsapp 
+        WHERE CAST(id_cliente AS INTEGER) = $1
+      )
+      UNION ALL
+      (
+        -- Pagos y Créditos
+        SELECT 
+          id,
+          CASE WHEN tipo_pago = 'egreso' THEN 'pago' ELSE 'credito' END as tipo,
+          concepto,
+          importe,
+          fecha_pago as fecha,
+          fecha_pago as fecha_original,
+          NULL as fecha_recepcion,
+          NULL as cuit,
+          metodo_pago,
+          referencia,
+          observaciones,
+          estado,
+          comision,
+          importe_comision,
+          NULL as id_comprobante,
+          NULL as id_acreditacion,
+          true as cotejado,
+          NULL as nombre_remitente,
+          'manual' as fuente
+        FROM pagos 
+        WHERE CAST(id_cliente AS INTEGER) = $1
+      )
+      ORDER BY fecha_original ${orden === 'ASC' ? 'ASC' : 'DESC'}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    
+    params.push(parseInt(limit), offset);
+    const dataResult = await client.query(dataQuery, params);
+
+    // Calcular fechas estimadas de liberación para acreditaciones y comprobantes
+    const movimientosConFechas = dataResult.rows.map(mov => {
+      if (mov.tipo === 'acreditacion' || mov.tipo === 'comprobante') {
+        const fechaRecepcion = mov.fecha_recepcion || mov.fecha;
+        mov.fecha_estimada_liberacion = formatearFechaLiberacion(fechaRecepcion, plazoAcreditacion);
+      }
+      return mov;
+    });
+
+    // Query para contar total
+    const countQuery = `
+      (
+        SELECT COUNT(*) FROM acreditaciones WHERE CAST(id_cliente AS INTEGER) = $1
+      ) + (
+        SELECT COUNT(*) FROM comprobantes_whatsapp WHERE CAST(id_cliente AS INTEGER) = $1
+      ) + (
+        SELECT COUNT(*) FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1
+      )
+    `;
+    const countResult = await client.query(countQuery, [cliente_id]);
+    const total = parseInt(countResult.rows[0].count || 0);
+
+    res.json({
+      success: true,
+      data: movimientosConFechas,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo movimientos unificados:', error);
     res.status(500).json({
       error: 'Error interno del servidor',
       message: 'No se pudieron obtener los movimientos'

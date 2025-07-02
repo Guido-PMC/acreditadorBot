@@ -436,126 +436,20 @@
             return null;
         }
 
-        // Cargar movimientos unificados (acreditaciones + comprobantes + pagos)
+        // Cargar movimientos unificados usando la nueva ruta
         async function loadMovimientosUnificados() {
             try {
-                // Obtener cliente_id primero
-                const clienteId = await getClienteId();
-                if (!clienteId) {
-                    console.error('No se pudo obtener el cliente_id');
+                const response = await authenticatedRequest('/portal/movimientos-unificados?limit=100');
+                if (!response) return;
+
+                const result = await response.json();
+                if (!result.success) {
+                    console.error('Error al cargar movimientos unificados:', result);
                     return;
                 }
-
-                // Cargar acreditaciones, comprobantes y movimientos en paralelo
-                const [acreditacionesRes, comprobantesRes, movimientosRes] = await Promise.all([
-                    authenticatedRequest(`/api/acreditaciones?cliente=${clienteId}&limit=100`),
-                    authenticatedRequest(`/api/clientes/${clienteId}/comprobantes?limit=100`),
-                    authenticatedRequest('/portal/movimientos?limit=100')
-                ]);
-
-                if (!acreditacionesRes || !comprobantesRes || !movimientosRes) return;
-
-                const [acreditacionesData, comprobantesData, movimientosData] = await Promise.all([
-                    acreditacionesRes.json(),
-                    comprobantesRes.json(),
-                    movimientosRes.json()
-                ]);
-
-                if (!acreditacionesData.success || !comprobantesData.success || !movimientosData.success) {
-                    showAlert('Error al cargar movimientos', 'danger');
-                    return;
-                }
-
-                // Combinar y ordenar movimientos
-                const movimientos = [];
-                
-                // Agregar acreditaciones como entradas
-                acreditacionesData.data.forEach(acred => {
-                    // Verificar que la fecha sea válida
-                    const fecha = acred.fecha_hora ? new Date(acred.fecha_hora) : new Date();
-                    const fechaFormateada = fecha instanceof Date && !isNaN(fecha) ? 
-                        fecha.toLocaleDateString('es-AR') + ' ' + fecha.toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : 
-                        'Fecha no disponible';
-
-                    movimientos.push({
-                        id: `acred_${acred.id}`,
-                        tipo: 'acreditacion',
-                        concepto: `Acreditación: ${acred.titular || 'Sin titular'}`,
-                        importe: acred.importe,
-                        comision: acred.comision,
-                        importe_comision: acred.importe_comision,
-                        fecha: fechaFormateada,
-                        fecha_original: acred.fecha_hora,
-                        cuit: acred.cuit,
-                        estado: acred.cotejado ? 'Cotejado' : 'Pendiente',
-                        es_entrada: true
-                    });
-                });
-
-                // Agregar solo comprobantes pendientes (sin asignar)
-                comprobantesData.data.forEach(comp => {
-                    // Solo incluir comprobantes que NO tienen acreditación asignada
-                    if (!comp.id_acreditacion) {
-                        // Verificar que la fecha sea válida
-                        const fecha = comp.fecha_envio ? new Date(comp.fecha_envio) : new Date();
-                        const fechaFormateada = fecha instanceof Date && !isNaN(fecha) ? 
-                            fecha.toLocaleDateString('es-AR') + ' ' + fecha.toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : 
-                            'Fecha no disponible';
-
-                        movimientos.push({
-                            id: `comp_${comp.id}`,
-                            tipo: 'comprobante',
-                            concepto: `Comprobante Pendiente: ${comp.nombre_remitente || 'Sin nombre'}`,
-                            importe: comp.importe,
-                            comision: 0, // Los comprobantes no tienen comisión directa
-                            importe_comision: 0,
-                            fecha: fechaFormateada,
-                            fecha_original: comp.fecha_envio,
-                            cuit: comp.cuit,
-                            estado: 'Pendiente',
-                            id_acreditacion: null,
-                            fuente: comp.fuente,
-                            es_entrada: true
-                        });
-                    }
-                });
-
-                // Agregar movimientos como salidas o entradas
-                movimientosData.data.forEach(mov => {
-                    // Verificar que la fecha sea válida
-                    const fecha = mov.fecha_pago ? new Date(mov.fecha_pago) : new Date();
-                    const fechaFormateada = fecha instanceof Date && !isNaN(fecha) ? 
-                        fecha.toLocaleDateString('es-AR') + ' ' + fecha.toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : 
-                        'Fecha no disponible';
-
-                    movimientos.push({
-                        id: `mov_${mov.id}`,
-                        tipo: 'movimiento', // Asignar tipo correcto
-                        concepto: mov.concepto,
-                        importe: mov.importe,
-                        fecha: fechaFormateada,
-                        fecha_original: mov.fecha_pago,
-                        metodo_pago: mov.metodo_pago,
-                        referencia: mov.referencia,
-                        tipo_pago: mov.tipo_pago,
-                        estado: mov.estado,
-                        es_entrada: mov.tipo_pago === 'credito',
-                        comision: mov.comision || 0,
-                        importe_comision: mov.importe_comision || 0,
-                        id_acreditacion: mov.id_acreditacion || null,
-                        cotejado: mov.cotejado || false
-                    });
-                });
-
-                // Ordenar por fecha (más reciente primero)
-                movimientos.sort((a, b) => {
-                    const fechaA = a.fecha_original ? new Date(a.fecha_original) : new Date(0);
-                    const fechaB = b.fecha_original ? new Date(b.fecha_original) : new Date(0);
-                    return fechaB - fechaA;
-                });
 
                 // Guardar todos los movimientos y resetear paginación
-                allMovimientos = movimientos;
+                allMovimientos = result.data;
                 currentPage = 1;
                 
                 // Inicializar indicadores de ordenamiento
@@ -581,10 +475,10 @@
                         movimientosFiltrados = allMovimientos.filter(mov => mov.tipo === 'comprobante');
                         break;
                     case 'credito':
-                        movimientosFiltrados = allMovimientos.filter(mov => mov.tipo === 'movimiento' && mov.tipo_pago === 'credito');
+                        movimientosFiltrados = allMovimientos.filter(mov => mov.tipo === 'credito');
                         break;
                     case 'pago':
-                        movimientosFiltrados = allMovimientos.filter(mov => mov.tipo === 'movimiento' && mov.tipo_pago === 'egreso');
+                        movimientosFiltrados = allMovimientos.filter(mov => mov.tipo === 'pago');
                         break;
                     default:
                         movimientosFiltrados = allMovimientos;
@@ -652,18 +546,6 @@
                     badgeText = 'Sin acreditar';
                     tipoText = 'Comprobante';
                     importeClass = 'text-primary';
-                } else if (mov.tipo === 'movimiento' && mov.tipo_pago === 'credito') {
-                    icon = 'fas fa-plus-circle';
-                    badgeClass = 'bg-success';
-                    badgeText = mov.estado || 'Confirmado';
-                    tipoText = 'Crédito';
-                    importeClass = 'text-success';
-                } else if (mov.tipo === 'movimiento' && mov.tipo_pago === 'egreso') {
-                    icon = 'fas fa-minus-circle';
-                    badgeClass = 'bg-danger';
-                    badgeText = mov.estado || 'Confirmado';
-                    tipoText = 'Pago';
-                    importeClass = 'text-danger';
                 } else if (mov.tipo === 'credito') {
                     icon = 'fas fa-plus-circle';
                     badgeClass = 'bg-success';
@@ -692,7 +574,7 @@
                         <td>
                             <div class="h5 mb-0 ${importeClass}" 
                                  ${mov.fecha_estimada_liberacion ? `data-bs-toggle="tooltip" data-bs-placement="top" title="Fecha estimada de liberación: ${mov.fecha_estimada_liberacion}"` : ''}>
-                                ${mov.tipo === 'pago' || (mov.tipo === 'movimiento' && mov.tipo_pago === 'egreso') ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                                 ${mov.fecha_estimada_liberacion ? '<i class="fas fa-clock text-muted ms-1" style="font-size: 0.8em;"></i>' : ''}
                             </div>
                         </td>
