@@ -624,14 +624,18 @@
                 let importeClass = '';
 
                 if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
-                    // Mostrar como acreditación vinculada
                     icon = 'fas fa-university';
-                    badgeClass = mov.cotejado ? 'bg-success' : 'bg-primary';
+                    badgeClass = 'bg-success'; // SIEMPRE verde para acreditación
+                    badgeText = mov.cotejado ? 'Cotejada' : 'Acreditación';
+                    tipoText = 'Acreditación';
+                    importeClass = 'text-primary';
+                } else if (mov.tipo === 'acreditacion') {
+                    icon = 'fas fa-university';
+                    badgeClass = 'bg-success';
                     badgeText = mov.cotejado ? 'Cotejada' : 'Acreditación';
                     tipoText = 'Acreditación';
                     importeClass = 'text-primary';
                 } else if (mov.tipo === 'comprobante') {
-                    // Comprobante pendiente
                     icon = 'fas fa-file-alt';
                     badgeClass = 'bg-warning';
                     badgeText = 'Sin acreditar';
@@ -651,59 +655,36 @@
                     importeClass = 'text-danger';
                 }
 
-                // Si es comprobante con acreditación, usar los campos de la acreditación
-                let comision = 0;
-                let importeComision = 0;
-                if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
-                    comision = parseFloat(mov.comision) || 0;
-                    importeComision = parseFloat(mov.importe_comision) || 0;
-                } else {
-                    comision = parseFloat(mov.comision) || 0;
-                    importeComision = parseFloat(mov.importe_comision) || 0;
-                }
-
-                // Calcular neto
+                let comision = parseFloat(mov.comision) || 0;
+                let importeComision = parseFloat(mov.importe_comision) || 0;
                 const neto = mov.importe - importeComision;
 
                 return `
                     <tr>
                         <td>${mov.fecha}</td>
                         <td>
-                            <span class="badge ${badgeClass} ms-1">${tipoText || (mov.tipo === 'acreditacion' ? 'Acreditación' : mov.tipo === 'comprobante' ? 'Comprobante' : mov.tipo === 'credito' ? 'Crédito' : mov.tipo === 'pago' ? 'Pago' : 'Movimiento')}</span>
+                            <span class="badge ${badgeClass} ms-1">${tipoText}</span>
                         </td>
-                        <td><strong>${mov.concepto}</strong></td>
+                        <td><strong>${(mov.concepto || '').replace(/^\s*[^\w\s]*\s*/, '')}</strong></td>
                         <td>
                             <div class="h5 mb-0 ${importeClass}">
                                 ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                             </div>
-                            ${comision > 0 && ((mov.tipo === 'credito') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
-                                <div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - importeComision).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-                            ` : ''}
+                            ${comision > 0 ? `<div class='text-muted small'><strong>Comisión:</strong> ${comision}%<br><span class='text-danger'>- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></div>` : ''}
+                            ${comision > 0 ? `<div class='text-muted small'>Neto: $${neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>` : ''}
                         </td>
                         <td>
-                            ${comision > 0 && ((mov.tipo === 'credito') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
-                                <div class="mt-1">
-                                    <small class="text-muted"><strong>Comisión:</strong> ${comision}%<br>
-                                    <span class="text-danger">- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></small>
-                                </div>
-                            ` : ''}
+                            ${comision > 0 ? `<div class='text-muted small'><strong>Comisión:</strong> ${comision}%<br><span class='text-danger'>- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></div>` : ''}
+                        </td>
+                        <td>
+                            ${comision > 0 ? `<div class='text-muted small'>Neto: $${neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>` : ''}
                         </td>
                         <td>
                             ${mov.cuit ? `<small><strong>CUIT:</strong> ${mov.cuit}</small><br>` : ''}
                             ${mov.metodo_pago ? `<small><strong>Método:</strong> ${mov.metodo_pago}</small><br>` : ''}
                             ${mov.referencia ? `<small><strong>Ref:</strong> ${mov.referencia}</small><br>` : ''}
-                        </td>
-                        <td>
-                            ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `
-                                <div class="mt-1">
-                                    <small class="text-success"><strong>🔗 Vinculado a Acreditación:</strong> ${mov.id_acreditacion}</small>
-                                </div>
-                            ` : ''}
-                            ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `
-                                <div class="mt-1">
-                                    <small class="text-warning"><strong>⚠️ Sin vincular a acreditación</strong></small>
-                                </div>
-                            ` : ''}
+                            ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `<div class='mt-1'><small class='text-success'><strong>Vinculado a Acreditación:</strong> ${mov.id_acreditacion}</small></div>` : ''}
+                            ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `<div class='mt-1'><small class='text-warning'><strong>⚠️ Sin vincular a acreditación</strong></small></div>` : ''}
                         </td>
                     </tr>
                 `;
