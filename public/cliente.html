@@ -609,7 +609,10 @@
           estado: comp.id_acreditacion ? 'Acreditado' : 'Sin acreditar',
           id_acreditacion: comp.id_acreditacion,
           id_comprobante: comp.id_comprobante,
-          fuente: comp.fuente
+          fuente: comp.fuente,
+          comision: comp.comision || 0,
+          importe_comision: comp.importe_comision || 0,
+          cotejado: comp.cotejado || false
         }));
 
         // Procesar pagos y créditos
@@ -689,16 +692,9 @@
           importeClass = 'text-danger';
         }
 
-        // Si es comprobante con acreditación, usar los campos de la acreditación
-        let comision = 0;
-        let importeComision = 0;
-        if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
-          comision = parseFloat(mov.comision) || 0;
-          importeComision = parseFloat(mov.importe_comision) || 0;
-        } else {
-          comision = parseFloat(mov.comision) || 0;
-          importeComision = parseFloat(mov.importe_comision) || 0;
-        }
+        // Obtener comisión y importe de comisión
+        let comision = parseFloat(mov.comision) || 0;
+        let importeComision = parseFloat(mov.importe_comision) || 0;
 
         return `
           <div class="card mb-2">
@@ -749,7 +745,7 @@
                       <small class="text-warning"><strong>⚠️ Sin vincular a acreditación</strong></small>
                     </div>
                   ` : ''}
-                  ${(typeof comision !== 'undefined') && ((mov.tipo === 'credito') || (mov.tipo === 'acreditacion') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
+                  ${comision > 0 ? `
                     <div class="mt-1">
                       <small class="text-muted"><strong>Comisión:</strong> ${comision}%<br>
                       <span class="text-danger">- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></small>
@@ -761,7 +757,7 @@
                   <div class="h5 mb-0 ${importeClass}">
                     ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </div>
-                  ${(typeof comision !== 'undefined') && ((mov.tipo === 'credito') || (mov.tipo === 'acreditacion') || (mov.tipo === 'comprobante' && mov.id_acreditacion)) ? `
+                  ${comision > 0 ? `
                     <div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - importeComision).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
                   ` : ''}
                   <div class="btn-group-vertical btn-group-sm mt-1">
@@ -899,6 +895,25 @@
       renderMovimientosUnificados(movimientosFiltrados);
       document.getElementById('movimientosCount').textContent = movimientosFiltrados.length;
     }
+
+    // Función de debug para inspeccionar movimientos
+    window.debugMovimientos = function() {
+      console.log('🔍 Debug - allMovimientos:', allMovimientos);
+      console.log('🔍 Debug - movimientos con comisión:');
+      allMovimientos.forEach((mov, index) => {
+        if (mov.comision > 0 || mov.importe_comision > 0) {
+          console.log(`  ${index}:`, {
+            tipo: mov.tipo,
+            concepto: mov.concepto,
+            importe: mov.importe,
+            comision: mov.comision,
+            importe_comision: mov.importe_comision,
+            id_acreditacion: mov.id_acreditacion,
+            cotejado: mov.cotejado
+          });
+        }
+      });
+    };
 
     // Inicializar cuando el DOM esté listo
     document.addEventListener('DOMContentLoaded', function() {
