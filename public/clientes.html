@@ -122,7 +122,7 @@
       currentPage = page;
       currentSearch = document.getElementById("searchInput").value;
       const limit = document.getElementById("limitSelect").value;
-      let url = `/api/clientes?page=${page}&limit=${limit}`;
+      let url = `/api/clientes/nombres?page=${page}&limit=${limit}`;
       if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
       const res = await fetch(url);
       const data = await res.json();
@@ -130,7 +130,14 @@
         showAlert("danger", data.error || "Error al cargar clientes");
         return;
       }
-      clientesCache = data.data;
+      // Solo nombre y apellido
+      clientesCache = data.data.map(c => ({
+        ...c,
+        comision: undefined,
+        plazo_acreditacion: undefined,
+        estado: undefined
+      }));
+      mostrarSaldos = false;
       renderClientes(clientesCache);
       renderPagination(data.pagination);
     }
@@ -172,18 +179,24 @@
         let saldoTotal = '-';
         let porAcreditar = '-';
         let comprobantesPendientes = '-';
+        let comision = cliente.comision !== undefined ? cliente.comision + '%' : '-';
+        let plazo = cliente.plazo_acreditacion !== undefined ? (cliente.plazo_acreditacion + 'h') : '-';
+        let estado = cliente.estado !== undefined ? `<span class="badge ${cliente.estado === "activo" ? "bg-success" : "bg-secondary"}">${cliente.estado}</span>` : '-';
         if (mostrarSaldos && (cliente.saldoTotal !== undefined)) {
           saldoTotal = parseFloat(cliente.saldoTotal || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS" });
           porAcreditar = parseFloat(cliente.porAcreditar || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS" });
           comprobantesPendientes = parseFloat(cliente.comprobantesPendientes || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS" });
+          comision = cliente.comision + '%';
+          plazo = (cliente.plazo_acreditacion || 24) + 'h';
+          estado = `<span class="badge ${cliente.estado === "activo" ? "bg-success" : "bg-secondary"}">${cliente.estado}</span>`;
         }
         tbody.innerHTML += `
           <tr>
             <td>${cliente.nombre}</td>
             <td>${cliente.apellido || ""}</td>
-            <td>${cliente.comision || "0.00"}%</td>
-            <td>${cliente.plazo_acreditacion || 24}h</td>
-            <td><span class="badge ${cliente.estado === "activo" ? "bg-success" : "bg-secondary"}">${cliente.estado}</span></td>
+            <td>${comision}</td>
+            <td>${plazo}</td>
+            <td>${estado}</td>
             <td class="text-end fw-bold ${mostrarSaldos && parseFloat(cliente.saldoTotal || 0) > 0 ? "text-success" : "text-muted"}">${saldoTotal}</td>
             <td class="text-end fw-bold ${mostrarSaldos && parseFloat(cliente.porAcreditar || 0) > 0 ? "text-secondary" : "text-muted"}">${porAcreditar}</td>
             <td class="text-end fw-bold ${mostrarSaldos && parseFloat(cliente.comprobantesPendientes || 0) > 0 ? "text-warning" : "text-muted"}">${comprobantesPendientes}</td>
