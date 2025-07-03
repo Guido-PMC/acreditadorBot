@@ -2069,7 +2069,7 @@ router.get('/clientes/:id/resumen', async (req, res) => {
     const acreditaciones = acreditacionesResult.rows;
 
     // Obtener todos los pagos del cliente (para incluir depósitos, créditos y pagos)
-    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, fecha_pago as fecha FROM pagos WHERE id_cliente = $1 AND estado = \'confirmado\'', [id]);
+    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, CASE WHEN concepto ILIKE \'%deposito%\' THEN fecha_creacion ELSE fecha_pago END as fecha FROM pagos WHERE id_cliente = $1 AND estado = \'confirmado\'', [id]);
     const pagos = pagosResult.rows;
 
     // Calcular montos por acreditar y disponibles (incluyendo depósitos)
