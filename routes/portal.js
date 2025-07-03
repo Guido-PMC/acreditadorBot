@@ -480,7 +480,8 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
           id_acreditacion,
           CASE WHEN id_acreditacion IS NOT NULL THEN true ELSE false END as cotejado,
           nombre_remitente,
-          'whatsapp' as fuente
+          'whatsapp' as fuente,
+          NULL as titular
         FROM comprobantes_whatsapp 
         WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
       )
@@ -506,7 +507,8 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
           NULL as id_acreditacion,
           true as cotejado,
           NULL as nombre_remitente,
-          'manual' as fuente
+          'manual' as fuente,
+          NULL as titular
         FROM pagos 
         WHERE CAST(id_cliente AS INTEGER) = $1
       )
