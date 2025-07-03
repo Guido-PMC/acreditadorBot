@@ -32,21 +32,32 @@ function calcularFechaLiberacion(fechaRecepcion, plazoHoras) {
   
   // Calcular fecha de liberación
   let fechaLiberacion = fechaInicio.clone();
-  let diasAgregados = 0;
   
-  // Calcular cuántos días hábiles necesitamos
-  const diasNecesarios = Math.ceil(plazoHoras / 24);
-  
-  while (diasAgregados < diasNecesarios) {
-    fechaLiberacion.add(1, 'day');
-    diasAgregados++;
-    
+  // Para plazos de 24 horas, no agregar días extra
+  if (plazoHoras <= 24) {
     // Si es sábado (6) o domingo (0), saltar al lunes
     const diaSemana = fechaLiberacion.day();
     if (diaSemana === 0) { // Domingo
       fechaLiberacion.add(1, 'day');
     } else if (diaSemana === 6) { // Sábado
       fechaLiberacion.add(2, 'day');
+    }
+  } else {
+    // Para plazos mayores a 24 horas, agregar días hábiles
+    let diasAgregados = 0;
+    const diasNecesarios = Math.ceil(plazoHoras / 24) - 1; // Restar 1 porque ya contamos el día inicial
+    
+    while (diasAgregados < diasNecesarios) {
+      fechaLiberacion.add(1, 'day');
+      diasAgregados++;
+      
+      // Si es sábado (6) o domingo (0), saltar al lunes
+      const diaSemana = fechaLiberacion.day();
+      if (diaSemana === 0) { // Domingo
+        fechaLiberacion.add(1, 'day');
+      } else if (diaSemana === 6) { // Sábado
+        fechaLiberacion.add(2, 'day');
+      }
     }
   }
   
