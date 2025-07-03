@@ -4488,7 +4488,7 @@ router.get('/clientes/nombres', async (req, res) => {
   }
 });
 
-// GET /api/clientes/saldos - Saldos masivos para clientes de la página
+// GET /api/clientes/saldos - Saldos masivos para clientes de la página (usando la misma lógica que /api/clientes/:id/resumen)
 router.get('/clientes/saldos', async (req, res) => {
   const client = await db.getClient();
   try {
@@ -4510,7 +4510,7 @@ router.get('/clientes/saldos', async (req, res) => {
     const offset = (page - 1) * limit;
     // Traer los clientes de la página
     const clientesQuery = `
-      SELECT id
+      SELECT id, plazo_acreditacion
       FROM clientes
       ${whereClause}
       ORDER BY nombre ASC
@@ -4523,43 +4523,52 @@ router.get('/clientes/saldos', async (req, res) => {
     if (!clientes.length) {
       return res.json({ success: true, data: [] });
     }
-    // Calcular saldos para cada cliente (en paralelo)
+    // Calcular saldos para cada cliente usando la misma lógica que /api/clientes/:id/resumen
     const saldos = await Promise.all(clientes.map(async (c) => {
-      // Total saldo actual (acreditaciones cotejadas - comisiones - pagos + créditos)
-      // Por acreditar (acreditaciones pendientes - comisiones pendientes)
-      // Comprobantes pendientes (comprobantes sin acreditar)
-      // 1. Suma de acreditaciones cotejadas y comisiones
-      const acreditaciones = await client.query(`
+      const cliente_id = c.id;
+      const plazoAcreditacion = c.plazo_acreditacion || 24;
+
+      // Obtener todas las acreditaciones del cliente para cálculo de liberación - IGUAL QUE EN /api/clientes/:id/resumen
+      const acreditacionesResult = await client.query('SELECT importe, fecha_hora, comision, importe_comision FROM acreditaciones WHERE id_cliente = $1', [cliente_id]);
+      const acreditaciones = acreditacionesResult.rows;
+
+      // Obtener todos los pagos del cliente (para incluir depósitos, créditos y pagos) - IGUAL QUE EN /api/clientes/:id/resumen
+      const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, metodo_pago, fecha_pago as fecha FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = \'confirmado\'', [cliente_id]);
+      const pagos = pagosResult.rows;
+
+      // Calcular montos por acreditar y disponibles (incluyendo depósitos) - IGUAL QUE EN /api/clientes/:id/resumen
+      const montoPorAcreditar = calcularMontoPorAcreditarNeto(acreditaciones, pagos, plazoAcreditacion);
+
+      // Calcular saldo actual con la fórmula correcta - IGUAL QUE EN /api/clientes/:id/resumen
+      const saldo_actual = calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
+
+      // Obtener estadísticas de comprobantes pendientes
+      const comprobantesStats = await client.query(`
         SELECT 
-          COALESCE(SUM(CASE WHEN cotejado THEN importe ELSE 0 END),0) as total_importe_cotejadas,
-          COALESCE(SUM(CASE WHEN cotejado THEN importe_comision ELSE 0 END),0) as total_comisiones_cotejadas,
-          COALESCE(SUM(CASE WHEN NOT cotejado THEN importe ELSE 0 END),0) as total_importe_pendientes,
-          COALESCE(SUM(CASE WHEN NOT cotejado THEN importe_comision ELSE 0 END),0) as total_comisiones_pendientes
-        FROM acreditaciones WHERE id_cliente = $1
-      `, [c.id]);
-      const a = acreditaciones.rows[0];
-      // 2. Suma de pagos y créditos
-      const pagosCreditos = await client.query(`
-        SELECT 
-          COALESCE(SUM(CASE WHEN tipo_pago = 'egreso' THEN importe ELSE 0 END),0) as total_pagos,
-          COALESCE(SUM(CASE WHEN tipo_pago = 'credito' THEN importe ELSE 0 END),0) as total_creditos
-        FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1
-      `, [c.id]);
-      const p = pagosCreditos.rows[0];
-      // 3. Comprobantes pendientes
-      const comprobantes = await client.query(`
-        SELECT COALESCE(SUM(importe),0) as total_importe_pendientes
-        FROM comprobantes_whatsapp WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
-      `, [c.id]);
-      const comp = comprobantes.rows[0];
-      // Cálculos
-      const saldoTotal = (parseFloat(a.total_importe_cotejadas) - parseFloat(a.total_comisiones_cotejadas) + parseFloat(p.total_creditos) - parseFloat(p.total_pagos));
-      const porAcreditar = (parseFloat(a.total_importe_pendientes) - parseFloat(a.total_comisiones_pendientes));
-      const comprobantesPendientes = parseFloat(comp.total_importe_pendientes);
+          SUM(importe) as total_importe_comprobantes_pendientes
+        FROM comprobantes_whatsapp 
+        WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
+      `, [cliente_id]);
+
+      // Debug: Desglose del saldo
+      const debugSaldo = debugSaldoDisponible(acreditaciones, pagos, plazoAcreditacion);
+
+      // Aplicar el ajuste de comisiones de fondos liberados - IGUAL QUE EN cliente.html
+      let saldoTotal = saldo_actual;
+      if (debugSaldo) {
+        const comisiones_acreditaciones_liberadas = debugSaldo.comisiones_acreditaciones_liberadas || 0;
+        const comisiones_depositos_liberados = debugSaldo.comisiones_depositos_liberados || 0;
+        
+        // Aplicar la fórmula: saldo_actual = saldo_actual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados
+        saldoTotal = saldo_actual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados;
+      }
+
+      const comprobantesPendientes = parseFloat(comprobantesStats.rows[0].total_importe_comprobantes_pendientes || 0);
+
       return {
-        id: c.id,
+        id: cliente_id,
         saldoTotal,
-        porAcreditar,
+        porAcreditar: montoPorAcreditar,
         comprobantesPendientes
       };
     }));
