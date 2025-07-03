@@ -1009,7 +1009,10 @@
         }
         
         // Lógica de badges
-        if (pendienteLiberacion) {
+        if (mov.tipo === 'comprobante' && !mov.id_acreditacion) {
+          // Comprobantes sin acreditación siempre están "Por acreditar"
+          estadoBadge = '<span class="badge bg-secondary">Por acreditar</span>';
+        } else if (pendienteLiberacion) {
           estadoBadge = `<span class="badge bg-secondary" ${tooltip}>Por acreditar</span>`;
         } else if (mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') {
           if (mov.fecha_estimada_liberacion && new Date(mov.fecha_estimada_liberacion) <= now) {
