@@ -130,13 +130,8 @@
         showAlert("danger", data.error || "Error al cargar clientes");
         return;
       }
-      // Solo nombre y apellido
-      clientesCache = data.data.map(c => ({
-        ...c,
-        comision: undefined,
-        plazo_acreditacion: undefined,
-        estado: undefined
-      }));
+      // Ya no sobrescribimos comision, plazo_acreditacion ni estado
+      clientesCache = data.data;
       mostrarSaldos = false;
       renderClientes(clientesCache);
       renderPagination(data.pagination);
