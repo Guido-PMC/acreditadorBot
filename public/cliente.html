@@ -204,6 +204,24 @@
                 <span class="badge bg-info" id="movimientosCount">0</span>
               </div>
             </div>
+            <!-- PAGINACIÓN Y SELECTOR -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div>
+                <span id="movimientosPaginacionInfo" class="text-muted small"></span>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <small class="text-muted">Mostrar:</small>
+                <select class="form-select form-select-sm" id="movimientosPerPage" onchange="cambiarMovimientosPerPage()" style="width: auto;">
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100" selected>100</option>
+                  <option value="500">500</option>
+                </select>
+                <nav aria-label="Paginación de movimientos">
+                  <ul class="pagination pagination-sm mb-0" id="movimientosPaginacion"></ul>
+                </nav>
+              </div>
+            </div>
             
             <!-- Filtros de Movimientos -->
             <div class="d-flex justify-content-center">
@@ -347,8 +365,12 @@
   <script src="js/navbar.js"></script>
   <script>
     let clienteId = null;
-    let allMovimientos = []; // Todos los movimientos cargados
-    let currentFilter = 'todos'; // Filtro actual
+    let allMovimientos = [];
+    let currentFilter = 'todos';
+    let movimientosPage = 1;
+    let movimientosLimit = 100;
+    let movimientosTotal = 0;
+    let movimientosPages = 1;
 
     // Obtener ID del cliente de la URL
     function getClienteId() {
@@ -367,15 +389,14 @@
       try {
         const res = await fetch(`/api/clientes/${clienteId}/resumen`);
         const data = await res.json();
-        
         if (!data.success) {
           showAlert('danger', data.error || 'Error al cargar datos del cliente');
           return;
         }
-
         renderClienteInfo(data.data);
+        movimientosPage = 1; // Resetear a la primera página
         loadMovimientosUnificados();
-        loadClientesDropdown(); // Cargar lista de clientes para el dropdown
+        loadClientesDropdown();
       } catch (error) {
         showAlert('danger', 'Error al cargar datos del cliente');
       }
@@ -706,140 +727,57 @@
     async function loadMovimientosUnificados() {
       try {
         console.log('🔍 Cargando todos los movimientos del cliente:', clienteId);
-        
-        // Usar la nueva ruta unificada que incluye fechas estimadas (sin autenticación)
-        const response = await fetch(`/api/clientes/${clienteId}/movimientos-unificados?limit=100`);
+        const response = await fetch(`/api/clientes/${clienteId}/movimientos-unificados?page=${movimientosPage}&limit=${movimientosLimit}`);
         const result = await response.json();
-        
         if (!result.success) {
           console.error('Error al cargar movimientos unificados:', result);
           showAlert('danger', 'Error al cargar movimientos');
           return;
         }
-
-        console.log('📋 Movimientos unificados cargados:', result.data);
-
-        // Los datos ya vienen con la estructura correcta y fechas estimadas
         allMovimientos = result.data;
-
-        // Ordenar por fecha (más reciente primero)
-        allMovimientos.sort((a, b) => new Date(b.fecha_original) - new Date(a.fecha_original));
-
-        // Aplicar filtro actual
-        applyCurrentFilter();
+        movimientosTotal = result.pagination?.total || allMovimientos.length;
+        movimientosPages = result.pagination?.pages || 1;
+        renderMovimientosUnificados(allMovimientos);
+        renderMovimientosPaginacion();
+        document.getElementById('movimientosCount').textContent = movimientosTotal;
       } catch (error) {
         console.error('Error cargando movimientos:', error);
         showAlert('danger', 'Error al cargar movimientos');
       }
     }
 
-    // Renderizar todos los movimientos unificados
-    function renderMovimientosUnificados(movimientos) {
-      const container = document.getElementById('movimientosContainer');
-      
-      if (movimientos.length === 0) {
-        container.innerHTML = '<div class="text-center text-muted">No hay movimientos registrados para este cliente</div>';
-        return;
+    function renderMovimientosPaginacion() {
+      const paginacion = document.getElementById('movimientosPaginacion');
+      const info = document.getElementById('movimientosPaginacionInfo');
+      if (!paginacion || !info) return;
+      let html = '';
+      // Botón anterior
+      html += `<li class="page-item${movimientosPage <= 1 ? ' disabled' : ''}"><a class="page-link" href="#" onclick="cambiarMovimientosPage(${movimientosPage - 1}); return false;">&laquo;</a></li>`;
+      // Números de página
+      for (let i = 1; i <= movimientosPages; i++) {
+        if (i === 1 || i === movimientosPages || (i >= movimientosPage - 2 && i <= movimientosPage + 2)) {
+          html += `<li class="page-item${i === movimientosPage ? ' active' : ''}"><a class="page-link" href="#" onclick="cambiarMovimientosPage(${i}); return false;">${i}</a></li>`;
+        } else if (i === movimientosPage - 3 || i === movimientosPage + 3) {
+          html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
       }
+      // Botón siguiente
+      html += `<li class="page-item${movimientosPage >= movimientosPages ? ' disabled' : ''}"><a class="page-link" href="#" onclick="cambiarMovimientosPage(${movimientosPage + 1}); return false;">&raquo;</a></li>`;
+      paginacion.innerHTML = html;
+      info.textContent = `Página ${movimientosPage} de ${movimientosPages} • Total: ${movimientosTotal} movimientos`;
+    }
 
-      // Transformar comprobantes con acreditación vinculada a tipo 'acreditacion'
-      const movimientosTransformados = movimientos.map(mov => {
-        if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
-          return { ...mov, tipo: 'acreditacion' };
-        }
-        return mov;
-      });
+    function cambiarMovimientosPage(page) {
+      if (page < 1 || page > movimientosPages) return;
+      movimientosPage = page;
+      loadMovimientosUnificados();
+    }
 
-      container.innerHTML = movimientosTransformados.map(mov => {
-        let icon, badgeClass, badgeText, tipoText, importeClass;
-        
-        if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
-          // Mostrar como acreditación vinculada
-          icon = 'fas fa-university';
-          badgeClass = mov.cotejado ? 'bg-success' : 'bg-primary';
-          badgeText = mov.cotejado ? 'Cotejada' : 'Acreditación';
-          tipoText = 'Acreditación';
-          importeClass = 'text-primary';
-        } else if (mov.tipo === 'comprobante') {
-          // Comprobante pendiente
-          icon = 'fas fa-file-alt';
-          badgeClass = 'bg-warning';
-          badgeText = 'Sin acreditar';
-          tipoText = 'Comprobante';
-          importeClass = 'text-primary';
-        } else if (mov.tipo === 'credito') {
-          icon = 'fas fa-plus-circle';
-          badgeClass = 'bg-success';
-          badgeText = mov.estado || 'Confirmado';
-          tipoText = 'Crédito';
-          importeClass = 'text-success';
-        } else if (mov.tipo === 'pago') {
-          icon = 'fas fa-minus-circle';
-          badgeClass = 'bg-danger';
-          badgeText = mov.estado || 'Confirmado';
-          tipoText = 'Pago';
-          importeClass = 'text-danger';
-        }
-
-        // Obtener comisión y importe de comisión
-        let comision = parseFloat(mov.comision) || 0;
-        let importeComision = parseFloat(mov.importe_comision) || 0;
-
-        return `
-          <div class="card mb-1">
-            <div class="card-body p-1">
-              <div class="d-flex justify-content-between align-items-start">
-                <div class="flex-grow-1">
-                  <div class="d-flex align-items-center mb-1">
-                    <i class="${icon} me-1"></i>
-                    <strong>${(mov.tipo === 'acreditacion' && mov.nombre_remitente) ? mov.nombre_remitente : (mov.concepto || '').replace(/^\s*[^\w\s]*\s*/, '')}</strong>
-                    <span class="badge ${mov.tipo === 'acreditacion' ? 'bg-success' : badgeClass} text-white ms-1">${badgeText && badgeText !== 'undefined' ? badgeText : 'Acreditación'}</span>
-                    <span class="badge ${mov.tipo === 'acreditacion' ? 'bg-success' : badgeClass} text-white ms-1">${tipoText && tipoText !== 'undefined' ? tipoText : (mov.tipo === 'acreditacion' ? 'Acreditación' : mov.tipo === 'comprobante' ? 'Comprobante' : mov.tipo === 'credito' ? 'Crédito' : mov.tipo === 'pago' ? 'Pago' : 'Movimiento')}</span>
-                    ${mov.fuente ? `<span class="badge ${getFuenteBadgeClass(mov.fuente)} ms-1">${getFuenteText(mov.fuente)}</span>` : ''}
-                  </div>
-                  <div class="row g-1">
-                    <div class="col-md-6">
-                      <small class="text-muted">
-                        <strong>Fecha:</strong> ${new Date(mov.fecha).toLocaleDateString()} ${new Date(mov.fecha).toLocaleTimeString()}
-                      </small>
-                      ${mov.fecha_recepcion ? `<br><small class="text-muted"><strong>Fecha Recepción:</strong> ${new Date(mov.fecha_recepcion).toLocaleDateString()} ${new Date(mov.fecha_recepcion).toLocaleTimeString()}</small>` : ''}
-                    </div>
-                    <div class="col-md-6">
-                      ${mov.cuit ? `<small class="text-muted"><strong>CUIT:</strong> ${cleanCUIT(mov.cuit)}</small><br>` : ''}
-                      ${mov.metodo_pago ? `<small class="text-muted"><strong>Método:</strong> ${mov.metodo_pago}</small><br>` : ''}
-                      ${mov.referencia ? `<small class="text-muted"><strong>Referencia:</strong> ${mov.referencia}</small><br>` : ''}
-                      ${mov.id_comprobante ? `<small class="text-muted"><strong>ID Comprobante:</strong> ${mov.id_comprobante}</small><br>` : ''}
-                      ${(mov.id_acreditacion && (mov.tipo === 'comprobante' || mov.tipo === 'acreditacion')) ? `<small class="text-success"><strong>ID Acreditación:</strong> ${mov.id_acreditacion}</small><br>` : ''}
-                    </div>
-                  </div>
-                  ${mov.observaciones ? `<div class="mt-1"><small class="text-muted"><strong>Observaciones:</strong> ${mov.observaciones}</small></div>` : ''}
-                  ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `<div class="mt-1"><small class="text-warning"><strong>⚠️ Sin vincular a acreditación</strong></small></div>` : ''}
-                </div>
-                <div class="text-end ms-2">
-                  <div class="h5 mb-0 ${importeClass}" 
-                       ${mov.fecha_estimada_liberacion ? `data-bs-toggle="tooltip" data-bs-placement="top" title="Fecha estimada de liberación: ${mov.fecha_estimada_liberacion}"` : ''}>
-                    ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                    ${mov.fecha_estimada_liberacion ? (mov.esta_liberado ? '<i class="fas fa-check-circle text-success ms-1" style="font-size: 0.8em;" title="Fondo liberado"></i>' : '<i class="fas fa-clock text-muted ms-1" style="font-size: 0.8em;" title="Pendiente de liberación"></i>') : ''}
-                  </div>
-                  ${comision > 0 ? `<div class="text-muted small"><strong>Comisión:</strong> ${comision}%<br><span class="text-danger">- $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></div>` : ''}
-                  ${comision > 0 ? `<div class="text-muted small">Neto: $${(parseFloat(mov.importe || 0) - importeComision).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>` : ''}
-                  <div class="btn-group-vertical btn-group-sm mt-1">
-                    ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `<button class="btn btn-outline-warning" onclick="desasignarComprobante(${mov.id})" title="Desasignar comprobante"><i class="fas fa-unlink"></i> Desasignar</button>` : ''}
-                    ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `<button class="btn btn-outline-primary" onclick="window.open('/asignacion.html', '_blank')" title="Ir a asignación manual"><i class="fas fa-link"></i> Asignar</button>` : ''}
-                    ${(mov.tipo === 'pago' || mov.tipo === 'credito') ? `<button class="btn btn-outline-danger" onclick="deletePago(${mov.id})" title="Eliminar ${mov.tipo}"><i class="fas fa-trash"></i> Eliminar</button>` : ''}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      // Inicializar tooltips después de poblar la tabla
-      const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-      tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-      });
+    function cambiarMovimientosPerPage() {
+      const select = document.getElementById('movimientosPerPage');
+      movimientosLimit = parseInt(select.value);
+      movimientosPage = 1;
+      loadMovimientosUnificados();
     }
 
     // Función de debug para verificar estado de la base de datos
