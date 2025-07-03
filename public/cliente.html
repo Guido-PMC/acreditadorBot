@@ -957,6 +957,7 @@
         <th class="text-end">Comisión</th>
         <th>Estado</th>
       </tr></thead><tbody>`;
+      const now = new Date();
       movimientos.forEach(mov => {
         // Formato de fecha
         let fecha = mov.fecha || mov.fecha_pago || mov.fecha_hora || mov.created_at || '';
@@ -981,9 +982,29 @@
         // Estado
         let estado = mov.estado || (mov.cotejado === true ? 'Acreditado' : mov.cotejado === false ? 'Pendiente' : '-');
         let estadoBadge = '';
-        if (estado === 'Acreditado') estadoBadge = '<span class="badge bg-success">Acreditado</span>';
-        else if (estado === 'Pendiente') estadoBadge = '<span class="badge bg-warning text-dark">Pendiente</span>';
-        else if (estado) estadoBadge = `<span class="badge bg-secondary">${estado}</span>`;
+        // Lógica de "por acreditar"
+        let pendienteLiberacion = false;
+        if ((mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') && mov.fecha_liberacion) {
+          const fechaLiberacion = new Date(mov.fecha_liberacion);
+          if (fechaLiberacion > now) pendienteLiberacion = true;
+        }
+        if (pendienteLiberacion) {
+          estadoBadge = '<span class="badge bg-secondary">Por acreditar</span>';
+        } else if (mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') {
+          if (mov.fecha_liberacion && new Date(mov.fecha_liberacion) <= now) {
+            estadoBadge = '<span class="badge bg-success">Liberado</span>';
+          } else if (estado === 'Acreditado') {
+            estadoBadge = '<span class="badge bg-success">Acreditado</span>';
+          } else if (estado === 'Pendiente') {
+            estadoBadge = '<span class="badge bg-warning text-dark">Pendiente</span>';
+          } else if (estado) {
+            estadoBadge = `<span class="badge bg-secondary">${estado}</span>`;
+          }
+        } else {
+          if (estado === 'Acreditado') estadoBadge = '<span class="badge bg-success">Acreditado</span>';
+          else if (estado === 'Pendiente') estadoBadge = '<span class="badge bg-warning text-dark">Pendiente</span>';
+          else if (estado) estadoBadge = `<span class="badge bg-secondary">${estado}</span>`;
+        }
         html += `<tr>
           <td>${fecha}</td>
           <td>${tipoBadge}</td>
