@@ -2064,12 +2064,12 @@ router.get('/clientes/:id/resumen', async (req, res) => {
     // Obtener plazo de acreditación del cliente
     const plazoAcreditacion = cliente.rows[0].plazo_acreditacion || 24;
 
-    // Obtener todas las acreditaciones del cliente para cálculo de liberación
+    // Obtener todas las acreditaciones del cliente para cálculo de liberación - UNIFICADO CON PORTAL
     const acreditacionesResult = await client.query('SELECT importe, fecha_hora, comision, importe_comision FROM acreditaciones WHERE id_cliente = $1', [id]);
     const acreditaciones = acreditacionesResult.rows;
 
-    // Obtener todos los pagos del cliente (para incluir depósitos, créditos y pagos)
-    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, metodo_pago, CASE WHEN tipo_pago = \'credito\' AND metodo_pago = \'deposito\' THEN fecha_creacion ELSE fecha_pago END as fecha FROM pagos WHERE id_cliente = $1 AND estado = \'confirmado\'', [id]);
+    // Obtener todos los pagos del cliente (para incluir depósitos, créditos y pagos) - UNIFICADO CON PORTAL
+    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, metodo_pago, fecha_pago as fecha FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = \'confirmado\'', [id]);
     const pagos = pagosResult.rows;
 
     // Calcular montos por acreditar y disponibles (incluyendo depósitos) - UNIFICADO CON PORTAL
