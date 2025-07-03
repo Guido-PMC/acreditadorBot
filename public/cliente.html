@@ -998,6 +998,7 @@
         } else {
           if (estado === 'Acreditado') estadoBadge = '<span class="badge bg-success">Acreditado</span>';
           else if (estado === 'Pendiente') estadoBadge = '<span class="badge bg-warning text-dark">Pendiente</span>';
+          else if (estado === 'confirmado') estadoBadge = '<span class="badge bg-success">Confirmado</span>';
           else if (estado) estadoBadge = `<span class="badge bg-secondary">${estado}</span>`;
         }
         html += `<tr>
