@@ -122,13 +122,13 @@ class Database {
           nombre_remitente VARCHAR(200),
           cuit VARCHAR(20),
           importe DECIMAL(15,2),
-          fecha_envio TIMESTAMP,
-          fecha_recepcion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          fecha_envio TIMESTAMP WITH TIME ZONE,
+          fecha_recepcion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           estado VARCHAR(20) DEFAULT 'pendiente',
           procesado BOOLEAN DEFAULT FALSE,
           cotejado BOOLEAN DEFAULT FALSE,
           id_acreditacion VARCHAR(50),
-          fecha_cotejo TIMESTAMP,
+          fecha_cotejo TIMESTAMP WITH TIME ZONE,
           id_cliente INTEGER REFERENCES clientes(id)
         )
       `);
@@ -393,6 +393,50 @@ class Database {
           ALTER TABLE portal_users 
           ADD COLUMN IF NOT EXISTS export_user VARCHAR(50),
           ADD COLUMN IF NOT EXISTS export_password VARCHAR(100)
+        `);
+      }
+
+      // Corregir tipo de columnas de fecha para preservar zona horaria
+      console.log('Verificando tipos de columnas de fecha...');
+      const fechaEnvioType = await client.query(`
+        SELECT data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'comprobantes_whatsapp' AND column_name = 'fecha_envio'
+      `);
+      
+      if (fechaEnvioType.rows.length > 0 && fechaEnvioType.rows[0].data_type === 'timestamp without time zone') {
+        console.log('Corrigiendo tipo de columna fecha_envio para preservar zona horaria...');
+        await client.query(`
+          ALTER TABLE comprobantes_whatsapp 
+          ALTER COLUMN fecha_envio TYPE TIMESTAMP WITH TIME ZONE
+        `);
+      }
+
+      const fechaRecepcionType = await client.query(`
+        SELECT data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'comprobantes_whatsapp' AND column_name = 'fecha_recepcion'
+      `);
+      
+      if (fechaRecepcionType.rows.length > 0 && fechaRecepcionType.rows[0].data_type === 'timestamp without time zone') {
+        console.log('Corrigiendo tipo de columna fecha_recepcion para preservar zona horaria...');
+        await client.query(`
+          ALTER TABLE comprobantes_whatsapp 
+          ALTER COLUMN fecha_recepcion TYPE TIMESTAMP WITH TIME ZONE
+        `);
+      }
+
+      const fechaCotejoType = await client.query(`
+        SELECT data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'comprobantes_whatsapp' AND column_name = 'fecha_cotejo'
+      `);
+      
+      if (fechaCotejoType.rows.length > 0 && fechaCotejoType.rows[0].data_type === 'timestamp without time zone') {
+        console.log('Corrigiendo tipo de columna fecha_cotejo para preservar zona horaria...');
+        await client.query(`
+          ALTER TABLE comprobantes_whatsapp 
+          ALTER COLUMN fecha_cotejo TYPE TIMESTAMP WITH TIME ZONE
         `);
       }
 
