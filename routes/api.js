@@ -3065,6 +3065,24 @@ router.post('/comprobantes/whatsapp', [
     console.log(`   id_acreditacion: ${id_acreditacion}`);
     console.log(`   cotejado: ${acreditacion_encontrada}`);
     console.log(`   estado: ${acreditacion_encontrada ? 'cotejado' : 'pendiente'}`);
+    
+    // LOGGING DETALLADO DE FECHAS ANTES DE GUARDAR
+    console.log('\n🕐 === ANÁLISIS DETALLADO DE FECHAS ANTES DE GUARDAR ===');
+    console.log('📅 fecha_envio_obj (objeto Date):');
+    console.log(`   toString(): ${fecha_envio_obj.toString()}`);
+    console.log(`   toISOString(): ${fecha_envio_obj.toISOString()}`);
+    console.log(`   getTime(): ${fecha_envio_obj.getTime()}`);
+    console.log(`   getUTCHours(): ${fecha_envio_obj.getUTCHours()}`);
+    console.log(`   getUTCMinutes(): ${fecha_envio_obj.getUTCMinutes()}`);
+    console.log(`   getHours() (local): ${fecha_envio_obj.getHours()}`);
+    console.log(`   getMinutes() (local): ${fecha_envio_obj.getMinutes()}`);
+    
+    const fecha_envio_iso = fecha_envio_obj.toISOString();
+    const fecha_recepcion_iso = new Date().toISOString();
+    
+    console.log('\n📤 Valores que se van a insertar:');
+    console.log(`   fecha_envio: "${fecha_envio_iso}"`);
+    console.log(`   fecha_recepcion: "${fecha_recepcion_iso}"`);
 
     // Insertar comprobante
     const comprobanteResult = await client.query(`
@@ -3081,20 +3099,42 @@ router.post('/comprobantes/whatsapp', [
         fecha_cotejo,
         estado
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING id, id_comprobante, cotejado, id_acreditacion, id_cliente
+      RETURNING id, id_comprobante, cotejado, id_acreditacion, id_cliente, fecha_envio, fecha_recepcion
     `, [
       id_comprobante,
       nombre_limpio,
       cuit_limpio,
       parseFloat(monto),
-      fecha_envio_obj.toISOString(), // Convertir a ISO string para evitar conversión de zona horaria
-      new Date().toISOString(), // fecha_recepcion también en formato ISO
+      fecha_envio_iso, // Convertir a ISO string para evitar conversión de zona horaria
+      fecha_recepcion_iso, // fecha_recepcion también en formato ISO
       cliente_id,
       id_acreditacion,
       acreditacion_encontrada, // cotejado
       acreditacion_encontrada ? new Date().toISOString() : null, // fecha_cotejo también en ISO
       acreditacion_encontrada ? 'cotejado' : 'pendiente'
     ]);
+    
+    // LOGGING DETALLADO DE LO QUE SE GUARDÓ EN LA BASE DE DATOS
+    console.log('\n📥 === VALORES GUARDADOS EN LA BASE DE DATOS ===');
+    console.log(`   fecha_envio guardada: "${comprobanteResult.rows[0].fecha_envio}"`);
+    console.log(`   fecha_recepcion guardada: "${comprobanteResult.rows[0].fecha_recepcion}"`);
+    
+    // Verificar si hay diferencia entre lo enviado y lo guardado
+    const fechaEnviadaMs = new Date(fecha_envio_iso).getTime();
+    const fechaGuardadaMs = new Date(comprobanteResult.rows[0].fecha_envio).getTime();
+    const diferenciaSeg = (fechaGuardadaMs - fechaEnviadaMs) / 1000;
+    
+    console.log('\n🔍 === ANÁLISIS DE DIFERENCIAS ===');
+    console.log(`   Fecha enviada (ms): ${fechaEnviadaMs}`);
+    console.log(`   Fecha guardada (ms): ${fechaGuardadaMs}`);
+    console.log(`   Diferencia: ${diferenciaSeg} segundos`);
+    
+    if (diferenciaSeg !== 0) {
+      console.log('⚠️ ¡ATENCIÓN! Hay diferencia entre la fecha enviada y la guardada');
+      console.log(`   Diferencia en horas: ${diferenciaSeg / 3600}`);
+    } else {
+      console.log('✅ Las fechas coinciden exactamente');
+    }
 
     const comprobante = comprobanteResult.rows[0];
 
