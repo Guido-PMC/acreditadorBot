@@ -986,7 +986,7 @@
         let tooltip = '';
         if ((mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') && mov.fecha_estimada_liberacion) {
           const fechaLiberacion = new Date(mov.fecha_estimada_liberacion);
-          tooltip = `data-bs-toggle="tooltip" data-bs-placement="top" title="Se libera el ${fechaLiberacion.toLocaleString('es-AR')}"`;
+          tooltip = `data-bs-toggle="tooltip" data-bs-placement="top" title="24hs"`;
           
           // Debug para ver las fechas
           console.log('🔍 Debug liberación:', {
