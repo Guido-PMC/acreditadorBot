@@ -35,8 +35,9 @@
             <th>Comisión</th>
             <th>Plazo</th>
             <th>Estado</th>
-            <th>Saldo Total</th>
+            <th>Saldo Actual</th>
             <th>Por Acreditar</th>
+            <th>Pendientes</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -143,10 +144,14 @@
               saldo_actual = saldo_actual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados;
             }
             
+            // Obtener comprobantes pendientes (igual que totalComisiones en cliente.html)
+            const comprobantesPendientes = saldoData.data.resumen.comprobantes?.total_importe_pendientes || 0;
+            
             return {
               ...cliente,
               saldoTotal: saldo_actual, // Saldo calculado igual que en cliente.html
-              porAcreditar: saldoData.data.resumen.porAcreditar || 0 // Monto por acreditar
+              porAcreditar: saldoData.data.resumen.porAcreditar || 0, // Monto por acreditar
+              comprobantesPendientes: comprobantesPendientes // Comprobantes pendientes de acreditar
             };
           }
         } catch (error) {
@@ -155,7 +160,8 @@
         return {
           ...cliente,
           saldoTotal: 0,
-          porAcreditar: 0
+          porAcreditar: 0,
+          comprobantesPendientes: 0
         };
       }));
       
@@ -168,6 +174,7 @@
       clientes.forEach(cliente => {
         const saldoTotal = parseFloat(cliente.saldoTotal || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS" });
         const porAcreditar = parseFloat(cliente.porAcreditar || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS" });
+        const comprobantesPendientes = parseFloat(cliente.comprobantesPendientes || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS" });
         tbody.innerHTML += `
           <tr>
             <td>${cliente.nombre}</td>
@@ -177,6 +184,7 @@
             <td><span class="badge ${cliente.estado === "activo" ? "bg-success" : "bg-secondary"}">${cliente.estado}</span></td>
             <td class="text-end fw-bold ${parseFloat(cliente.saldoTotal || 0) > 0 ? "text-success" : "text-muted"}">${saldoTotal}</td>
             <td class="text-end fw-bold ${parseFloat(cliente.porAcreditar || 0) > 0 ? "text-warning" : "text-muted"}">${porAcreditar}</td>
+            <td class="text-end fw-bold ${parseFloat(cliente.comprobantesPendientes || 0) > 0 ? "text-danger" : "text-muted"}">${comprobantesPendientes}</td>
             <td>
               <button class="btn btn-sm btn-info me-1" onclick="viewComprobantes(${cliente.id})">Comprobantes</button>
               <button class="btn btn-sm btn-warning me-1" onclick="editCliente(${cliente.id})">Editar</button>
