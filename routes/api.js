@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
-const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto, formatearFechaLiberacion, estaLiberado, calcularComisionesFondosLiberados, calcularSaldoDisponibleCompleto, calcularComisionesSaldoDisponible, debugSaldoDisponible } = require('../utils/liberacionFondos');
+const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoPorAcreditarNeto, calcularMontoDisponibleCompleto, formatearFechaLiberacion, estaLiberado, calcularComisionesFondosLiberados, calcularSaldoDisponibleCompleto, calcularComisionesSaldoDisponible, debugSaldoDisponible } = require('../utils/liberacionFondos');
 const router = express.Router();
 
 // Funciones de normalización y matching inteligente
@@ -2072,12 +2072,16 @@ router.get('/clientes/:id/resumen', async (req, res) => {
     const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, metodo_pago, CASE WHEN tipo_pago = \'credito\' AND metodo_pago = \'deposito\' THEN fecha_creacion ELSE fecha_pago END as fecha FROM pagos WHERE id_cliente = $1 AND estado = \'confirmado\'', [id]);
     const pagos = pagosResult.rows;
 
-    // Calcular montos por acreditar y disponibles (incluyendo depósitos)
-    const montoPorAcreditar = calcularMontoPorAcreditarCompleto(acreditaciones, pagos, plazoAcreditacion);
+    // Calcular montos por acreditar y disponibles (incluyendo depósitos) - UNIFICADO CON PORTAL
+    const montoPorAcreditar = calcularMontoPorAcreditarNeto(acreditaciones, pagos, plazoAcreditacion);
     const montoDisponible = calcularMontoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
 
-    // Calcular saldo actual con la fórmula correcta
-    const saldo = calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
+    // Calcular saldo actual con la fórmula correcta - UNIFICADO CON PORTAL
+    const saldo_actual = calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
+
+    // Saldo pendiente (acreditaciones no cotejadas - comisiones) - UNIFICADO CON PORTAL
+    const saldo_pendiente = (acreditacionesStats.rows[0].total_importe_pendientes || 0) - 
+                           (acreditacionesStats.rows[0].total_comisiones_pendientes || 0);
 
     // Debug: Desglose del saldo
     const debugSaldo = debugSaldoDisponible(acreditaciones, pagos, plazoAcreditacion);
@@ -2090,7 +2094,9 @@ router.get('/clientes/:id/resumen', async (req, res) => {
           comprobantes: comprobantesStats.rows[0],
           acreditaciones: acreditacionesStats.rows[0],
           pagos: pagosStats.rows[0],
-          saldo: saldo,
+          saldo_actual: saldo_actual,
+          saldo_pendiente: saldo_pendiente,
+          saldo_total: saldo_actual + saldo_pendiente,
           porAcreditar: montoPorAcreditar,
           disponible: montoDisponible,
           debug_saldo: debugSaldo
