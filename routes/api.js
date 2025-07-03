@@ -2820,16 +2820,17 @@ router.post('/comprobantes/whatsapp', [
           const [hours, minutes, seconds] = hora.split(':');
           
           // Verificar si la fecha actual tiene hora específica (no es medianoche)
-          const currentHours = fecha_envio_obj.getHours();
-          const currentMinutes = fecha_envio_obj.getMinutes();
-          const currentSeconds = fecha_envio_obj.getSeconds();
+          const currentHours = fecha_envio_obj.getUTCHours();
+          const currentMinutes = fecha_envio_obj.getUTCMinutes();
+          const currentSeconds = fecha_envio_obj.getUTCSeconds();
           
           if (currentHours === 0 && currentMinutes === 0 && currentSeconds === 0) {
-            fecha_envio_obj.setHours(parseInt(hours) || 0, parseInt(minutes) || 0, parseInt(seconds) || 0);
-            console.log('✅ Hora separada aplicada correctamente');
+            // Usar setUTCHours para mantener la hora en UTC y evitar conversión de zona horaria
+            fecha_envio_obj.setUTCHours(parseInt(hours) || 0, parseInt(minutes) || 0, parseInt(seconds) || 0);
+            console.log('✅ Hora separada aplicada correctamente en UTC');
           } else {
             console.log('⚠️ Fecha ya tiene hora específica, no se aplica hora separada');
-            console.log(`   Hora actual en fecha: ${currentHours}:${currentMinutes}:${currentSeconds}`);
+            console.log(`   Hora actual en fecha UTC: ${currentHours}:${currentMinutes}:${currentSeconds}`);
           }
         } catch (error) {
           console.log('⚠️ No se pudo parsear la hora separada:', error.message);
