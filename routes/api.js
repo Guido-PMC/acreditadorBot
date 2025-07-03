@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
-const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto, formatearFechaLiberacion, estaLiberado, calcularComisionesFondosLiberados, calcularSaldoDisponibleCompleto, calcularComisionesSaldoDisponible } = require('../utils/liberacionFondos');
+const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto, formatearFechaLiberacion, estaLiberado, calcularComisionesFondosLiberados, calcularSaldoDisponibleCompleto, calcularComisionesSaldoDisponible, debugSaldoDisponible } = require('../utils/liberacionFondos');
 const router = express.Router();
 
 // Funciones de normalización y matching inteligente
@@ -2081,6 +2081,9 @@ router.get('/clientes/:id/resumen', async (req, res) => {
     const comisionesSaldoDisponible = calcularComisionesSaldoDisponible(acreditaciones, pagos, plazoAcreditacion);
     const saldo = saldoDisponible - comisionesSaldoDisponible;
 
+    // Debug: Desglose del saldo
+    const debugSaldo = debugSaldoDisponible(acreditaciones, pagos, plazoAcreditacion);
+
     res.json({
       success: true,
       data: {
@@ -2091,7 +2094,8 @@ router.get('/clientes/:id/resumen', async (req, res) => {
           pagos: pagosStats.rows[0],
           saldo: saldo,
           porAcreditar: montoPorAcreditar,
-          disponible: montoDisponible
+          disponible: montoDisponible,
+          debug_saldo: debugSaldo
         }
       }
     });

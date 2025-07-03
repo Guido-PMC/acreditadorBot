@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
-const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto, formatearFechaLiberacion, estaLiberado, calcularComisionesFondosLiberados, calcularSaldoDisponibleCompleto, calcularComisionesSaldoDisponible } = require('../utils/liberacionFondos');
+const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto, formatearFechaLiberacion, estaLiberado, calcularComisionesFondosLiberados, calcularSaldoDisponibleCompleto, calcularComisionesSaldoDisponible, debugSaldoDisponible } = require('../utils/liberacionFondos');
 
 const router = express.Router();
 
@@ -635,6 +635,9 @@ router.get('/resumen', authenticateToken, async (req, res) => {
     const saldo_pendiente = (acreditacionesStats.rows[0].total_importe_pendientes || 0) - 
                            (acreditacionesStats.rows[0].total_comisiones_pendientes || 0);
 
+    // Debug: Desglose del saldo
+    const debugSaldo = debugSaldoDisponible(acreditaciones, pagos, plazoAcreditacion);
+
     res.json({
       success: true,
       data: {
@@ -645,7 +648,8 @@ router.get('/resumen', authenticateToken, async (req, res) => {
         saldo_pendiente: saldo_pendiente,
         saldo_total: saldo_actual + saldo_pendiente,
         porAcreditar: montoPorAcreditar,
-        disponible: montoDisponible
+        disponible: montoDisponible,
+        debug_saldo: debugSaldo
       }
     });
 

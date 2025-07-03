@@ -216,6 +216,73 @@ function calcularComisionesFondosLiberados(acreditaciones, pagos, plazoHoras) {
 }
 
 /**
+ * Debug: Desglosa el cálculo del saldo disponible
+ * @param {Array} acreditaciones - Array de acreditaciones
+ * @param {Array} pagos - Array de pagos y créditos
+ * @param {number} plazoHoras - Plazo en horas del cliente
+ * @returns {Object} - Desglose detallado del saldo
+ */
+function debugSaldoDisponible(acreditaciones, pagos, plazoHoras) {
+  let desglose = {
+    acreditaciones_liberadas: 0,
+    acreditaciones_no_liberadas: 0,
+    creditos: 0,
+    pagos_egreso: 0,
+    depositos_liberados: 0,
+    depositos_no_liberados: 0,
+    comisiones_acreditaciones_liberadas: 0,
+    comisiones_creditos: 0,
+    comisiones_depositos_liberados: 0,
+    saldo_bruto: 0,
+    comisiones_totales: 0,
+    saldo_neto: 0
+  };
+  
+  // Acreditaciones
+  acreditaciones.forEach(acreditacion => {
+    const importe = parseFloat(acreditacion.importe || 0);
+    const comision = parseFloat(acreditacion.importe_comision || 0);
+    
+    if (estaLiberado(acreditacion.fecha_hora, plazoHoras)) {
+      desglose.acreditaciones_liberadas += importe;
+      desglose.comisiones_acreditaciones_liberadas += comision;
+    } else {
+      desglose.acreditaciones_no_liberadas += importe;
+    }
+  });
+  
+  // Pagos y créditos
+  pagos.forEach(pago => {
+    const importe = parseFloat(pago.importe || 0);
+    const comision = parseFloat(pago.importe_comision || 0);
+    
+    if (pago.tipo_pago === 'credito') {
+      // Los créditos siempre están disponibles (son ingresos)
+      desglose.creditos += importe;
+      desglose.comisiones_creditos += comision;
+    } else if (pago.tipo_pago === 'egreso') {
+      // Los pagos son egresos, restan del saldo
+      desglose.pagos_egreso += importe;
+    } else if (pago.concepto && pago.concepto.toLowerCase().includes('deposito')) {
+      // Pagos tipo depósito
+      if (estaLiberado(pago.fecha_pago, plazoHoras)) {
+        desglose.depositos_liberados += importe;
+        desglose.comisiones_depositos_liberados += comision;
+      } else {
+        desglose.depositos_no_liberados += importe;
+      }
+    }
+  });
+  
+  // Calcular totales
+  desglose.saldo_bruto = desglose.acreditaciones_liberadas + desglose.creditos + desglose.depositos_liberados - desglose.pagos_egreso;
+  desglose.comisiones_totales = desglose.comisiones_acreditaciones_liberadas + desglose.comisiones_depositos_liberados;
+  desglose.saldo_neto = desglose.saldo_bruto - desglose.comisiones_totales;
+  
+  return desglose;
+}
+
+/**
  * Calcula el saldo disponible incluyendo créditos, pagos y acreditaciones
  * @param {Array} acreditaciones - Array de acreditaciones
  * @param {Array} pagos - Array de pagos y créditos
@@ -252,9 +319,9 @@ function calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoHoras) {
 }
 
 /**
- * Calcula las comisiones totales de fondos liberados incluyendo créditos
+ * Calcula las comisiones solo de fondos liberados (acreditaciones y depósitos)
  * @param {Array} acreditaciones - Array de acreditaciones con comisiones
- * @param {Array} pagos - Array de pagos y créditos con comisiones
+ * @param {Array} pagos - Array de pagos con comisiones
  * @param {number} plazoHoras - Plazo en horas del cliente
  * @returns {number} - Total de comisiones de fondos liberados
  */
@@ -268,11 +335,9 @@ function calcularComisionesSaldoDisponible(acreditaciones, pagos, plazoHoras) {
     }
   });
   
-  // Comisiones de créditos (siempre disponibles)
+  // Comisiones solo de depósitos liberados (NO de créditos)
   pagos.forEach(pago => {
-    if (pago.tipo_pago === 'credito') {
-      totalComisiones += parseFloat(pago.importe_comision || 0);
-    } else if (pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
+    if (pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
         estaLiberado(pago.fecha_pago, plazoHoras)) {
       totalComisiones += parseFloat(pago.importe_comision || 0);
     }
@@ -292,5 +357,6 @@ module.exports = {
   calcularMontoDisponibleCompleto,
   calcularComisionesFondosLiberados,
   calcularSaldoDisponibleCompleto,
-  calcularComisionesSaldoDisponible
+  calcularComisionesSaldoDisponible,
+  debugSaldoDisponible
 }; 
