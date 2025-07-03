@@ -4430,4 +4430,59 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
   }
 });
 
+// GET /api/clientes/nombres - Solo nombres y apellidos de clientes (para carga rápida)
+router.get('/clientes/nombres', async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const {
+      page = 1,
+      limit = 50,
+      search = '',
+      estado = 'activo'
+    } = req.query;
+    let whereConditions = ['estado = $1'];
+    let params = [estado];
+    let paramIndex = 2;
+    if (search) {
+      whereConditions.push(`(nombre ILIKE $${paramIndex} OR apellido ILIKE $${paramIndex})`);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+    const offset = (page - 1) * limit;
+    // Query para contar total
+    const countQuery = `SELECT COUNT(*) FROM clientes ${whereClause}`;
+    const countResult = await client.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count);
+    // Query para obtener solo id, nombre y apellido
+    const dataQuery = `
+      SELECT id, nombre, apellido
+      FROM clientes
+      ${whereClause}
+      ORDER BY nombre ASC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    params.push(parseInt(limit), offset);
+    const dataResult = await client.query(dataQuery, params);
+    res.json({
+      success: true,
+      data: dataResult.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo nombres de clientes:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron obtener los nombres de clientes'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 
