@@ -6,6 +6,41 @@
   <title>Vista del Cliente - AcreditadorBot</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    /* Estilos para el dropdown de clientes */
+    #clienteNombre:hover {
+      color: #0a58ca !important;
+      text-decoration: underline;
+    }
+    
+    #clientesDropdown {
+      max-height: 400px;
+      overflow-y: auto;
+      min-width: 320px;
+    }
+    
+    #clientesDropdown .dropdown-item {
+      padding: 10px 16px;
+    }
+    
+    #clientesDropdown .dropdown-item:hover {
+      background-color: #f8f9fa;
+    }
+    
+    #clientesDropdown .dropdown-item.active {
+      background-color: #0d6efd;
+      color: white;
+    }
+    
+    #clientesDropdown .dropdown-item.active small {
+      color: rgba(255, 255, 255, 0.8);
+    }
+    
+    #clientesDropdown .dropdown-item small {
+      font-size: 0.75rem;
+      margin-top: 2px;
+    }
+  </style>
 </head>
 <body>
 
@@ -19,7 +54,14 @@
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center">
               <div>
-                <h2 id="clienteNombre">Cargando...</h2>
+                <div class="dropdown">
+                  <h2 class="dropdown-toggle" id="clienteNombre" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer; color: #0d6efd;">
+                    Cargando...
+                  </h2>
+                  <ul class="dropdown-menu" id="clientesDropdown">
+                    <li><span class="dropdown-item-text">Cargando clientes...</span></li>
+                  </ul>
+                </div>
                 <p class="text-muted mb-0" id="clienteInfo">Cargando información...</p>
               </div>
               <div class="text-end">
@@ -333,8 +375,66 @@
 
         renderClienteInfo(data.data);
         loadMovimientosUnificados();
+        loadClientesDropdown(); // Cargar lista de clientes para el dropdown
       } catch (error) {
         showAlert('danger', 'Error al cargar datos del cliente');
+      }
+    }
+
+    // Cargar lista de clientes para el dropdown
+    async function loadClientesDropdown() {
+      try {
+        const res = await fetch('/api/clientes?limit=100'); // Obtener hasta 100 clientes
+        const data = await res.json();
+        
+        if (!data.success) {
+          console.error('Error al cargar lista de clientes:', data.error);
+          return;
+        }
+
+        const dropdown = document.getElementById('clientesDropdown');
+        const clientes = data.data;
+        
+        // Limpiar dropdown
+        dropdown.innerHTML = '';
+        
+        // Agregar header
+        dropdown.innerHTML += `
+          <li><h6 class="dropdown-header">Seleccionar Cliente</h6></li>
+          <li><hr class="dropdown-divider"></li>
+        `;
+        
+        // Agregar clientes
+        clientes.forEach(cliente => {
+          const isCurrentClient = parseInt(cliente.id) === parseInt(clienteId);
+          dropdown.innerHTML += `
+            <li>
+              <a class="dropdown-item ${isCurrentClient ? 'active' : ''}" 
+                 href="?id=${cliente.id}" 
+                 ${isCurrentClient ? 'aria-current="true"' : ''}>
+                <i class="fas fa-user me-2"></i>
+                ${cliente.nombre} ${cliente.apellido || ''}
+                <small class="text-muted d-block">ID: ${cliente.id} • ${cliente.estado}</small>
+              </a>
+            </li>
+          `;
+        });
+        
+        // Agregar opción para ver todos los clientes
+        dropdown.innerHTML += `
+          <li><hr class="dropdown-divider"></li>
+          <li>
+            <a class="dropdown-item" href="/clientes.html">
+              <i class="fas fa-list me-2"></i>
+              Ver todos los clientes
+            </a>
+          </li>
+        `;
+        
+      } catch (error) {
+        console.error('Error al cargar lista de clientes:', error);
+        const dropdown = document.getElementById('clientesDropdown');
+        dropdown.innerHTML = '<li><span class="dropdown-item-text text-danger">Error al cargar clientes</span></li>';
       }
     }
 

@@ -131,16 +131,21 @@
           const saldoRes = await fetch(`/api/clientes/${cliente.id}/resumen`);
           const saldoData = await saldoRes.json();
           if (saldoData.success) {
-            // El saldo total debe incluir TODOS los movimientos del cliente
-            const saldoReal = saldoData.data.resumen.saldo || 0;
-            
-            // Para "pendiente" mostramos solo las acreditaciones pendientes menos comisiones
-            const acreditacionesPendientes = saldoData.data.resumen.acreditaciones?.total_importe_pendientes || 0;
-            const comisionesPendientes = saldoData.data.resumen.acreditaciones?.total_comisiones_pendientes || 0;
+            // Usar la misma lógica que cliente.html para saldoCliente
+            let saldo_actual = saldoData.data.resumen?.saldo_actual || 0;
+
+            // Restar comisiones de fondos liberados según lo solicitado (igual que en cliente.html)
+            if (saldoData.data.resumen?.debug_saldo) {
+              const comisiones_acreditaciones_liberadas = saldoData.data.resumen.debug_saldo.comisiones_acreditaciones_liberadas || 0;
+              const comisiones_depositos_liberados = saldoData.data.resumen.debug_saldo.comisiones_depositos_liberados || 0;
+              
+              // Aplicar la fórmula: saldo_actual = saldo_actual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados
+              saldo_actual = saldo_actual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados;
+            }
             
             return {
               ...cliente,
-              saldoTotal: saldoReal, // Saldo REAL que incluye todo
+              saldoTotal: saldo_actual, // Saldo calculado igual que en cliente.html
               porAcreditar: saldoData.data.resumen.porAcreditar || 0 // Monto por acreditar
             };
           }
