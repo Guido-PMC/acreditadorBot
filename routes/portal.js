@@ -453,7 +453,8 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
           CAST(id AS VARCHAR) as id_acreditacion,
           cotejado,
           NULL as nombre_remitente,
-          'historico' as fuente
+          'historico' as fuente,
+          titular
         FROM acreditaciones 
         WHERE CAST(id_cliente AS INTEGER) = $1
       )
