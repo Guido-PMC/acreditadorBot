@@ -256,21 +256,21 @@ function debugSaldoDisponible(acreditaciones, pagos, plazoHoras) {
     const importe = parseFloat(pago.importe || 0);
     const comision = parseFloat(pago.importe_comision || 0);
     
-    if (pago.tipo_pago === 'credito') {
-      // Los créditos siempre están disponibles (son ingresos)
-      desglose.creditos += importe;
-      desglose.comisiones_creditos += comision;
-    } else if (pago.tipo_pago === 'egreso') {
+    if (pago.tipo_pago === 'egreso') {
       // Los pagos son egresos, restan del saldo
       desglose.pagos_egreso += importe;
     } else if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito') {
-      // Créditos tipo depósito
+      // Créditos tipo depósito (tienen plazos de liberación)
       if (estaLiberado(pago.fecha, plazoHoras)) {
         desglose.depositos_liberados += importe;
         desglose.comisiones_depositos_liberados += comision;
       } else {
         desglose.depositos_no_liberados += importe;
       }
+    } else if (pago.tipo_pago === 'credito') {
+      // Otros créditos siempre están disponibles (son ingresos)
+      desglose.creditos += importe;
+      desglose.comisiones_creditos += comision;
     }
   });
   
@@ -304,10 +304,7 @@ function calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoHoras) {
   
   // Pagos y créditos
   pagos.forEach(pago => {
-    if (pago.tipo_pago === 'credito') {
-      // Los créditos siempre están disponibles (son ingresos)
-      creditos += parseFloat(pago.importe || 0);
-    } else if (pago.tipo_pago === 'egreso') {
+    if (pago.tipo_pago === 'egreso') {
       // Los pagos son egresos, restan del saldo
       pagosEgreso += parseFloat(pago.importe || 0);
     } else if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito') {
@@ -315,6 +312,9 @@ function calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoHoras) {
       if (estaLiberado(pago.fecha, plazoHoras)) {
         depositosLiberados += parseFloat(pago.importe || 0);
       }
+    } else if (pago.tipo_pago === 'credito') {
+      // Otros créditos siempre están disponibles (son ingresos)
+      creditos += parseFloat(pago.importe || 0);
     }
   });
   
