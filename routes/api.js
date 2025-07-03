@@ -2069,7 +2069,7 @@ router.get('/clientes/:id/resumen', async (req, res) => {
     const acreditaciones = acreditacionesResult.rows;
 
     // Obtener todos los pagos del cliente (para incluir depósitos, créditos y pagos)
-    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, CASE WHEN tipo_pago = \'credito\' AND concepto ILIKE \'%deposito%\' THEN fecha_creacion ELSE fecha_pago END as fecha FROM pagos WHERE id_cliente = $1 AND estado = \'confirmado\'', [id]);
+    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, metodo_pago, CASE WHEN tipo_pago = \'credito\' AND metodo_pago = \'deposito\' THEN fecha_creacion ELSE fecha_pago END as fecha FROM pagos WHERE id_cliente = $1 AND estado = \'confirmado\'', [id]);
     const pagos = pagosResult.rows;
 
     // Calcular montos por acreditar y disponibles (incluyendo depósitos)
@@ -4380,8 +4380,8 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
         const fechaRecepcion = mov.fecha_recepcion || mov.fecha;
         mov.fecha_estimada_liberacion = formatearFechaLiberacion(fechaRecepcion, plazoAcreditacion);
         mov.esta_liberado = estaLiberado(fechaRecepcion, plazoAcreditacion);
-      } else if (mov.tipo === 'pago' && mov.concepto && mov.concepto.toLowerCase().includes('deposito')) {
-        // Los pagos tipo depósito también tienen plazo de acreditación
+      } else if (mov.tipo === 'credito' && mov.metodo_pago && mov.metodo_pago.toLowerCase() === 'deposito') {
+        // Solo los créditos tipo depósito tienen plazo de acreditación
         mov.fecha_estimada_liberacion = formatearFechaLiberacion(mov.fecha, plazoAcreditacion);
         mov.esta_liberado = estaLiberado(mov.fecha, plazoAcreditacion);
       }

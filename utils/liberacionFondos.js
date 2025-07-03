@@ -150,7 +150,7 @@ function calcularMontoPorAcreditarCompleto(acreditaciones, pagos, plazoHoras) {
   
   // Créditos tipo depósito no liberados
   pagos.forEach(pago => {
-    if (pago.tipo_pago === 'credito' && pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
+    if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito' && 
         !estaLiberado(pago.fecha, plazoHoras)) {
       total += parseFloat(pago.importe || 0);
     }
@@ -178,7 +178,7 @@ function calcularMontoDisponibleCompleto(acreditaciones, pagos, plazoHoras) {
   
   // Créditos tipo depósito liberados
   pagos.forEach(pago => {
-    if (pago.tipo_pago === 'credito' && pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
+    if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito' && 
         estaLiberado(pago.fecha, plazoHoras)) {
       total += parseFloat(pago.importe || 0);
     }
@@ -206,7 +206,7 @@ function calcularComisionesFondosLiberados(acreditaciones, pagos, plazoHoras) {
   
   // Comisiones de créditos tipo depósito liberados
   pagos.forEach(pago => {
-    if (pago.tipo_pago === 'credito' && pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
+    if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito' && 
         estaLiberado(pago.fecha, plazoHoras)) {
       totalComisiones += parseFloat(pago.importe_comision || 0);
     }
@@ -263,7 +263,7 @@ function debugSaldoDisponible(acreditaciones, pagos, plazoHoras) {
     } else if (pago.tipo_pago === 'egreso') {
       // Los pagos son egresos, restan del saldo
       desglose.pagos_egreso += importe;
-    } else if (pago.tipo_pago === 'credito' && pago.concepto && pago.concepto.toLowerCase().includes('deposito')) {
+    } else if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito') {
       // Créditos tipo depósito
       if (estaLiberado(pago.fecha, plazoHoras)) {
         desglose.depositos_liberados += importe;
@@ -310,7 +310,7 @@ function calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoHoras) {
     } else if (pago.tipo_pago === 'egreso') {
       // Los pagos son egresos, restan del saldo
       pagosEgreso += parseFloat(pago.importe || 0);
-    } else if (pago.tipo_pago === 'credito' && pago.concepto && pago.concepto.toLowerCase().includes('deposito')) {
+    } else if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito') {
       // Créditos tipo depósito liberados suman al saldo
       if (estaLiberado(pago.fecha, plazoHoras)) {
         depositosLiberados += parseFloat(pago.importe || 0);
@@ -341,7 +341,7 @@ function calcularComisionesSaldoDisponible(acreditaciones, pagos, plazoHoras) {
   
   // Comisiones solo de depósitos liberados (créditos tipo depósito)
   pagos.forEach(pago => {
-    if (pago.tipo_pago === 'credito' && pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
+    if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito' && 
         estaLiberado(pago.fecha, plazoHoras)) {
       totalComisiones += parseFloat(pago.importe_comision || 0);
     }

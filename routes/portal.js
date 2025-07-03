@@ -491,8 +491,8 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
           CASE WHEN tipo_pago = 'egreso' THEN 'pago' ELSE 'credito' END as tipo,
           concepto,
           importe,
-          CASE WHEN tipo_pago = 'credito' AND concepto ILIKE '%deposito%' THEN fecha_creacion ELSE fecha_pago END as fecha,
-          CASE WHEN tipo_pago = 'credito' AND concepto ILIKE '%deposito%' THEN fecha_creacion ELSE fecha_pago END as fecha_original,
+          CASE WHEN tipo_pago = 'credito' AND metodo_pago = 'deposito' THEN fecha_creacion ELSE fecha_pago END as fecha,
+          CASE WHEN tipo_pago = 'credito' AND metodo_pago = 'deposito' THEN fecha_creacion ELSE fecha_pago END as fecha_original,
           NULL as fecha_recepcion,
           NULL as cuit,
           metodo_pago,
@@ -522,8 +522,8 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
         const fechaRecepcion = mov.fecha_recepcion || mov.fecha;
         mov.fecha_estimada_liberacion = formatearFechaLiberacion(fechaRecepcion, plazoAcreditacion);
         mov.esta_liberado = estaLiberado(fechaRecepcion, plazoAcreditacion);
-      } else if (mov.tipo === 'pago' && mov.concepto && mov.concepto.toLowerCase().includes('deposito')) {
-        // Los pagos tipo depósito también tienen plazo de acreditación
+      } else if (mov.tipo === 'credito' && mov.metodo_pago && mov.metodo_pago.toLowerCase() === 'deposito') {
+        // Solo los créditos tipo depósito tienen plazo de acreditación
         mov.fecha_estimada_liberacion = formatearFechaLiberacion(mov.fecha, plazoAcreditacion);
         mov.esta_liberado = estaLiberado(mov.fecha, plazoAcreditacion);
       }
@@ -581,7 +581,7 @@ router.get('/resumen', authenticateToken, async (req, res) => {
     const acreditaciones = acreditacionesResult.rows;
 
     // Obtener todos los pagos del cliente (para incluir depósitos, créditos y pagos)
-    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, CASE WHEN tipo_pago = \'credito\' AND concepto ILIKE \'%deposito%\' THEN fecha_creacion ELSE fecha_pago END as fecha FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = \'confirmado\'', [cliente_id]);
+    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, metodo_pago, CASE WHEN tipo_pago = \'credito\' AND metodo_pago = \'deposito\' THEN fecha_creacion ELSE fecha_pago END as fecha FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = \'confirmado\'', [cliente_id]);
     const pagos = pagosResult.rows;
 
     // Calcular montos por acreditar y disponibles (incluyendo depósitos)
