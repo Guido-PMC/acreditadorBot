@@ -993,8 +993,16 @@
             diferencia_horas: (fechaLiberacion.getTime() - now.getTime()) / (1000 * 60 * 60)
           });
           
-          if (fechaLiberacion > now) pendienteLiberacion = true;
+          // Determinar si está pendiente de liberación
+          if (fechaLiberacion > now) {
+            pendienteLiberacion = true;
+            console.log('🔍 Debug - Marcando como pendiente de liberación');
+          } else {
+            console.log('🔍 Debug - Marcando como liberado (fecha ya pasó)');
+          }
         }
+        
+        // Lógica de badges
         if (pendienteLiberacion) {
           estadoBadge = `<span class="badge bg-secondary" ${tooltip}>Por acreditar</span>`;
         } else if (mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') {
