@@ -222,8 +222,8 @@
               <input type="datetime-local" class="form-control" id="fechaCredito">
             </div>
             <div class="mb-3">
-              <label for="metodoCredito" class="form-label">Método de Crédito</label>
-              <select class="form-select" id="metodoCredito">
+              <label for="metodoCredito" class="form-label">Método de Crédito *</label>
+              <select class="form-select" id="metodoCredito" required>
                 <option value="">Seleccionar...</option>
                 <option value="deposito">Depósito</option>
                 <option value="otro">Otro</option>
@@ -489,6 +489,13 @@
     async function submitCreditoForm(event) {
       event.preventDefault();
       
+      // Validar que se haya seleccionado un método de crédito
+      const metodoCredito = document.getElementById('metodoCredito').value;
+      if (!metodoCredito || metodoCredito === '') {
+        showAlert('danger', 'Debe seleccionar un método de crédito');
+        return;
+      }
+      
       const importe = parseFloat(document.getElementById('importeCredito').value);
       const comisionPorcentaje = parseFloat(document.getElementById('comisionCredito').value) || 0;
       const importeComision = (importe * comisionPorcentaje) / 100;
@@ -498,7 +505,7 @@
         concepto: document.getElementById('conceptoCredito').value,
         importe: importe,
         fecha_pago: document.getElementById('fechaCredito').value,
-        metodo_pago: document.getElementById('metodoCredito').value,
+        metodo_pago: metodoCredito,
         referencia: document.getElementById('referenciaCredito').value,
         observaciones: document.getElementById('observacionesCredito').value,
         tipo_pago: 'credito', // Marcar como crédito en lugar de pago
