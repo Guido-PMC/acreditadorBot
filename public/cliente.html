@@ -400,17 +400,12 @@
       const totalComisionesAsignadas = resumen.acreditaciones?.total_comisiones_cotejadas || 0;
       updateElement('totalComisionesAsignadas', formatCurrency(totalComisionesAsignadas));
       
-      // Total pendiente: acreditaciones pendientes - comisiones pendientes
-      // NOTA: No incluimos comprobantes sin asignar porque pueden ser duplicados/erróneos
-      const acreditacionesPendientes = resumen.acreditaciones?.total_importe_pendientes || 0;
-      const comisionesPendientes = resumen.acreditaciones?.total_comisiones_pendientes || 0;
-      const totalPendiente = acreditacionesPendientes - comisionesPendientes;
-      console.log('🔍 Cálculo Total Pendiente (solo acreditaciones):', {
-        acreditacionesPendientes,
-        comisionesPendientes,
-        totalPendiente
+      // Total comprobantes pendientes: comprobantes sin acreditar
+      const total_comprobantes_pendientes = resumen.comprobantes?.total_importe_pendientes || 0;
+      console.log('🔍 Cálculo Total Comprobantes Pendientes:', {
+        total_comprobantes_pendientes
       });
-      updateElement('totalComisiones', formatCurrency(totalPendiente));
+      updateElement('totalComisiones', formatCurrency(total_comprobantes_pendientes));
     }
 
     // Función para formatear moneda en español argentino
