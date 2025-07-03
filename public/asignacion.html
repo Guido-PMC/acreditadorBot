@@ -414,16 +414,28 @@
           showAlert('success', data.message);
           bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
           
-          console.log('✅ Asignación exitosa, recargando datos...');
+          console.log('✅ Asignación exitosa, limpiando filtros y recargando datos...');
           
-          // Recargar datos
-          loadComprobantes(comprobantesPage);
-          loadAcreditaciones(acreditacionesPage);
+          // Limpiar filtros automáticos después de asignar
+          document.getElementById('importeMin').value = '';
+          document.getElementById('importeMax').value = '';
+          document.getElementById('filterIndicator').style.display = 'none';
           
           // Limpiar selecciones
           currentComprobante = null;
           currentAcreditacion = null;
+          document.querySelectorAll('.comprobante-card').forEach(card => {
+            card.classList.remove('border-primary');
+          });
+          document.querySelectorAll('.acreditacion-card').forEach(card => {
+            card.classList.remove('border-success');
+          });
+          
           hideAssignButton();
+          
+          // Recargar datos sin filtros
+          loadComprobantes(1);
+          loadAcreditaciones(1);
         } else {
           console.error('❌ Error en asignación:', data.error || data.message);
           showAlert('danger', data.error || data.message);
