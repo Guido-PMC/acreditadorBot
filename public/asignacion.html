@@ -397,15 +397,15 @@
             <strong>Cliente:</strong> ${currentComprobante.cliente_nombre ? `${currentComprobante.cliente_nombre} ${currentComprobante.cliente_apellido || ''}` : 'Sin cliente asignado'}<br>
             <strong>CUIT:</strong> ${cleanCUIT(currentComprobante.cuit) || 'Sin CUIT'}<br>
             <strong>Monto:</strong> $${currentComprobante.importe}<br>
-            <strong>Fecha Envío:</strong> ${new Date(currentComprobante.fecha_envio).toLocaleDateString()}<br>
-            <strong>Fecha Recepción:</strong> ${new Date(currentComprobante.fecha_recepcion).toLocaleDateString()}
+            <strong>Fecha Envío:</strong> ${formatDate(currentComprobante.fecha_envio)}<br>
+            <strong>Fecha Recepción:</strong> ${formatDate(currentComprobante.fecha_recepcion)}
           </div>
           <div class="col-md-6">
             <strong>Acreditación:</strong><br>
             <strong>Titular:</strong> ${currentAcreditacion.titular}<br>
             <strong>CUIT:</strong> ${cleanCUIT(currentAcreditacion.cuit) || 'Sin CUIT'}<br>
             <strong>Monto:</strong> $${currentAcreditacion.importe}<br>
-            <strong>Fecha y Hora:</strong> ${new Date(currentAcreditacion.fecha_hora).toLocaleDateString()} ${new Date(currentAcreditacion.fecha_hora).toLocaleTimeString()}<br>
+            <strong>Fecha y Hora:</strong> ${formatDate(currentAcreditacion.fecha_hora)}<br>
             <strong>Concepto:</strong> ${currentAcreditacion.concepto || 'Sin concepto'}
           </div>
         </div>
