@@ -275,7 +275,7 @@ function debugSaldoDisponible(acreditaciones, pagos, plazoHoras) {
   });
   
   // Calcular totales
-  desglose.saldo_bruto = desglose.acreditaciones_liberadas + desglose.creditos + desglose.depositos_liberados - desglose.pagos_egreso;
+  desglose.saldo_bruto = desglose.acreditaciones_liberadas + desglose.depositos_liberados - desglose.pagos_egreso + desglose.creditos;
   desglose.comisiones_totales = desglose.comisiones_acreditaciones_liberadas + desglose.comisiones_depositos_liberados;
   desglose.saldo_neto = desglose.saldo_bruto - desglose.comisiones_totales;
   
@@ -290,12 +290,15 @@ function debugSaldoDisponible(acreditaciones, pagos, plazoHoras) {
  * @returns {number} - Saldo total disponible
  */
 function calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoHoras) {
-  let saldo = 0;
+  let acreditacionesLiberadas = 0;
+  let depositosLiberados = 0;
+  let pagosEgreso = 0;
+  let creditos = 0;
   
   // Acreditaciones liberadas
   acreditaciones.forEach(acreditacion => {
     if (estaLiberado(acreditacion.fecha_hora, plazoHoras)) {
-      saldo += parseFloat(acreditacion.importe || 0);
+      acreditacionesLiberadas += parseFloat(acreditacion.importe || 0);
     }
   });
   
@@ -303,19 +306,20 @@ function calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoHoras) {
   pagos.forEach(pago => {
     if (pago.tipo_pago === 'credito') {
       // Los créditos siempre están disponibles (son ingresos)
-      saldo += parseFloat(pago.importe || 0);
+      creditos += parseFloat(pago.importe || 0);
     } else if (pago.tipo_pago === 'egreso') {
       // Los pagos son egresos, restan del saldo
-      saldo -= parseFloat(pago.importe || 0);
+      pagosEgreso += parseFloat(pago.importe || 0);
     } else if (pago.concepto && pago.concepto.toLowerCase().includes('deposito')) {
       // Pagos tipo depósito liberados suman al saldo
       if (estaLiberado(pago.fecha_pago, plazoHoras)) {
-        saldo += parseFloat(pago.importe || 0);
+        depositosLiberados += parseFloat(pago.importe || 0);
       }
     }
   });
   
-  return saldo;
+  // Fórmula correcta: Acreditaciones liberadas + Depósitos liberados - Pagos egreso + Créditos
+  return acreditacionesLiberadas + depositosLiberados - pagosEgreso + creditos;
 }
 
 /**

@@ -2076,10 +2076,8 @@ router.get('/clientes/:id/resumen', async (req, res) => {
     const montoPorAcreditar = calcularMontoPorAcreditarCompleto(acreditaciones, pagos, plazoAcreditacion);
     const montoDisponible = calcularMontoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
 
-    // Calcular saldo actual incluyendo créditos, pagos y acreditaciones
-    const saldoDisponible = calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
-    const comisionesSaldoDisponible = calcularComisionesSaldoDisponible(acreditaciones, pagos, plazoAcreditacion);
-    const saldo = saldoDisponible - comisionesSaldoDisponible;
+    // Calcular saldo actual con la fórmula correcta
+    const saldo = calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
 
     // Debug: Desglose del saldo
     const debugSaldo = debugSaldoDisponible(acreditaciones, pagos, plazoAcreditacion);

@@ -626,10 +626,8 @@ router.get('/resumen', authenticateToken, async (req, res) => {
       WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
     `, [cliente_id]);
 
-    // Calcular saldo actual incluyendo créditos, pagos y acreditaciones
-    const saldoDisponible = calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
-    const comisionesSaldoDisponible = calcularComisionesSaldoDisponible(acreditaciones, pagos, plazoAcreditacion);
-    const saldo_actual = saldoDisponible - comisionesSaldoDisponible;
+    // Calcular saldo actual con la fórmula correcta
+    const saldo_actual = calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
 
     // Saldo pendiente (acreditaciones no cotejadas - comisiones)
     const saldo_pendiente = (acreditacionesStats.rows[0].total_importe_pendientes || 0) - 
