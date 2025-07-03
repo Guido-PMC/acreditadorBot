@@ -967,7 +967,12 @@
         else if (mov.tipo === 'comprobante') tipoBadge = '<span class="badge bg-warning text-dark">Comprobante</span>';
         else if (mov.tipo === 'acreditacion') tipoBadge = '<span class="badge bg-info">Cobro</span>';
         else tipoBadge = `<span class="badge bg-secondary">${mov.tipo || 'Otro'}</span>`;
-        let concepto = mov.concepto || mov.referencia || mov.descripcion || mov.detalle || '-';
+        let concepto = '';
+        if (mov.tipo === 'acreditacion' && mov.titular) {
+          concepto = mov.titular;
+        } else {
+          concepto = mov.concepto || mov.referencia || mov.descripcion || mov.detalle || '-';
+        }
         let importe = mov.importe !== undefined ? parseFloat(mov.importe).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '-';
         let importeClass = 'text-end';
         if (mov.tipo === 'pago') importeClass += ' text-danger';
