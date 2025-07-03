@@ -235,6 +235,9 @@
                 <button type="button" class="btn btn-outline-success" onclick="filterMovimientos('cobros')" id="filter-cobros">
                   <i class="fas fa-plus-circle me-1"></i>Cobros
                 </button>
+                <button type="button" class="btn btn-outline-info" onclick="filterMovimientos('acreditaciones')" id="filter-acreditaciones">
+                  <i class="fas fa-university me-1"></i>Acreditaciones
+                </button>
                 <button type="button" class="btn btn-outline-secondary" onclick="filterMovimientos('pagos')" id="filter-pagos">
                   <i class="fas fa-minus-circle me-1"></i>Pagos
                 </button>
@@ -871,6 +874,12 @@
           // Comprobantes acreditados y créditos
           movimientosFiltrados = allMovimientos.filter(mov => 
             (mov.tipo === 'comprobante' && mov.id_acreditacion) || mov.tipo === 'credito'
+          );
+          break;
+        case 'acreditaciones':
+          // Solo acreditaciones
+          movimientosFiltrados = allMovimientos.filter(mov => 
+            mov.tipo === 'acreditacion'
           );
           break;
         case 'pagos':
