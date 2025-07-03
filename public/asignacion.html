@@ -534,6 +534,11 @@
         
         if (data.success && data.data) {
           const select = document.getElementById('clienteFilter');
+          if (!select) {
+            console.error('❌ No se encontró el elemento clienteFilter');
+            return;
+          }
+          
           select.innerHTML = '<option value="">Todos los clientes</option>';
           
           console.log(`📋 Cargando ${data.data.length} clientes en el dropdown`);
@@ -546,19 +551,26 @@
           });
           
           console.log('✅ Clientes cargados exitosamente');
+          return true;
         } else {
           console.error('❌ Error en la respuesta del servidor:', data);
+          return false;
         }
       } catch (error) {
         console.error('💥 Error al cargar clientes:', error);
         showAlert('warning', 'No se pudieron cargar los clientes para el filtro');
+        return false;
       }
     }
 
     // Inicializar
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async function() {
       console.log('🚀 Inicializando asignacion.html...');
-      loadClientes();
+      
+      // Cargar clientes primero
+      await loadClientes();
+      
+      // Luego cargar comprobantes y acreditaciones
       loadComprobantes();
       loadAcreditaciones();
     });
