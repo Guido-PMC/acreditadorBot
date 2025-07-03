@@ -575,7 +575,7 @@
                     badgeText = mov.estado || 'Confirmado';
                     tipoText = 'Crédito';
                     importeClass = 'text-success';
-                } else if (mov.tipo === 'credito' && mov.concepto && mov.concepto.toLowerCase().includes('deposito')) {
+                } else if (mov.tipo === 'credito' && mov.metodo_pago && mov.metodo_pago.toLowerCase() === 'deposito') {
                     // Depósitos: mostrar como ingresos con icono de banco
                     icon = 'fas fa-university';
                     badgeClass = 'bg-info';
@@ -596,7 +596,7 @@
 
                 return `
                     <tr>
-                        <td>${mov.fecha}</td>
+                        <td>${new Date(mov.fecha).toLocaleDateString()} ${new Date(mov.fecha).toLocaleTimeString()}</td>
                         <td>
                             <span class="badge ${badgeClass} ms-1">${tipoText}</span>
                         </td>
