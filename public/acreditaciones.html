@@ -339,7 +339,7 @@
         // Cargar clientes para el filtro
         async function loadClientes() {
             try {
-                const response = await fetch('/api/clientes?page=1&limit=1000');
+                const response = await fetch('/api/clientes/nombres?page=1&limit=1000');
                 const data = await response.json();
                 
                 if (data.success) {
