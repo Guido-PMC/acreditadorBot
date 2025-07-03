@@ -151,7 +151,7 @@ function calcularMontoPorAcreditarCompleto(acreditaciones, pagos, plazoHoras) {
   // Pagos tipo depósito no liberados
   pagos.forEach(pago => {
     if (pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
-        !estaLiberado(pago.fecha_pago, plazoHoras)) {
+        !estaLiberado(pago.fecha, plazoHoras)) {
       total += parseFloat(pago.importe || 0);
     }
   });
@@ -179,7 +179,7 @@ function calcularMontoDisponibleCompleto(acreditaciones, pagos, plazoHoras) {
   // Pagos tipo depósito liberados
   pagos.forEach(pago => {
     if (pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
-        estaLiberado(pago.fecha_pago, plazoHoras)) {
+        estaLiberado(pago.fecha, plazoHoras)) {
       total += parseFloat(pago.importe || 0);
     }
   });
@@ -207,7 +207,7 @@ function calcularComisionesFondosLiberados(acreditaciones, pagos, plazoHoras) {
   // Comisiones de pagos tipo depósito liberados
   pagos.forEach(pago => {
     if (pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
-        estaLiberado(pago.fecha_pago, plazoHoras)) {
+        estaLiberado(pago.fecha, plazoHoras)) {
       totalComisiones += parseFloat(pago.importe_comision || 0);
     }
   });
@@ -265,7 +265,7 @@ function debugSaldoDisponible(acreditaciones, pagos, plazoHoras) {
       desglose.pagos_egreso += importe;
     } else if (pago.concepto && pago.concepto.toLowerCase().includes('deposito')) {
       // Pagos tipo depósito
-      if (estaLiberado(pago.fecha_pago, plazoHoras)) {
+      if (estaLiberado(pago.fecha, plazoHoras)) {
         desglose.depositos_liberados += importe;
         desglose.comisiones_depositos_liberados += comision;
       } else {
@@ -312,7 +312,7 @@ function calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoHoras) {
       pagosEgreso += parseFloat(pago.importe || 0);
     } else if (pago.concepto && pago.concepto.toLowerCase().includes('deposito')) {
       // Pagos tipo depósito liberados suman al saldo
-      if (estaLiberado(pago.fecha_pago, plazoHoras)) {
+      if (estaLiberado(pago.fecha, plazoHoras)) {
         depositosLiberados += parseFloat(pago.importe || 0);
       }
     }
@@ -342,7 +342,7 @@ function calcularComisionesSaldoDisponible(acreditaciones, pagos, plazoHoras) {
   // Comisiones solo de depósitos liberados (NO de créditos)
   pagos.forEach(pago => {
     if (pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
-        estaLiberado(pago.fecha_pago, plazoHoras)) {
+        estaLiberado(pago.fecha, plazoHoras)) {
       totalComisiones += parseFloat(pago.importe_comision || 0);
     }
   });
