@@ -141,8 +141,7 @@
             return {
               ...cliente,
               saldoTotal: saldoReal, // Saldo REAL que incluye todo
-              porAcreditar: saldoData.data.resumen.porAcreditar || 0, // Monto por acreditar
-              disponible: saldoData.data.resumen.disponible || 0 // Monto disponible
+              porAcreditar: saldoData.data.resumen.porAcreditar || 0 // Monto por acreditar
             };
           }
         } catch (error) {
@@ -151,8 +150,7 @@
         return {
           ...cliente,
           saldoTotal: 0,
-          porAcreditar: 0,
-          disponible: 0
+          porAcreditar: 0
         };
       }));
       

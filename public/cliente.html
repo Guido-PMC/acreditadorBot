@@ -361,9 +361,9 @@
       
       // Saldo
       const porAcreditar = data.resumen?.porAcreditar || 0;
-      const disponible = data.resumen?.disponible || 0;
+      const saldo = data.resumen?.saldo || 0;
       updateElement('porAcreditar', formatCurrency(porAcreditar));
-      updateElement('saldoCliente', formatCurrency(disponible));
+      updateElement('saldoCliente', formatCurrency(saldo));
       
       // Primera fila: Contadores de comprobantes (con formato de miles)
       updateElement('totalAcreditaciones', (resumen.comprobantes.total_comprobantes || 0).toLocaleString('es-AR'));

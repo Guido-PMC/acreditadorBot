@@ -410,11 +410,11 @@
                     saldoActualElement.textContent = new Intl.NumberFormat('es-AR', {
                         style: 'currency',
                         currency: 'ARS'
-                    }).format(disponible);
+                    }).format(saldo_actual);
 
-                    if (disponible > 0) {
+                    if (saldo_actual > 0) {
                         saldoActualElement.className = 'balance-positive';
-                    } else if (disponible < 0) {
+                    } else if (saldo_actual < 0) {
                         saldoActualElement.className = 'balance-negative';
                     } else {
                         saldoActualElement.className = 'balance-zero';
