@@ -980,7 +980,7 @@
         let tooltip = '';
         if ((mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') && mov.fecha_estimada_liberacion) {
           const fechaLiberacion = new Date(mov.fecha_estimada_liberacion);
-          tooltip = `title=\"Se libera el ${fechaLiberacion.toLocaleString('es-AR')}\"`;
+          tooltip = `data-bs-toggle="tooltip" data-bs-placement="top" title="Se libera el ${fechaLiberacion.toLocaleString('es-AR')}"`;
           if (fechaLiberacion > now) pendienteLiberacion = true;
         }
         if (pendienteLiberacion) {
@@ -1012,6 +1012,12 @@
       });
       html += '</tbody></table></div>';
       container.innerHTML = html;
+      
+      // Inicializar tooltips después de renderizar
+      const tooltipTriggerList = [].slice.call(container.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
     }
   </script>
 </body>
