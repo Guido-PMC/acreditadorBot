@@ -394,7 +394,7 @@
                     document.getElementById('totalAcreditaciones').textContent = data.acreditaciones.total_acreditaciones || 0;
                     
                     const porAcreditar = data.porAcreditar || 0;
-                    const disponible = data.disponible || 0;
+                    const saldo_actual = data.saldo_actual || 0;
 
                     // Mostrar el campo Por Acreditar
                     const porAcreditarElement = document.getElementById('porAcreditar');
