@@ -491,8 +491,8 @@ router.get('/movimientos-unificados', authenticateToken, async (req, res) => {
           CASE WHEN tipo_pago = 'egreso' THEN 'pago' ELSE 'credito' END as tipo,
           concepto,
           importe,
-          CASE WHEN tipo_pago = 'credito' AND metodo_pago = 'deposito' THEN fecha_creacion ELSE fecha_pago END as fecha,
-          CASE WHEN tipo_pago = 'credito' AND metodo_pago = 'deposito' THEN fecha_creacion ELSE fecha_pago END as fecha_original,
+          fecha_pago as fecha,
+          fecha_pago as fecha_original,
           NULL as fecha_recepcion,
           NULL as cuit,
           metodo_pago,
@@ -581,7 +581,7 @@ router.get('/resumen', authenticateToken, async (req, res) => {
     const acreditaciones = acreditacionesResult.rows;
 
     // Obtener todos los pagos del cliente (para incluir depósitos, créditos y pagos)
-    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, metodo_pago, CASE WHEN tipo_pago = \'credito\' AND metodo_pago = \'deposito\' THEN fecha_creacion ELSE fecha_pago END as fecha FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = \'confirmado\'', [cliente_id]);
+    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, metodo_pago, fecha_pago as fecha FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = \'confirmado\'', [cliente_id]);
     const pagos = pagosResult.rows;
 
     // Calcular montos por acreditar y disponibles (incluyendo depósitos)
