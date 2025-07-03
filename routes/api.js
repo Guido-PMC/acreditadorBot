@@ -3085,11 +3085,11 @@ router.post('/comprobantes/whatsapp', [
       nombre_limpio,
       cuit_limpio,
       parseFloat(monto),
-      fecha_envio_obj,
+      fecha_envio_obj.toISOString(), // Convertir a ISO string para evitar conversión de zona horaria
       cliente_id,
       id_acreditacion,
       acreditacion_encontrada, // cotejado
-      acreditacion_encontrada ? new Date() : null, // fecha_cotejo
+      acreditacion_encontrada ? new Date().toISOString() : null, // fecha_cotejo también en ISO
       acreditacion_encontrada ? 'cotejado' : 'pendiente'
     ]);
 
