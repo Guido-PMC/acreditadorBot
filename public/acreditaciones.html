@@ -464,7 +464,7 @@
                         </div>
                     </td>
                     <td><strong>$${importeComision.toLocaleString()}</strong></td>
-                    <td><small>${formatDatePreserveTime(acred.fecha_hora)}</small></td>
+                    <td><small>${formatDate(acred.fecha_hora)}</small></td>
                     <td>
                         <span class="badge ${acred.fuente === 'api' ? 'bg-primary' : 'bg-success'} badge-fuente">
                             ${acred.fuente.toUpperCase()}
@@ -601,7 +601,7 @@
             document.getElementById('modalTitular').textContent = titular || 'N/A';
             document.getElementById('modalCuit').textContent = cuit || 'N/A';
             document.getElementById('modalImporte').textContent = `$${parseFloat(importe).toLocaleString()}`;
-            document.getElementById('modalFecha').textContent = formatDatePreserveTime(fecha);
+            document.getElementById('modalFecha').textContent = formatDate(fecha);
             
             document.getElementById('modalComprobanteId').value = '';
             document.getElementById('modalObservaciones').value = '';

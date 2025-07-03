@@ -972,7 +972,13 @@
       movimientos.forEach(mov => {
         let fecha = mov.fecha || mov.fecha_pago || mov.fecha_hora || mov.created_at || '';
         if (fecha) {
-          fecha = formatDate(fecha);
+          // Usar formatDatePreserveTime para comprobantes (que vienen en UTC)
+          // Usar formatDate para otros movimientos (que vienen en zona local)
+          if (mov.tipo === 'comprobante') {
+            fecha = formatDatePreserveTime(fecha);
+          } else {
+            fecha = formatDate(fecha);
+          }
         }
         let tipoBadge = '';
         if (mov.tipo === 'pago') tipoBadge = '<span class="badge bg-danger">Pago</span>';

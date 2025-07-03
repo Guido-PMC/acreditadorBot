@@ -613,7 +613,7 @@
 
                 return `
                     <tr>
-                        <td>${formatDate(mov.fecha)}</td>
+                        <td>${mov.tipo === 'comprobante' ? formatDatePreserveTime(mov.fecha) : formatDate(mov.fecha)}</td>
                         <td>
                             <span class="badge ${badgeClass} ms-1">${tipoText}</span>
                         </td>
