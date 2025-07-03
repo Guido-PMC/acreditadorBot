@@ -245,10 +245,10 @@
               <span class="badge bg-primary">$${comprobante.importe?.toLocaleString() || '0'}</span>
             </div>
             <div class="mt-1">
-              <small class="text-muted"><strong>Fecha Envío:</strong> ${formatDateOnly(comprobante.fecha_envio)} ${formatTimeOnly(comprobante.fecha_envio)}</small>
+              <small class="text-muted"><strong>Fecha Envío:</strong> ${formatDatePreserveTime(comprobante.fecha_envio)}</small>
             </div>
             <div class="mt-1">
-              <small class="text-muted"><strong>Fecha Recepción:</strong> ${formatDateOnly(comprobante.fecha_recepcion)} ${formatTimeOnly(comprobante.fecha_recepcion)}</small>
+              <small class="text-muted"><strong>Fecha Recepción:</strong> ${formatDatePreserveTime(comprobante.fecha_recepcion)}</small>
             </div>
             <div class="mt-1">
               <small class="text-muted"><strong>Monto:</strong> $${comprobante.importe?.toLocaleString() || '0'}</small>
@@ -397,8 +397,8 @@
             <strong>Cliente:</strong> ${currentComprobante.cliente_nombre ? `${currentComprobante.cliente_nombre} ${currentComprobante.cliente_apellido || ''}` : 'Sin cliente asignado'}<br>
             <strong>CUIT:</strong> ${cleanCUIT(currentComprobante.cuit) || 'Sin CUIT'}<br>
             <strong>Monto:</strong> $${currentComprobante.importe}<br>
-            <strong>Fecha Envío:</strong> ${formatDate(currentComprobante.fecha_envio)}<br>
-            <strong>Fecha Recepción:</strong> ${formatDate(currentComprobante.fecha_recepcion)}
+            <strong>Fecha Envío:</strong> ${formatDatePreserveTime(currentComprobante.fecha_envio)}<br>
+            <strong>Fecha Recepción:</strong> ${formatDatePreserveTime(currentComprobante.fecha_recepcion)}
           </div>
           <div class="col-md-6">
             <strong>Acreditación:</strong><br>

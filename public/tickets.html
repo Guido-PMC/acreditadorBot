@@ -338,7 +338,7 @@
                         <td>${ticket.cuit || ''}</td>
                         <td>${ticket.cliente_nombre || ''}</td>
                         <td class="text-end">${parseFloat(ticket.importe || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>
-                        <td>${ticket.fecha_envio ? formatDate(ticket.fecha_envio) : ''}</td>
+                        <td>${ticket.fecha_envio ? formatDatePreserveTime(ticket.fecha_envio) : ''}</td>
                         <td>${ticket.cotejado ? '<span class="badge bg-success">Cotejado</span>' : '<span class="badge bg-warning text-dark">Pendiente</span>'}</td>
                         <td>${ticket.id_acreditacion || '-'}</td>
                         <td>
@@ -426,7 +426,7 @@ ID Comprobante: ${ticket.id_comprobante || 'N/A'}
 Remitente: ${ticket.nombre_remitente || 'N/A'}
 CUIT: ${ticket.cuit || 'N/A'}
 Importe: ${parseFloat(ticket.importe || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-Fecha: ${ticket.fecha_envio ? formatDate(ticket.fecha_envio) : 'N/A'}
+Fecha: ${ticket.fecha_envio ? formatDatePreserveTime(ticket.fecha_envio) : 'N/A'}
 Estado: ${ticket.cotejado ? 'Cotejado' : 'Pendiente'}
 Cliente ID: ${ticket.id_cliente || 'N/A'}
 Acreditación ID: ${ticket.id_acreditacion || 'N/A'}

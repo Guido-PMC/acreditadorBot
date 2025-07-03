@@ -26,6 +26,28 @@ function formatDate(date, options = {}) {
     }
 }
 
+// Función para formatear fecha preservando la hora original (sin conversión de zona horaria)
+function formatDatePreserveTime(date) {
+    if (!date) return '';
+    
+    try {
+        const dateObj = new Date(date);
+        
+        // Extraer componentes UTC (hora original)
+        const year = dateObj.getUTCFullYear();
+        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getUTCDate()).padStart(2, '0');
+        const hours = String(dateObj.getUTCHours()).padStart(2, '0');
+        const minutes = String(dateObj.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(dateObj.getUTCSeconds()).padStart(2, '0');
+        
+        return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+    } catch (error) {
+        console.error('Error formateando fecha con hora preservada:', error);
+        return formatDate(date);
+    }
+}
+
 // Función para formatear solo fecha (sin hora)
 function formatDateOnly(date) {
     return formatDate(date, { 
@@ -99,6 +121,7 @@ function formatDateTime(date) {
 
 // Exportar funciones para uso global
 window.formatDate = formatDate;
+window.formatDatePreserveTime = formatDatePreserveTime;
 window.formatDateOnly = formatDateOnly;
 window.formatTimeOnly = formatTimeOnly;
 window.getCurrentDateArgentina = getCurrentDateArgentina;
