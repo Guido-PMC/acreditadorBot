@@ -959,40 +959,35 @@
       </tr></thead><tbody>`;
       const now = new Date();
       movimientos.forEach(mov => {
-        // Formato de fecha
         let fecha = mov.fecha || mov.fecha_pago || mov.fecha_hora || mov.created_at || '';
         if (fecha) fecha = new Date(fecha).toLocaleString('es-AR');
-        // Badge de tipo
         let tipoBadge = '';
         if (mov.tipo === 'pago') tipoBadge = '<span class="badge bg-danger">Pago</span>';
         else if (mov.tipo === 'credito') tipoBadge = '<span class="badge bg-success">Crédito</span>';
         else if (mov.tipo === 'comprobante') tipoBadge = '<span class="badge bg-warning text-dark">Comprobante</span>';
         else if (mov.tipo === 'acreditacion') tipoBadge = '<span class="badge bg-info">Cobro</span>';
         else tipoBadge = `<span class="badge bg-secondary">${mov.tipo || 'Otro'}</span>`;
-        // Concepto
         let concepto = mov.concepto || mov.referencia || mov.descripcion || mov.detalle || '-';
-        // Importe
         let importe = mov.importe !== undefined ? parseFloat(mov.importe).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '-';
         let importeClass = 'text-end';
         if (mov.tipo === 'pago') importeClass += ' text-danger';
         else if (mov.tipo === 'credito' || mov.tipo === 'acreditacion') importeClass += ' text-success';
         else if (mov.tipo === 'comprobante') importeClass += ' text-warning';
-        // Comisión
         let comision = mov.importe_comision !== undefined ? parseFloat(mov.importe_comision).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '-';
-        // Estado
         let estado = mov.estado || (mov.cotejado === true ? 'Acreditado' : mov.cotejado === false ? 'Pendiente' : '-');
         let estadoBadge = '';
-        // Lógica de "por acreditar" usando fecha_estimada_liberacion
         let pendienteLiberacion = false;
+        let tooltip = '';
         if ((mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') && mov.fecha_estimada_liberacion) {
           const fechaLiberacion = new Date(mov.fecha_estimada_liberacion);
+          tooltip = `title=\"Se libera el ${fechaLiberacion.toLocaleString('es-AR')}\"`;
           if (fechaLiberacion > now) pendienteLiberacion = true;
         }
         if (pendienteLiberacion) {
-          estadoBadge = '<span class="badge bg-secondary">Por acreditar</span>';
+          estadoBadge = `<span class="badge bg-secondary" ${tooltip}>Por acreditar</span>`;
         } else if (mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') {
           if (mov.fecha_estimada_liberacion && new Date(mov.fecha_estimada_liberacion) <= now) {
-            estadoBadge = '<span class="badge bg-success">Liberado</span>';
+            estadoBadge = `<span class="badge bg-success" ${tooltip}>Liberado</span>`;
           } else if (estado === 'Acreditado') {
             estadoBadge = '<span class="badge bg-success">Acreditado</span>';
           } else if (estado === 'Pendiente') {
