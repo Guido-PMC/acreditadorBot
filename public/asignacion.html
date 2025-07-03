@@ -550,7 +550,7 @@
     async function loadClientes() {
       try {
         console.log('🔄 Cargando clientes...');
-        const res = await fetch('/api/clientes?limit=1000');
+        const res = await fetch('/api/clientes/nombres');
         console.log('📥 Response status:', res.status);
         
         if (!res.ok) {
