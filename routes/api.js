@@ -3073,12 +3073,13 @@ router.post('/comprobantes/whatsapp', [
         cuit,
         importe,
         fecha_envio,
+        fecha_recepcion,
         id_cliente,
         id_acreditacion,
         cotejado,
         fecha_cotejo,
         estado
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING id, id_comprobante, cotejado, id_acreditacion, id_cliente
     `, [
       id_comprobante,
@@ -3086,6 +3087,7 @@ router.post('/comprobantes/whatsapp', [
       cuit_limpio,
       parseFloat(monto),
       fecha_envio_obj.toISOString(), // Convertir a ISO string para evitar conversión de zona horaria
+      new Date().toISOString(), // fecha_recepcion también en formato ISO
       cliente_id,
       id_acreditacion,
       acreditacion_encontrada, // cotejado
