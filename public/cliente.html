@@ -209,12 +209,13 @@
             </div>
             <div class="mb-3">
               <label for="importeCredito" class="form-label">Importe *</label>
-              <input type="number" class="form-control" id="importeCredito" required step="0.01" min="0" placeholder="0.00">
+              <input type="number" class="form-control" id="importeCredito" required step="0.01" min="0" placeholder="0.00" oninput="calcularComisionCredito()">
             </div>
             <div class="mb-3">
               <label for="comisionCredito" class="form-label">Comisión (%)</label>
-              <input type="number" class="form-control" id="comisionCredito" min="0" max="100" step="0.01" placeholder="0.00">
+              <input type="number" class="form-control" id="comisionCredito" min="0" max="100" step="0.01" placeholder="0.00" oninput="calcularComisionCredito()">
               <div class="form-text">Porcentaje de comisión que se aplicará al crédito (0-100%)</div>
+              <div id="comisionCalculadaCredito" class="form-text text-info" style="display: none;"></div>
             </div>
             <div class="mb-3">
               <label for="fechaCredito" class="form-label">Fecha del Crédito</label>
@@ -471,16 +472,21 @@
     async function submitCreditoForm(event) {
       event.preventDefault();
       
+      const importe = parseFloat(document.getElementById('importeCredito').value);
+      const comisionPorcentaje = parseFloat(document.getElementById('comisionCredito').value) || 0;
+      const importeComision = (importe * comisionPorcentaje) / 100;
+      
       const body = {
         id_cliente: parseInt(document.getElementById('clienteIdCredito').value),
         concepto: document.getElementById('conceptoCredito').value,
-        importe: parseFloat(document.getElementById('importeCredito').value),
+        importe: importe,
         fecha_pago: document.getElementById('fechaCredito').value,
         metodo_pago: document.getElementById('metodoCredito').value,
         referencia: document.getElementById('referenciaCredito').value,
         observaciones: document.getElementById('observacionesCredito').value,
         tipo_pago: 'credito', // Marcar como crédito en lugar de pago
-        comision: parseFloat(document.getElementById('comisionCredito').value) || 0
+        comision: comisionPorcentaje,
+        importe_comision: importeComision
       };
 
       try {
@@ -824,6 +830,26 @@
       
       renderMovimientosUnificados(movimientosFiltrados);
       document.getElementById('movimientosCount').textContent = movimientosFiltrados.length;
+    }
+
+    // Función para calcular comisión en tiempo real
+    function calcularComisionCredito() {
+      const importe = parseFloat(document.getElementById('importeCredito').value) || 0;
+      const comisionPorcentaje = parseFloat(document.getElementById('comisionCredito').value) || 0;
+      const importeComision = (importe * comisionPorcentaje) / 100;
+      const neto = importe - importeComision;
+      
+      const divComision = document.getElementById('comisionCalculadaCredito');
+      if (comisionPorcentaje > 0 && importe > 0) {
+        divComision.innerHTML = `
+          <strong>Cálculo:</strong> $${importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })} × ${comisionPorcentaje}% = 
+          $${importeComision.toLocaleString('es-AR', { minimumFractionDigits: 2 })} de comisión<br>
+          <strong>Neto:</strong> $${neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+        `;
+        divComision.style.display = 'block';
+      } else {
+        divComision.style.display = 'none';
+      }
     }
 
     // Función de debug para inspeccionar movimientos
