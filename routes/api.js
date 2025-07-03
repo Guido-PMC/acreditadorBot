@@ -4454,9 +4454,9 @@ router.get('/clientes/nombres', async (req, res) => {
     const countQuery = `SELECT COUNT(*) FROM clientes ${whereClause}`;
     const countResult = await client.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
-    // Query para obtener solo id, nombre y apellido
+    // Query para obtener solo id, nombre, apellido, comision, plazo_acreditacion, estado
     const dataQuery = `
-      SELECT id, nombre, apellido
+      SELECT id, nombre, apellido, comision, plazo_acreditacion, estado
       FROM clientes
       ${whereClause}
       ORDER BY nombre ASC
