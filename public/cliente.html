@@ -803,7 +803,7 @@
         // Verificar acreditaciones sin comprobante
         const acreditacionesRes = await fetch('/api/acreditaciones/sin-comprobante?limit=100');
         const acreditacionesData = await acreditacionesRes.json();
-        console.log('�� Comprobantes sin comprobante:', acreditacionesData.data);
+        console.log(' Comprobantes sin comprobante:', acreditacionesData.data);
         
         showAlert('info', 'Debug completado. Revisa la consola para más detalles.');
         
@@ -941,6 +941,61 @@
         loadClienteData();
       }
     });
+
+    // Renderizar movimientos unificados en una lista compacta
+    function renderMovimientosUnificados(movimientos) {
+      const container = document.getElementById('movimientosContainer');
+      if (!movimientos || movimientos.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted">No hay movimientos para mostrar.</div>';
+        return;
+      }
+      let html = `<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr>
+        <th>Fecha</th>
+        <th>Tipo</th>
+        <th>Concepto</th>
+        <th class="text-end">Importe</th>
+        <th class="text-end">Comisión</th>
+        <th>Estado</th>
+      </tr></thead><tbody>`;
+      movimientos.forEach(mov => {
+        // Formato de fecha
+        let fecha = mov.fecha || mov.fecha_pago || mov.fecha_hora || mov.created_at || '';
+        if (fecha) fecha = new Date(fecha).toLocaleString('es-AR');
+        // Badge de tipo
+        let tipoBadge = '';
+        if (mov.tipo === 'pago') tipoBadge = '<span class="badge bg-danger">Pago</span>';
+        else if (mov.tipo === 'credito') tipoBadge = '<span class="badge bg-success">Crédito</span>';
+        else if (mov.tipo === 'comprobante') tipoBadge = '<span class="badge bg-warning text-dark">Comprobante</span>';
+        else if (mov.tipo === 'acreditacion') tipoBadge = '<span class="badge bg-info">Cobro</span>';
+        else tipoBadge = `<span class="badge bg-secondary">${mov.tipo || 'Otro'}</span>`;
+        // Concepto
+        let concepto = mov.concepto || mov.referencia || mov.descripcion || mov.detalle || '-';
+        // Importe
+        let importe = mov.importe !== undefined ? parseFloat(mov.importe).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '-';
+        let importeClass = 'text-end';
+        if (mov.tipo === 'pago') importeClass += ' text-danger';
+        else if (mov.tipo === 'credito' || mov.tipo === 'acreditacion') importeClass += ' text-success';
+        else if (mov.tipo === 'comprobante') importeClass += ' text-warning';
+        // Comisión
+        let comision = mov.importe_comision !== undefined ? parseFloat(mov.importe_comision).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '-';
+        // Estado
+        let estado = mov.estado || (mov.cotejado === true ? 'Acreditado' : mov.cotejado === false ? 'Pendiente' : '-');
+        let estadoBadge = '';
+        if (estado === 'Acreditado') estadoBadge = '<span class="badge bg-success">Acreditado</span>';
+        else if (estado === 'Pendiente') estadoBadge = '<span class="badge bg-warning text-dark">Pendiente</span>';
+        else if (estado) estadoBadge = `<span class="badge bg-secondary">${estado}</span>`;
+        html += `<tr>
+          <td>${fecha}</td>
+          <td>${tipoBadge}</td>
+          <td>${concepto}</td>
+          <td class="${importeClass}">${importe}</td>
+          <td class="text-end">${comision}</td>
+          <td>${estadoBadge}</td>
+        </tr>`;
+      });
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    }
   </script>
 </body>
 </html> 
