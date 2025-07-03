@@ -981,12 +981,31 @@
         if ((mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') && mov.fecha_estimada_liberacion) {
           const fechaLiberacion = new Date(mov.fecha_estimada_liberacion);
           tooltip = `data-bs-toggle="tooltip" data-bs-placement="top" title="Se libera el ${fechaLiberacion.toLocaleString('es-AR')}"`;
+          
+          // Debug para ver las fechas
+          console.log('🔍 Debug liberación:', {
+            concepto: mov.concepto,
+            fecha_estimada_liberacion: mov.fecha_estimada_liberacion,
+            fechaLiberacion: fechaLiberacion.toISOString(),
+            now: now.toISOString(),
+            es_mayor: fechaLiberacion > now,
+            diferencia_ms: fechaLiberacion.getTime() - now.getTime(),
+            diferencia_horas: (fechaLiberacion.getTime() - now.getTime()) / (1000 * 60 * 60)
+          });
+          
           if (fechaLiberacion > now) pendienteLiberacion = true;
         }
         if (pendienteLiberacion) {
           estadoBadge = `<span class="badge bg-secondary" ${tooltip}>Por acreditar</span>`;
         } else if (mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') {
           if (mov.fecha_estimada_liberacion && new Date(mov.fecha_estimada_liberacion) <= now) {
+            console.log('🔍 Debug - Marcando como liberado:', {
+              concepto: mov.concepto,
+              fecha_estimada_liberacion: mov.fecha_estimada_liberacion,
+              fechaLiberacion: new Date(mov.fecha_estimada_liberacion).toISOString(),
+              now: now.toISOString(),
+              es_menor_igual: new Date(mov.fecha_estimada_liberacion) <= now
+            });
             estadoBadge = `<span class="badge bg-success" ${tooltip}>Liberado</span>`;
           } else if (estado === 'Acreditado') {
             estadoBadge = '<span class="badge bg-success">Acreditado</span>';
