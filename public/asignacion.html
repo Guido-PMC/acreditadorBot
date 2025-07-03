@@ -287,7 +287,7 @@
               <span class="badge ${matchesComprobante ? 'bg-warning' : 'bg-success'}">$${acreditacion.importe?.toLocaleString() || '0'}</span>
             </div>
             <div class="mt-1">
-              <small class="text-muted"><strong>Fecha y Hora:</strong> ${formatDateOnly(acreditacion.fecha_hora)} ${formatTimeOnly(acreditacion.fecha_hora)}</small>
+              <small class="text-muted"><strong>Fecha y Hora:</strong> ${formatDatePreserveTime(acreditacion.fecha_hora)}</small>
             </div>
             <div class="mt-1">
               <small class="text-muted"><strong>Concepto:</strong> ${acreditacion.concepto || 'Sin concepto'}</small>
@@ -405,7 +405,7 @@
             <strong>Titular:</strong> ${currentAcreditacion.titular}<br>
             <strong>CUIT:</strong> ${cleanCUIT(currentAcreditacion.cuit) || 'Sin CUIT'}<br>
             <strong>Monto:</strong> $${currentAcreditacion.importe}<br>
-            <strong>Fecha y Hora:</strong> ${formatDate(currentAcreditacion.fecha_hora)}<br>
+            <strong>Fecha y Hora:</strong> ${formatDatePreserveTime(currentAcreditacion.fecha_hora)}<br>
             <strong>Concepto:</strong> ${currentAcreditacion.concepto || 'Sin concepto'}
           </div>
         </div>
