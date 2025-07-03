@@ -92,13 +92,7 @@ function horasRestantes(fechaRecepcion, plazoHoras) {
  */
 function formatearFechaLiberacion(fechaRecepcion, plazoHoras) {
   const fechaLiberacion = calcularFechaLiberacion(fechaRecepcion, plazoHoras);
-  return fechaLiberacion.toLocaleString('es-AR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  return fechaLiberacion.toISOString();
 }
 
 /**
