@@ -437,7 +437,7 @@
                     }
                     
                     // Saldo pendiente (comprobantes sin acreditar)
-                    const saldoPendiente = data.comprobantes?.total_importe_pendientes || 0;
+                    const saldoPendiente = data.comprobantes_pendientes?.total_importe_comprobantes_pendientes || 0;
                     const saldoPendienteElement = document.getElementById('saldoPendiente');
                     saldoPendienteElement.textContent = new Intl.NumberFormat('es-AR', {
                         style: 'currency',
