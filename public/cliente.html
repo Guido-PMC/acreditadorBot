@@ -360,11 +360,11 @@
       updateElement('clienteNombre', `${cliente.nombre} ${cliente.apellido || ''}`);
       updateElement('clienteInfo', `Cliente ID: ${cliente.id} • Estado: ${cliente.estado}`);
       
-      // Saldo
+      // Saldo - UNIFICADO CON PORTAL DASHBOARD
       const porAcreditar = data.resumen?.porAcreditar || 0;
-      const saldo = data.resumen?.saldo || 0;
+      const saldo_actual = data.resumen?.saldo_actual || 0;
       updateElement('porAcreditar', formatCurrency(porAcreditar));
-      updateElement('saldoCliente', formatCurrency(saldo));
+      updateElement('saldoCliente', formatCurrency(saldo_actual));
       
       // Primera fila: Contadores de comprobantes (con formato de miles)
       updateElement('totalAcreditaciones', (resumen.comprobantes.total_comprobantes || 0).toLocaleString('es-AR'));
