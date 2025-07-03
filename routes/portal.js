@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
-const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto, formatearFechaLiberacion, estaLiberado } = require('../utils/liberacionFondos');
+const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoDisponibleCompleto, formatearFechaLiberacion, estaLiberado, calcularComisionesFondosLiberados, calcularSaldoDisponibleCompleto, calcularComisionesSaldoDisponible } = require('../utils/liberacionFondos');
 
 const router = express.Router();
 
@@ -580,8 +580,8 @@ router.get('/resumen', authenticateToken, async (req, res) => {
     const acreditacionesResult = await client.query('SELECT importe, fecha_hora, comision, importe_comision FROM acreditaciones WHERE id_cliente = $1', [cliente_id]);
     const acreditaciones = acreditacionesResult.rows;
 
-    // Obtener todos los pagos del cliente (para incluir depósitos)
-    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = \'confirmado\'', [cliente_id]);
+    // Obtener todos los pagos del cliente (para incluir depósitos, créditos y pagos)
+    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = \'confirmado\'', [cliente_id]);
     const pagos = pagosResult.rows;
 
     // Calcular montos por acreditar y disponibles (incluyendo depósitos)
@@ -626,9 +626,10 @@ router.get('/resumen', authenticateToken, async (req, res) => {
       WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
     `, [cliente_id]);
 
-    // Calcular saldo actual (solo fondos liberados menos comisiones)
-    const totalComisionesCotejadas = parseFloat(acreditacionesStats.rows[0].total_comisiones_cotejadas || 0);
-    const saldo_actual = montoDisponible - totalComisionesCotejadas;
+    // Calcular saldo actual incluyendo créditos, pagos y acreditaciones
+    const saldoDisponible = calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
+    const comisionesSaldoDisponible = calcularComisionesSaldoDisponible(acreditaciones, pagos, plazoAcreditacion);
+    const saldo_actual = saldoDisponible - comisionesSaldoDisponible;
 
     // Saldo pendiente (acreditaciones no cotejadas - comisiones)
     const saldo_pendiente = (acreditacionesStats.rows[0].total_importe_pendientes || 0) - 

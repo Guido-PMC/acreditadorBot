@@ -187,6 +187,100 @@ function calcularMontoDisponibleCompleto(acreditaciones, pagos, plazoHoras) {
   return total;
 }
 
+/**
+ * Calcula las comisiones de fondos liberados
+ * @param {Array} acreditaciones - Array de acreditaciones con comisiones
+ * @param {Array} pagos - Array de pagos con comisiones
+ * @param {number} plazoHoras - Plazo en horas del cliente
+ * @returns {number} - Total de comisiones de fondos liberados
+ */
+function calcularComisionesFondosLiberados(acreditaciones, pagos, plazoHoras) {
+  let totalComisiones = 0;
+  
+  // Comisiones de acreditaciones liberadas
+  acreditaciones.forEach(acreditacion => {
+    if (estaLiberado(acreditacion.fecha_hora, plazoHoras)) {
+      totalComisiones += parseFloat(acreditacion.importe_comision || 0);
+    }
+  });
+  
+  // Comisiones de pagos tipo depósito liberados
+  pagos.forEach(pago => {
+    if (pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
+        estaLiberado(pago.fecha_pago, plazoHoras)) {
+      totalComisiones += parseFloat(pago.importe_comision || 0);
+    }
+  });
+  
+  return totalComisiones;
+}
+
+/**
+ * Calcula el saldo disponible incluyendo créditos, pagos y acreditaciones
+ * @param {Array} acreditaciones - Array de acreditaciones
+ * @param {Array} pagos - Array de pagos y créditos
+ * @param {number} plazoHoras - Plazo en horas del cliente
+ * @returns {number} - Saldo total disponible
+ */
+function calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoHoras) {
+  let saldo = 0;
+  
+  // Acreditaciones liberadas
+  acreditaciones.forEach(acreditacion => {
+    if (estaLiberado(acreditacion.fecha_hora, plazoHoras)) {
+      saldo += parseFloat(acreditacion.importe || 0);
+    }
+  });
+  
+  // Pagos y créditos
+  pagos.forEach(pago => {
+    if (pago.tipo_pago === 'credito') {
+      // Los créditos siempre están disponibles (son ingresos)
+      saldo += parseFloat(pago.importe || 0);
+    } else if (pago.tipo_pago === 'egreso') {
+      // Los pagos son egresos, restan del saldo
+      saldo -= parseFloat(pago.importe || 0);
+    } else if (pago.concepto && pago.concepto.toLowerCase().includes('deposito')) {
+      // Pagos tipo depósito liberados suman al saldo
+      if (estaLiberado(pago.fecha_pago, plazoHoras)) {
+        saldo += parseFloat(pago.importe || 0);
+      }
+    }
+  });
+  
+  return saldo;
+}
+
+/**
+ * Calcula las comisiones totales de fondos liberados incluyendo créditos
+ * @param {Array} acreditaciones - Array de acreditaciones con comisiones
+ * @param {Array} pagos - Array de pagos y créditos con comisiones
+ * @param {number} plazoHoras - Plazo en horas del cliente
+ * @returns {number} - Total de comisiones de fondos liberados
+ */
+function calcularComisionesSaldoDisponible(acreditaciones, pagos, plazoHoras) {
+  let totalComisiones = 0;
+  
+  // Comisiones de acreditaciones liberadas
+  acreditaciones.forEach(acreditacion => {
+    if (estaLiberado(acreditacion.fecha_hora, plazoHoras)) {
+      totalComisiones += parseFloat(acreditacion.importe_comision || 0);
+    }
+  });
+  
+  // Comisiones de créditos (siempre disponibles)
+  pagos.forEach(pago => {
+    if (pago.tipo_pago === 'credito') {
+      totalComisiones += parseFloat(pago.importe_comision || 0);
+    } else if (pago.concepto && pago.concepto.toLowerCase().includes('deposito') && 
+        estaLiberado(pago.fecha_pago, plazoHoras)) {
+      totalComisiones += parseFloat(pago.importe_comision || 0);
+    }
+  });
+  
+  return totalComisiones;
+}
+
 module.exports = {
   calcularFechaLiberacion,
   estaLiberado,
@@ -195,5 +289,8 @@ module.exports = {
   calcularMontoPorAcreditar,
   calcularMontoDisponible,
   calcularMontoPorAcreditarCompleto,
-  calcularMontoDisponibleCompleto
+  calcularMontoDisponibleCompleto,
+  calcularComisionesFondosLiberados,
+  calcularSaldoDisponibleCompleto,
+  calcularComisionesSaldoDisponible
 }; 

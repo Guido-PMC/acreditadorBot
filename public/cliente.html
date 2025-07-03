@@ -661,18 +661,18 @@
         let importeComision = parseFloat(mov.importe_comision) || 0;
 
         return `
-          <div class="card mb-2">
-            <div class="card-body p-2">
+          <div class="card mb-1">
+            <div class="card-body p-1">
               <div class="d-flex justify-content-between align-items-start">
                 <div class="flex-grow-1">
                   <div class="d-flex align-items-center mb-1">
-                    <i class="${icon} me-2"></i>
+                    <i class="${icon} me-1"></i>
                     <strong>${(mov.tipo === 'acreditacion' && mov.nombre_remitente) ? mov.nombre_remitente : (mov.concepto || '').replace(/^\s*[^\w\s]*\s*/, '')}</strong>
-                    <span class="badge ${mov.tipo === 'acreditacion' ? 'bg-success' : badgeClass} text-white ms-2">${badgeText && badgeText !== 'undefined' ? badgeText : 'Acreditación'}</span>
+                    <span class="badge ${mov.tipo === 'acreditacion' ? 'bg-success' : badgeClass} text-white ms-1">${badgeText && badgeText !== 'undefined' ? badgeText : 'Acreditación'}</span>
                     <span class="badge ${mov.tipo === 'acreditacion' ? 'bg-success' : badgeClass} text-white ms-1">${tipoText && tipoText !== 'undefined' ? tipoText : (mov.tipo === 'acreditacion' ? 'Acreditación' : mov.tipo === 'comprobante' ? 'Comprobante' : mov.tipo === 'credito' ? 'Crédito' : mov.tipo === 'pago' ? 'Pago' : 'Movimiento')}</span>
                     ${mov.fuente ? `<span class="badge ${getFuenteBadgeClass(mov.fuente)} ms-1">${getFuenteText(mov.fuente)}</span>` : ''}
                   </div>
-                  <div class="row">
+                  <div class="row g-1">
                     <div class="col-md-6">
                       <small class="text-muted">
                         <strong>Fecha:</strong> ${new Date(mov.fecha).toLocaleDateString()} ${new Date(mov.fecha).toLocaleTimeString()}
@@ -690,7 +690,7 @@
                   ${mov.observaciones ? `<div class="mt-1"><small class="text-muted"><strong>Observaciones:</strong> ${mov.observaciones}</small></div>` : ''}
                   ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `<div class="mt-1"><small class="text-warning"><strong>⚠️ Sin vincular a acreditación</strong></small></div>` : ''}
                 </div>
-                <div class="text-end ms-3">
+                <div class="text-end ms-2">
                   <div class="h5 mb-0 ${importeClass}" 
                        ${mov.fecha_estimada_liberacion ? `data-bs-toggle="tooltip" data-bs-placement="top" title="Fecha estimada de liberación: ${mov.fecha_estimada_liberacion}"` : ''}>
                     ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
