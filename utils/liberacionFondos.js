@@ -235,7 +235,9 @@ function debugSaldoDisponible(acreditaciones, pagos, plazoHoras) {
     comisiones_depositos_liberados: 0,
     saldo_bruto: 0,
     comisiones_totales: 0,
-    saldo_neto: 0
+    saldo_neto: 0,
+    // Debug detallado
+    debug_depositos: []
   };
   
   // Acreditaciones
@@ -261,7 +263,24 @@ function debugSaldoDisponible(acreditaciones, pagos, plazoHoras) {
       desglose.pagos_egreso += importe;
     } else if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito') {
       // Créditos tipo depósito (tienen plazos de liberación)
-      if (estaLiberado(pago.fecha, plazoHoras)) {
+      const estaLib = estaLiberado(pago.fecha, plazoHoras);
+      const fechaLib = calcularFechaLiberacion(pago.fecha, plazoHoras);
+      const ahora = new Date();
+      
+      // Debug detallado para depósitos
+      desglose.debug_depositos.push({
+        id: pago.id,
+        concepto: pago.concepto,
+        importe: importe,
+        fecha_pago: pago.fecha,
+        fecha_liberacion: fechaLib,
+        esta_liberado: estaLib,
+        tiempo_restante: estaLib ? 0 : horasRestantes(pago.fecha, plazoHoras),
+        ahora: ahora.toISOString(),
+        plazo_horas: plazoHoras
+      });
+      
+      if (estaLib) {
         desglose.depositos_liberados += importe;
         desglose.comisiones_depositos_liberados += comision;
       } else {
