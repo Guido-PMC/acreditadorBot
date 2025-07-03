@@ -1,98 +1,94 @@
+const moment = require('moment-timezone');
+
 /**
  * Utilidades para cálculo de liberación de fondos
  * Reglas:
- * - Corte a las 15:00 de cada día
+ * - Corte a las 15:00 de cada día (hora argentina)
  * - Sábados y domingos no cuentan
  * - Acreditaciones post 15:00 cuentan como día siguiente
+ * - Todas las fechas se manejan en zona horaria argentina (America/Argentina/Buenos_Aires)
  */
 
 /**
  * Calcula la fecha de liberación de un fondo
- * @param {Date} fechaRecepcion - Fecha de recepción del fondo
+ * @param {Date|string} fechaRecepcion - Fecha de recepción del fondo
  * @param {number} plazoHoras - Plazo en horas (24, 48, 72, 96)
  * @returns {Date} - Fecha de liberación
  */
 function calcularFechaLiberacion(fechaRecepcion, plazoHoras) {
-  // Convertir a objeto Date si es string
-  const fecha = new Date(fechaRecepcion);
+  // Convertir a moment en zona horaria argentina
+  const fecha = moment.tz(fechaRecepcion, 'America/Argentina/Buenos_Aires');
   
-  // Aplicar corte de 15:00
-  const fechaCorte = new Date(fecha);
-  fechaCorte.setHours(15, 0, 0, 0);
+  // Aplicar corte de 15:00 hora argentina
+  const fechaCorte = fecha.clone().hour(15).minute(0).second(0).millisecond(0);
   
   // Si la fecha es después de las 15:00, contar como día siguiente
   let fechaInicio = fecha;
-  if (fecha > fechaCorte) {
-    fechaInicio = new Date(fecha);
-    fechaInicio.setDate(fechaInicio.getDate() + 1);
-    fechaInicio.setHours(0, 0, 0, 0);
+  if (fecha.isAfter(fechaCorte)) {
+    fechaInicio = fecha.clone().add(1, 'day').startOf('day');
   } else {
-    fechaInicio = new Date(fecha);
-    fechaInicio.setHours(0, 0, 0, 0);
+    fechaInicio = fecha.clone().startOf('day');
   }
   
   // Calcular fecha de liberación
-  let fechaLiberacion = new Date(fechaInicio);
+  let fechaLiberacion = fechaInicio.clone();
   let horasAgregadas = 0;
   
   while (horasAgregadas < plazoHoras) {
-    fechaLiberacion.setHours(fechaLiberacion.getHours() + 1);
+    fechaLiberacion.add(1, 'hour');
     horasAgregadas++;
     
     // Si es sábado (6) o domingo (0), saltar al lunes
-    const diaSemana = fechaLiberacion.getDay();
+    const diaSemana = fechaLiberacion.day();
     if (diaSemana === 0) { // Domingo
-      fechaLiberacion.setDate(fechaLiberacion.getDate() + 1);
-      fechaLiberacion.setHours(0, 0, 0, 0);
+      fechaLiberacion.add(1, 'day').startOf('day');
     } else if (diaSemana === 6) { // Sábado
-      fechaLiberacion.setDate(fechaLiberacion.getDate() + 2);
-      fechaLiberacion.setHours(0, 0, 0, 0);
+      fechaLiberacion.add(2, 'day').startOf('day');
     }
   }
   
-  return fechaLiberacion;
+  return fechaLiberacion.toDate();
 }
 
 /**
  * Verifica si un fondo ya está liberado
- * @param {Date} fechaRecepcion - Fecha de recepción
+ * @param {Date|string} fechaRecepcion - Fecha de recepción
  * @param {number} plazoHoras - Plazo en horas
  * @returns {boolean} - true si está liberado, false si no
  */
 function estaLiberado(fechaRecepcion, plazoHoras) {
   const fechaLiberacion = calcularFechaLiberacion(fechaRecepcion, plazoHoras);
-  const ahora = new Date();
-  return ahora >= fechaLiberacion;
+  const ahora = moment.tz('America/Argentina/Buenos_Aires');
+  return ahora.isSameOrAfter(fechaLiberacion);
 }
 
 /**
  * Calcula cuántas horas faltan para la liberación
- * @param {Date} fechaRecepcion - Fecha de recepción
+ * @param {Date|string} fechaRecepcion - Fecha de recepción
  * @param {number} plazoHoras - Plazo en horas
  * @returns {number} - Horas restantes (0 si ya está liberado)
  */
 function horasRestantes(fechaRecepcion, plazoHoras) {
   const fechaLiberacion = calcularFechaLiberacion(fechaRecepcion, plazoHoras);
-  const ahora = new Date();
+  const ahora = moment.tz('America/Argentina/Buenos_Aires');
   
-  if (ahora >= fechaLiberacion) {
+  if (ahora.isSameOrAfter(fechaLiberacion)) {
     return 0;
   }
   
-  const diffMs = fechaLiberacion - ahora;
-  const diffHoras = Math.ceil(diffMs / (1000 * 60 * 60));
-  return Math.max(0, diffHoras);
+  const diffHoras = fechaLiberacion.diff(ahora, 'hours', true);
+  return Math.max(0, Math.ceil(diffHoras));
 }
 
 /**
  * Formatea la fecha de liberación para mostrar
- * @param {Date} fechaRecepcion - Fecha de recepción
+ * @param {Date|string} fechaRecepcion - Fecha de recepción
  * @param {number} plazoHoras - Plazo en horas
- * @returns {string} - Fecha formateada
+ * @returns {string} - Fecha formateada en zona horaria argentina
  */
 function formatearFechaLiberacion(fechaRecepcion, plazoHoras) {
   const fechaLiberacion = calcularFechaLiberacion(fechaRecepcion, plazoHoras);
-  return fechaLiberacion.toISOString();
+  return moment.tz(fechaLiberacion, 'America/Argentina/Buenos_Aires').toISOString();
 }
 
 /**
