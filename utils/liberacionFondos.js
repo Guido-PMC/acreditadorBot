@@ -50,8 +50,8 @@ function calcularFechaLiberacion(fechaRecepcion, plazoHoras) {
     }
   }
   
-  // Establecer la hora exacta a 00:00 (medianoche)
-  fechaLiberacion.startOf('day');
+  // Establecer la hora exacta a 23:59 (final del día)
+  fechaLiberacion.hour(23).minute(59).second(0).millisecond(0);
   
   return fechaLiberacion.toDate();
 }
