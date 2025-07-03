@@ -575,6 +575,13 @@
                     badgeText = mov.estado || 'Confirmado';
                     tipoText = 'Crédito';
                     importeClass = 'text-success';
+                } else if (mov.tipo === 'pago' && mov.concepto && mov.concepto.toLowerCase().includes('deposito')) {
+                    // Depósitos: mostrar como ingresos con icono de banco
+                    icon = 'fas fa-university';
+                    badgeClass = 'bg-info';
+                    badgeText = mov.esta_liberado ? 'Liberado' : 'Pendiente';
+                    tipoText = 'Depósito';
+                    importeClass = 'text-primary';
                 } else if (mov.tipo === 'pago') {
                     icon = 'fas fa-minus-circle';
                     badgeClass = 'bg-danger';
@@ -597,7 +604,7 @@
                         <td>
                             <div class="h5 mb-0 ${importeClass}" 
                                  ${mov.fecha_estimada_liberacion ? `data-bs-toggle="tooltip" data-bs-placement="top" title="Fecha estimada de liberación: ${mov.fecha_estimada_liberacion}"` : ''}>
-                                ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                ${mov.tipo === 'pago' && !mov.concepto?.toLowerCase().includes('deposito') ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                                 ${mov.fecha_estimada_liberacion ? (mov.esta_liberado ? '<i class="fas fa-check-circle text-success ms-1" style="font-size: 0.8em;" title="Fondo liberado"></i>' : '<i class="fas fa-clock text-muted ms-1" style="font-size: 0.8em;" title="Pendiente de liberación"></i>') : ''}
                             </div>
                         </td>
