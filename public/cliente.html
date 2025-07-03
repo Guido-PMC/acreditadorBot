@@ -362,7 +362,24 @@
       
       // Saldo - UNIFICADO CON PORTAL DASHBOARD
       const porAcreditar = data.resumen?.porAcreditar || 0;
-      const saldo_actual = data.resumen?.saldo_actual || 0;
+      let saldo_actual = data.resumen?.saldo_actual || 0;
+
+      // Restar comisiones de fondos liberados según lo solicitado
+      if (data.resumen?.debug_saldo) {
+        const comisiones_acreditaciones_liberadas = data.resumen.debug_saldo.comisiones_acreditaciones_liberadas || 0;
+        const comisiones_depositos_liberados = data.resumen.debug_saldo.comisiones_depositos_liberados || 0;
+        
+        // Aplicar la fórmula: saldo_actual = saldo_actual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados
+        saldo_actual = saldo_actual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados;
+        
+        console.log('🔍 Cliente.html - Ajuste de saldo actual:', {
+          saldo_original: data.resumen.saldo_actual,
+          comisiones_acreditaciones_liberadas,
+          comisiones_depositos_liberados,
+          saldo_final: saldo_actual
+        });
+      }
+
       updateElement('porAcreditar', formatCurrency(porAcreditar));
       updateElement('saldoCliente', formatCurrency(saldo_actual));
       

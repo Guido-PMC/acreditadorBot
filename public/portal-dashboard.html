@@ -394,7 +394,23 @@
                     document.getElementById('totalAcreditaciones').textContent = data.acreditaciones.total_acreditaciones || 0;
                     
                     const porAcreditar = data.porAcreditar || 0;
-                    const saldo_actual = data.saldo_actual || 0;
+                    let saldo_actual = data.saldo_actual || 0;
+
+                    // Restar comisiones de fondos liberados según lo solicitado
+                    if (data.debug_saldo) {
+                        const comisiones_acreditaciones_liberadas = data.debug_saldo.comisiones_acreditaciones_liberadas || 0;
+                        const comisiones_depositos_liberados = data.debug_saldo.comisiones_depositos_liberados || 0;
+                        
+                        // Aplicar la fórmula: saldo_actual = saldo_actual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados
+                        saldo_actual = saldo_actual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados;
+                        
+                        console.log('🔍 Portal Dashboard - Ajuste de saldo actual:', {
+                            saldo_original: data.saldo_actual,
+                            comisiones_acreditaciones_liberadas,
+                            comisiones_depositos_liberados,
+                            saldo_final: saldo_actual
+                        });
+                    }
 
                     // Mostrar el campo Por Acreditar
                     const porAcreditarElement = document.getElementById('porAcreditar');
@@ -405,7 +421,7 @@
                         }).format(porAcreditar);
                     }
 
-                    // Ajustar el saldo actual mostrado
+                    // Ajustar el saldo actual mostrado (ya con comisiones restadas)
                     const saldoActualElement = document.getElementById('saldoActual');
                     saldoActualElement.textContent = new Intl.NumberFormat('es-AR', {
                         style: 'currency',
