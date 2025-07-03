@@ -153,45 +153,73 @@
     }
 
     async function loadComprobantes(page = 1) {
-      comprobantesPage = page;
-      const filters = getFilters();
-      const url = `/api/comprobantes/sin-acreditacion?page=${page}&limit=10${filters}`;
-      
       try {
+        console.log('🔄 Cargando comprobantes...');
+        comprobantesPage = page;
+        const filters = getFilters();
+        const url = `/api/comprobantes/sin-acreditacion?page=${page}&limit=10${filters}`;
+        
+        console.log('📤 URL de comprobantes:', url);
+        
         const res = await fetch(url);
+        console.log('📥 Response status comprobantes:', res.status);
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
         const data = await res.json();
+        console.log('📥 Response data comprobantes:', data);
         
         if (!data.success) {
+          console.error('❌ Error en respuesta de comprobantes:', data.error || data.message);
           showAlert('danger', data.error || 'Error al cargar comprobantes');
           return;
         }
         
+        console.log(`📋 Renderizando ${data.data.length} comprobantes`);
         renderComprobantes(data.data);
         renderComprobantesPagination(data.pagination);
         document.getElementById('comprobantesCount').textContent = data.pagination.total;
+        console.log('✅ Comprobantes cargados exitosamente');
       } catch (error) {
+        console.error('💥 Error al cargar comprobantes:', error);
         showAlert('danger', 'Error al cargar comprobantes');
       }
     }
 
     async function loadAcreditaciones(page = 1) {
-      acreditacionesPage = page;
-      const filters = getFilters();
-      const url = `/api/acreditaciones/sin-comprobante?page=${page}&limit=10${filters}`;
-      
       try {
+        console.log('🔄 Cargando acreditaciones...');
+        acreditacionesPage = page;
+        const filters = getFilters();
+        const url = `/api/acreditaciones/sin-comprobante?page=${page}&limit=10${filters}`;
+        
+        console.log('📤 URL de acreditaciones:', url);
+        
         const res = await fetch(url);
+        console.log('📥 Response status acreditaciones:', res.status);
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
         const data = await res.json();
+        console.log('📥 Response data acreditaciones:', data);
         
         if (!data.success) {
+          console.error('❌ Error en respuesta de acreditaciones:', data.error || data.message);
           showAlert('danger', data.error || 'Error al cargar acreditaciones');
           return;
         }
         
+        console.log(`📋 Renderizando ${data.data.length} acreditaciones`);
         renderAcreditaciones(data.data);
         renderAcreditacionesPagination(data.pagination);
         document.getElementById('acreditacionesCount').textContent = data.pagination.total;
+        console.log('✅ Acreditaciones cargadas exitosamente');
       } catch (error) {
+        console.error('💥 Error al cargar acreditaciones:', error);
         showAlert('danger', 'Error al cargar acreditaciones');
       }
     }
