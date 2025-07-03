@@ -982,16 +982,16 @@
         // Estado
         let estado = mov.estado || (mov.cotejado === true ? 'Acreditado' : mov.cotejado === false ? 'Pendiente' : '-');
         let estadoBadge = '';
-        // Lógica de "por acreditar"
+        // Lógica de "por acreditar" usando fecha_estimada_liberacion
         let pendienteLiberacion = false;
-        if ((mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') && mov.fecha_liberacion) {
-          const fechaLiberacion = new Date(mov.fecha_liberacion);
+        if ((mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') && mov.fecha_estimada_liberacion) {
+          const fechaLiberacion = new Date(mov.fecha_estimada_liberacion);
           if (fechaLiberacion > now) pendienteLiberacion = true;
         }
         if (pendienteLiberacion) {
           estadoBadge = '<span class="badge bg-secondary">Por acreditar</span>';
         } else if (mov.tipo === 'comprobante' || mov.tipo === 'acreditacion') {
-          if (mov.fecha_liberacion && new Date(mov.fecha_liberacion) <= now) {
+          if (mov.fecha_estimada_liberacion && new Date(mov.fecha_estimada_liberacion) <= now) {
             estadoBadge = '<span class="badge bg-success">Liberado</span>';
           } else if (estado === 'Acreditado') {
             estadoBadge = '<span class="badge bg-success">Acreditado</span>';
