@@ -4485,4 +4485,88 @@ router.get('/clientes/nombres', async (req, res) => {
   }
 });
 
+// GET /api/clientes/saldos - Saldos masivos para clientes de la página
+router.get('/clientes/saldos', async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const {
+      page = 1,
+      limit = 50,
+      search = '',
+      estado = 'activo'
+    } = req.query;
+    let whereConditions = ['estado = $1'];
+    let params = [estado];
+    let paramIndex = 2;
+    if (search) {
+      whereConditions.push(`(nombre ILIKE $${paramIndex} OR apellido ILIKE $${paramIndex})`);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+    const offset = (page - 1) * limit;
+    // Traer los clientes de la página
+    const clientesQuery = `
+      SELECT id
+      FROM clientes
+      ${whereClause}
+      ORDER BY nombre ASC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    params.push(parseInt(limit), offset);
+    const clientesResult = await client.query(clientesQuery, params);
+    const clientes = clientesResult.rows;
+    // Si no hay clientes, devolver vacío
+    if (!clientes.length) {
+      return res.json({ success: true, data: [] });
+    }
+    // Calcular saldos para cada cliente (en paralelo)
+    const saldos = await Promise.all(clientes.map(async (c) => {
+      // Total saldo actual (acreditaciones cotejadas - comisiones - pagos + créditos)
+      // Por acreditar (acreditaciones pendientes - comisiones pendientes)
+      // Comprobantes pendientes (comprobantes sin acreditar)
+      // 1. Suma de acreditaciones cotejadas y comisiones
+      const acreditaciones = await client.query(`
+        SELECT 
+          COALESCE(SUM(CASE WHEN cotejado THEN importe ELSE 0 END),0) as total_importe_cotejadas,
+          COALESCE(SUM(CASE WHEN cotejado THEN importe_comision ELSE 0 END),0) as total_comisiones_cotejadas,
+          COALESCE(SUM(CASE WHEN NOT cotejado THEN importe ELSE 0 END),0) as total_importe_pendientes,
+          COALESCE(SUM(CASE WHEN NOT cotejado THEN importe_comision ELSE 0 END),0) as total_comisiones_pendientes
+        FROM acreditaciones WHERE id_cliente = $1
+      `, [c.id]);
+      const a = acreditaciones.rows[0];
+      // 2. Suma de pagos y créditos
+      const pagosCreditos = await client.query(`
+        SELECT 
+          COALESCE(SUM(CASE WHEN tipo_pago = 'egreso' THEN importe ELSE 0 END),0) as total_pagos,
+          COALESCE(SUM(CASE WHEN tipo_pago = 'credito' THEN importe ELSE 0 END),0) as total_creditos
+        FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1
+      `, [c.id]);
+      const p = pagosCreditos.rows[0];
+      // 3. Comprobantes pendientes
+      const comprobantes = await client.query(`
+        SELECT COALESCE(SUM(importe),0) as total_importe_pendientes
+        FROM comprobantes_whatsapp WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
+      `, [c.id]);
+      const comp = comprobantes.rows[0];
+      // Cálculos
+      const saldoTotal = (parseFloat(a.total_importe_cotejadas) - parseFloat(a.total_comisiones_cotejadas) + parseFloat(p.total_creditos) - parseFloat(p.total_pagos));
+      const porAcreditar = (parseFloat(a.total_importe_pendientes) - parseFloat(a.total_comisiones_pendientes));
+      const comprobantesPendientes = parseFloat(comp.total_importe_pendientes);
+      return {
+        id: c.id,
+        saldoTotal,
+        porAcreditar,
+        comprobantesPendientes
+      };
+    }));
+    res.json({ success: true, data: saldos });
+  } catch (error) {
+    console.error('Error obteniendo saldos masivos:', error);
+    res.status(500).json({ error: 'Error interno del servidor', message: 'No se pudieron obtener los saldos masivos' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router; 
