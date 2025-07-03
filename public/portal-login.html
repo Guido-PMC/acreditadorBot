@@ -8,7 +8,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #8FBC8F 0%, #90EE90 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -23,7 +23,7 @@
             width: 100%;
         }
         .login-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #8FBC8F 0%, #90EE90 100%);
             color: white;
             padding: 2rem;
             text-align: center;
@@ -38,11 +38,11 @@
             transition: all 0.3s ease;
         }
         .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            border-color: #8FBC8F;
+            box-shadow: 0 0 0 0.2rem rgba(143, 188, 143, 0.25);
         }
         .btn-login {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #8FBC8F 0%, #90EE90 100%);
             border: none;
             border-radius: 10px;
             padding: 0.75rem 2rem;
@@ -51,7 +51,7 @@
         }
         .btn-login:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 5px 15px rgba(143, 188, 143, 0.4);
         }
         .alert {
             border-radius: 10px;
@@ -66,7 +66,7 @@
             border-left: none;
         }
         .input-group .form-control:focus + .input-group-text {
-            border-color: #667eea;
+            border-color: #8FBC8F;
         }
         .loading {
             opacity: 0.7;
@@ -75,6 +75,11 @@
         .brand-logo {
             font-size: 2.5rem;
             margin-bottom: 1rem;
+        }
+        .kiwi-drawing {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1rem;
         }
         .brand-text {
             font-size: 1.5rem;
@@ -90,8 +95,30 @@
 <body>
     <div class="login-container">
         <div class="login-header">
-            <div class="brand-logo">
-                <i class="fas fa-robot"></i>
+            <div class="kiwi-drawing">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Kiwi body -->
+                    <ellipse cx="50" cy="60" rx="35" ry="25" fill="#8FBC8F" stroke="#556B2F" stroke-width="2"/>
+                    <!-- Kiwi head -->
+                    <circle cx="50" cy="35" r="15" fill="#8FBC8F" stroke="#556B2F" stroke-width="2"/>
+                    <!-- Kiwi beak -->
+                    <polygon points="45,30 35,25 45,35" fill="#FFA500" stroke="#FF8C00" stroke-width="1"/>
+                    <!-- Kiwi eyes -->
+                    <circle cx="45" cy="32" r="2" fill="#000"/>
+                    <circle cx="55" cy="32" r="2" fill="#000"/>
+                    <!-- Kiwi legs -->
+                    <line x1="40" y1="80" x2="40" y2="90" stroke="#556B2F" stroke-width="3"/>
+                    <line x1="60" y1="80" x2="60" y2="90" stroke="#556B2F" stroke-width="3"/>
+                    <!-- Kiwi feet -->
+                    <polygon points="35,90 40,95 45,90" fill="#FFA500"/>
+                    <polygon points="55,90 60,95 65,90" fill="#FFA500"/>
+                    <!-- Kiwi seeds (dots on body) -->
+                    <circle cx="40" cy="55" r="1.5" fill="#556B2F"/>
+                    <circle cx="60" cy="55" r="1.5" fill="#556B2F"/>
+                    <circle cx="50" cy="65" r="1.5" fill="#556B2F"/>
+                    <circle cx="45" cy="70" r="1.5" fill="#556B2F"/>
+                    <circle cx="55" cy="70" r="1.5" fill="#556B2F"/>
+                </svg>
             </div>
             <div class="brand-text">AcreditadorBot</div>
             <div class="brand-subtitle">Portal de Clientes</div>

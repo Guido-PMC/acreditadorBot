@@ -83,7 +83,12 @@
       <div class="col-md-6">
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <span>Acreditaciones Bancarias</span>
+            <span>
+              Acreditaciones Bancarias
+              <span id="filterIndicator" class="badge bg-info ms-2" style="display: none;">
+                <i class="fas fa-filter"></i> Filtro automático
+              </span>
+            </span>
             <span class="badge bg-success" id="acreditacionesCount">0</span>
           </div>
           <div class="card-body assignment-container" id="acreditacionesContainer">
@@ -238,6 +243,15 @@
         const card = document.createElement('div');
         card.className = 'card mb-2 acreditacion-card';
         card.onclick = () => selectAcreditacion(acreditacion);
+        
+        // Verificar si coincide con el comprobante seleccionado
+        const matchesComprobante = currentComprobante && 
+          Math.abs(acreditacion.importe - currentComprobante.importe) < 0.01;
+        
+        if (matchesComprobante) {
+          card.classList.add('match-highlight');
+        }
+        
         card.innerHTML = `
           <div class="card-body p-2">
             <div class="d-flex justify-content-between align-items-start">
@@ -246,7 +260,7 @@
                 <br>
                 <small class="text-muted"><strong>CUIT:</strong> ${cleanCUIT(acreditacion.cuit) || 'Sin CUIT'}</small>
               </div>
-              <span class="badge bg-success">$${acreditacion.importe?.toLocaleString() || '0'}</span>
+              <span class="badge ${matchesComprobante ? 'bg-warning' : 'bg-success'}">$${acreditacion.importe?.toLocaleString() || '0'}</span>
             </div>
             <div class="mt-1">
               <small class="text-muted"><strong>Fecha y Hora:</strong> ${formatDateOnly(acreditacion.fecha_hora)} ${formatTimeOnly(acreditacion.fecha_hora)}</small>
@@ -257,6 +271,7 @@
             <div class="mt-1">
               <small class="text-muted"><strong>Monto:</strong> $${acreditacion.importe?.toLocaleString() || '0'}</small>
             </div>
+            ${matchesComprobante ? '<div class="mt-1"><small class="text-success"><i class="fas fa-check-circle"></i> Coincide con comprobante seleccionado</small></div>' : ''}
           </div>
         `;
         container.appendChild(card);
@@ -269,9 +284,26 @@
         card.classList.remove('border-primary');
       });
       
+      // Limpiar filtro automático anterior si existe
+      if (currentComprobante && currentComprobante.importe !== comprobante.importe) {
+        document.getElementById('filterIndicator').style.display = 'none';
+      }
+      
       // Seleccionar actual
       event.currentTarget.classList.add('border-primary');
       currentComprobante = comprobante;
+      
+      // Filtrar automáticamente acreditaciones por el mismo monto
+      if (comprobante.importe) {
+        document.getElementById('importeMin').value = comprobante.importe;
+        document.getElementById('importeMax').value = comprobante.importe;
+        // Recargar acreditaciones con el filtro aplicado
+        loadAcreditaciones(1);
+        
+        // Mostrar indicador de filtro automático
+        document.getElementById('filterIndicator').style.display = 'inline';
+        showAlert('info', `Filtro automático aplicado: Mostrando acreditaciones con monto $${comprobante.importe.toLocaleString()}`);
+      }
       
       // Verificar si hay acreditación seleccionada
       if (currentAcreditacion) {
@@ -433,6 +465,23 @@
       document.getElementById('importeMax').value = '';
       document.getElementById('fechaDesde').value = '';
       document.getElementById('fechaHasta').value = '';
+      
+      // Limpiar selecciones
+      currentComprobante = null;
+      currentAcreditacion = null;
+      document.querySelectorAll('.comprobante-card').forEach(card => {
+        card.classList.remove('border-primary');
+      });
+      document.querySelectorAll('.acreditacion-card').forEach(card => {
+        card.classList.remove('border-success');
+      });
+      
+      // Limpiar alertas y botones
+      document.getElementById('alertContainer').innerHTML = '';
+      
+      // Ocultar indicador de filtro automático
+      document.getElementById('filterIndicator').style.display = 'none';
+      
       applyFilters();
     }
 
