@@ -270,7 +270,7 @@
         // Cargar lista de clientes
         async function loadClientes() {
             try {
-                const res = await fetch('/api/clientes');
+                const res = await fetch('/api/clientes/nombres');
                 const data = await res.json();
                 if (data.success) {
                     const clienteSelect = document.getElementById('clienteFilter');
