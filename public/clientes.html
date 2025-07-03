@@ -139,36 +139,28 @@
       mostrarSaldos = true;
       document.getElementById('btnCalcularSaldos').disabled = true;
       document.getElementById('btnCalcularSaldos').innerText = 'Calculando...';
-      const clientesConSaldos = await Promise.all(clientesCache.map(async (cliente) => {
-        try {
-          const saldoRes = await fetch(`/api/clientes/${cliente.id}/resumen`);
-          const saldoData = await saldoRes.json();
-          if (saldoData.success) {
-            let saldo_actual = saldoData.data.resumen?.saldo_actual || 0;
-            if (saldoData.data.resumen?.debug_saldo) {
-              const comisiones_acreditaciones_liberadas = saldoData.data.resumen.debug_saldo.comisiones_acreditaciones_liberadas || 0;
-              const comisiones_depositos_liberados = saldoData.data.resumen.debug_saldo.comisiones_depositos_liberados || 0;
-              saldo_actual = saldo_actual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados;
-            }
-            const comprobantesPendientes = saldoData.data.resumen.comprobantes?.total_importe_pendientes || 0;
-            return {
-              ...cliente,
-              saldoTotal: saldo_actual,
-              porAcreditar: saldoData.data.resumen.porAcreditar || 0,
-              comprobantesPendientes: comprobantesPendientes
-            };
-          }
-        } catch (error) {
-          console.error("Error cargando saldo para cliente:", cliente.id, error);
-        }
-        return {
-          ...cliente,
-          saldoTotal: 0,
-          porAcreditar: 0,
-          comprobantesPendientes: 0
-        };
-      }));
-      renderClientes(clientesConSaldos);
+      const limit = document.getElementById("limitSelect").value;
+      let url = `/api/clientes/saldos?page=${currentPage}&limit=${limit}`;
+      if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Error al calcular saldos');
+        const saldosPorId = {};
+        data.data.forEach(s => { saldosPorId[s.id] = s; });
+        const clientesConSaldos = clientesCache.map(cliente => {
+          const saldo = saldosPorId[cliente.id] || {};
+          return {
+            ...cliente,
+            saldoTotal: saldo.saldoTotal ?? 0,
+            porAcreditar: saldo.porAcreditar ?? 0,
+            comprobantesPendientes: saldo.comprobantesPendientes ?? 0
+          };
+        });
+        renderClientes(clientesConSaldos);
+      } catch (err) {
+        showAlert('danger', err.message || 'Error al calcular saldos');
+      }
       document.getElementById('btnCalcularSaldos').disabled = false;
       document.getElementById('btnCalcularSaldos').innerText = 'Calcular saldos';
     }
