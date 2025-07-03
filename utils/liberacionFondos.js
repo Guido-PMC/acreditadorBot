@@ -132,11 +132,11 @@ function calcularMontoDisponible(acreditaciones, plazoHoras) {
 }
 
 /**
- * Calcula el monto por acreditar incluyendo pagos tipo depósito
+ * Calcula el monto por acreditar incluyendo pagos tipo depósito (BRUTO - sin restar comisiones)
  * @param {Array} acreditaciones - Array de acreditaciones
  * @param {Array} pagos - Array de pagos
  * @param {number} plazoHoras - Plazo en horas del cliente
- * @returns {number} - Monto total por acreditar
+ * @returns {number} - Monto total por acreditar (bruto)
  */
 function calcularMontoPorAcreditarCompleto(acreditaciones, pagos, plazoHoras) {
   let total = 0;
@@ -157,6 +157,37 @@ function calcularMontoPorAcreditarCompleto(acreditaciones, pagos, plazoHoras) {
   });
   
   return total;
+}
+
+/**
+ * Calcula el monto por acreditar NETO (después de comisiones)
+ * @param {Array} acreditaciones - Array de acreditaciones
+ * @param {Array} pagos - Array de pagos
+ * @param {number} plazoHoras - Plazo en horas del cliente
+ * @returns {number} - Monto total por acreditar (neto)
+ */
+function calcularMontoPorAcreditarNeto(acreditaciones, pagos, plazoHoras) {
+  let totalBruto = 0;
+  let totalComisiones = 0;
+  
+  // Acreditaciones no liberadas
+  acreditaciones.forEach(acreditacion => {
+    if (!estaLiberado(acreditacion.fecha_hora, plazoHoras)) {
+      totalBruto += parseFloat(acreditacion.importe || 0);
+      totalComisiones += parseFloat(acreditacion.importe_comision || 0);
+    }
+  });
+  
+  // Créditos tipo depósito no liberados
+  pagos.forEach(pago => {
+    if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito' && 
+        !estaLiberado(pago.fecha, plazoHoras)) {
+      totalBruto += parseFloat(pago.importe || 0);
+      totalComisiones += parseFloat(pago.importe_comision || 0);
+    }
+  });
+  
+  return totalBruto - totalComisiones;
 }
 
 /**
@@ -377,6 +408,7 @@ module.exports = {
   calcularMontoPorAcreditar,
   calcularMontoDisponible,
   calcularMontoPorAcreditarCompleto,
+  calcularMontoPorAcreditarNeto,
   calcularMontoDisponibleCompleto,
   calcularComisionesFondosLiberados,
   calcularSaldoDisponibleCompleto,
