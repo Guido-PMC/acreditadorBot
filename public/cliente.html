@@ -950,6 +950,7 @@
         return;
       }
       let html = `<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr>
+        <th>ID</th>
         <th>Fecha</th>
         <th>Tipo</th>
         <th>Concepto</th>
@@ -1034,6 +1035,7 @@
           else if (estado) estadoBadge = `<span class="badge bg-secondary">${estado}</span>`;
         }
         html += `<tr>
+          <td><code>${mov.id || '-'}</code></td>
           <td>${fecha}</td>
           <td>${tipoBadge}</td>
           <td>${concepto}</td>
