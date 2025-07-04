@@ -198,6 +198,9 @@
                 <button class="btn btn-sm btn-danger me-2" onclick="openPagoModal()">
                   <i class="fas fa-minus me-1"></i>Nuevo Pago
                 </button>
+                <button class="btn btn-sm btn-outline-warning me-2" onclick="confirmarBorrarCreditosPagos()" title="Borrar créditos y pagos">
+                  <i class="fas fa-trash me-1"></i>Borrar Créditos/Pagos
+                </button>
                 <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadClienteData()" title="Recargar datos">
                   <i class="fas fa-sync-alt"></i>
                 </button>
@@ -708,6 +711,45 @@
         }
       } catch (error) {
         showAlert('danger', 'Error al eliminar pago');
+      }
+    }
+
+    // Confirmar borrado de créditos y pagos
+    function confirmarBorrarCreditosPagos() {
+      const mensaje = `¿Estás seguro de que deseas borrar TODOS los créditos y pagos de este cliente?\n\n` +
+                     `⚠️ ADVERTENCIA: Esta acción es irreversible y afectará el saldo del cliente.\n\n` +
+                     `Para confirmar, escribe "BORRAR" en el siguiente campo:`;
+      
+      const confirmacion = prompt(mensaje);
+      
+      if (confirmacion === 'BORRAR') {
+        borrarCreditosPagos();
+      } else if (confirmacion !== null) {
+        showAlert('warning', 'Confirmación incorrecta. Operación cancelada.');
+      }
+    }
+
+    // Borrar todos los créditos y pagos del cliente
+    async function borrarCreditosPagos() {
+      try {
+        showAlert('info', 'Borrando créditos y pagos...');
+        
+        const res = await fetch(`/api/clientes/${clienteId}/borrar-creditos-pagos`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          showAlert('success', data.message || 'Créditos y pagos borrados exitosamente');
+          loadClienteData(); // Recargar todo para actualizar saldo
+        } else {
+          showAlert('danger', data.error || data.message || 'Error al borrar créditos y pagos');
+        }
+      } catch (error) {
+        console.error('Error al borrar créditos y pagos:', error);
+        showAlert('danger', 'Error al borrar créditos y pagos');
       }
     }
 

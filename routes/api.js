@@ -1392,6 +1392,89 @@ router.delete('/clientes/:id', async (req, res) => {
   }
 });
 
+// DELETE /api/clientes/:id/borrar-creditos-pagos - Borrar todos los créditos y pagos de un cliente
+router.delete('/clientes/:id/borrar-creditos-pagos', async (req, res) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+
+    // Verificar si el cliente existe
+    const existingClient = await client.query(
+      'SELECT nombre, apellido FROM clientes WHERE id = $1',
+      [id]
+    );
+
+    if (existingClient.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Cliente no encontrado',
+        message: 'El cliente especificado no existe'
+      });
+    }
+
+    const cliente = existingClient.rows[0];
+
+    // Obtener conteo de registros antes de borrar
+    const creditosCount = await client.query(
+      'SELECT COUNT(*) as count FROM pagos WHERE id_cliente = $1 AND tipo_pago = $2',
+      [id, 'credito']
+    );
+
+    const pagosCount = await client.query(
+      'SELECT COUNT(*) as count FROM pagos WHERE id_cliente = $1 AND tipo_pago = $2',
+      [id, 'pago']
+    );
+
+    const totalCreditos = parseInt(creditosCount.rows[0].count);
+    const totalPagos = parseInt(pagosCount.rows[0].count);
+
+    if (totalCreditos === 0 && totalPagos === 0) {
+      return res.json({
+        success: true,
+        message: 'No hay créditos ni pagos para borrar'
+      });
+    }
+
+    // Borrar créditos y pagos
+    await client.query(`
+      DELETE FROM pagos WHERE id_cliente = $1 AND tipo_pago IN ('credito', 'pago')
+    `, [id]);
+
+    // Registrar log
+    await client.query(`
+      INSERT INTO logs_procesamiento (tipo, descripcion, datos, estado)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'creditos_pagos_borrados',
+      `Créditos y pagos borrados para cliente: ${cliente.nombre} ${cliente.apellido || ''}`,
+      JSON.stringify({ 
+        id_cliente: id, 
+        creditos_borrados: totalCreditos, 
+        pagos_borrados: totalPagos 
+      }),
+      'exitoso'
+    ]);
+
+    res.json({
+      success: true,
+      message: `Se borraron ${totalCreditos} créditos y ${totalPagos} pagos exitosamente`,
+      data: {
+        creditos_borrados: totalCreditos,
+        pagos_borrados: totalPagos
+      }
+    });
+
+  } catch (error) {
+    console.error('Error borrando créditos y pagos:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: 'No se pudieron borrar los créditos y pagos'
+    });
+  } finally {
+    client.release();
+  }
+});
+
 // GET /api/clientes/:id/comprobantes - Obtener comprobantes de un cliente
 router.get('/clientes/:id/comprobantes', async (req, res) => {
   const client = await db.getClient();
