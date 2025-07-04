@@ -553,9 +553,9 @@
                 const fechaA = new Date(a.fecha_original || a.fecha || a.fecha_pago || a.fecha_hora || a.created_at);
                 const fechaB = new Date(b.fecha_original || b.fecha || b.fecha_pago || b.fecha_hora || b.created_at);
                 
-                // Si las fechas son iguales, ordenar por ID (más antiguo primero)
+                // Si las fechas son iguales, ordenar por ID (más reciente primero)
                 if (fechaA.getTime() === fechaB.getTime()) {
-                    return (a.id || 0) - (b.id || 0);
+                    return (b.id || 0) - (a.id || 0);
                 }
                 
                 return fechaA - fechaB;
