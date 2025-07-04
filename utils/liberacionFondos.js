@@ -89,11 +89,14 @@ function horasRestantes(fechaRecepcion, plazoHoras) {
   const fechaLiberacion = calcularFechaLiberacion(fechaRecepcion, plazoHoras);
   const ahora = moment.tz('America/Argentina/Buenos_Aires');
   
-  if (ahora.isSameOrAfter(fechaLiberacion)) {
+  // Convertir fechaLiberacion a moment para poder usar .diff()
+  const fechaLiberacionMoment = moment.tz(fechaLiberacion, 'America/Argentina/Buenos_Aires');
+  
+  if (ahora.isSameOrAfter(fechaLiberacionMoment)) {
     return 0;
   }
   
-  const diffHoras = fechaLiberacion.diff(ahora, 'hours', true);
+  const diffHoras = fechaLiberacionMoment.diff(ahora, 'hours', true);
   return Math.max(0, Math.ceil(diffHoras));
 }
 
