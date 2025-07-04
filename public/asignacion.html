@@ -396,7 +396,7 @@
             <strong>Remitente:</strong> ${currentComprobante.nombre_remitente}<br>
             <strong>Cliente:</strong> ${currentComprobante.cliente_nombre ? `${currentComprobante.cliente_nombre} ${currentComprobante.cliente_apellido || ''}` : 'Sin cliente asignado'}<br>
             <strong>CUIT:</strong> ${cleanCUIT(currentComprobante.cuit) || 'Sin CUIT'}<br>
-            <strong>Monto:</strong> $${currentComprobante.importe}<br>
+            <strong>Monto:</strong> $${currentComprobante.importe?.toLocaleString() || '0'}<br>
             <strong>Fecha Envío:</strong> ${formatDatePreserveTime(currentComprobante.fecha_envio)}<br>
             <strong>Fecha Recepción:</strong> ${formatDate(currentComprobante.fecha_recepcion)}
           </div>
@@ -404,7 +404,7 @@
             <strong>Acreditación:</strong><br>
             <strong>Titular:</strong> ${currentAcreditacion.titular}<br>
             <strong>CUIT:</strong> ${cleanCUIT(currentAcreditacion.cuit) || 'Sin CUIT'}<br>
-            <strong>Monto:</strong> $${currentAcreditacion.importe}<br>
+            <strong>Monto:</strong> $${currentAcreditacion.importe?.toLocaleString() || '0'}<br>
             <strong>Fecha y Hora:</strong> ${formatDate(currentAcreditacion.fecha_hora)}<br>
             <strong>Concepto:</strong> ${currentAcreditacion.concepto || 'Sin concepto'}
           </div>
