@@ -2961,13 +2961,27 @@ router.post('/comprobantes/whatsapp', [
 
       // Coincidencia de fecha (más cercana = mejor score)
       // Convertir ambas fechas a UTC para comparación justa
-      const acreditacionFechaUTC = new Date(acreditacion.fecha_hora).getTime();
+      
+      // Debug detallado de la fecha de acreditación
+      console.log(`   🕐 Debug detallado de fechas:`);
+      console.log(`      Acreditación raw: ${acreditacion.fecha_hora}`);
+      console.log(`      Acreditación tipo: ${typeof acreditacion.fecha_hora}`);
+      console.log(`      Acreditación instanceof Date: ${acreditacion.fecha_hora instanceof Date}`);
+      
+      // Crear objeto Date desde la fecha de acreditación
+      const acreditacionDate = new Date(acreditacion.fecha_hora);
+      console.log(`      Acreditación Date creado: ${acreditacionDate}`);
+      console.log(`      Acreditación getHours(): ${acreditacionDate.getHours()}`);
+      console.log(`      Acreditación getUTCHours(): ${acreditacionDate.getUTCHours()}`);
+      console.log(`      Acreditación toISOString(): ${acreditacionDate.toISOString()}`);
+      
+      const acreditacionFechaUTC = acreditacionDate.getTime();
       const comprobanteFechaUTC = fecha_envio_obj.getTime();
       const diffHoras = Math.abs(acreditacionFechaUTC - comprobanteFechaUTC) / (1000 * 60 * 60);
       
-      console.log(`   🕐 Debug fechas:`);
-      console.log(`      Acreditación: ${acreditacion.fecha_hora} (UTC: ${new Date(acreditacionFechaUTC).toISOString()})`);
-      console.log(`      Comprobante: ${fecha_envio_obj.toISOString()} (UTC: ${new Date(comprobanteFechaUTC).toISOString()})`);
+      console.log(`   📊 Comparación final:`);
+      console.log(`      Acreditación UTC ms: ${acreditacionFechaUTC}`);
+      console.log(`      Comprobante UTC ms: ${comprobanteFechaUTC}`);
       console.log(`      Diferencia: ${diffHoras.toFixed(2)} horas`);
       if (diffHoras <= 0.1) { // ≤ 6 minutos
         score += 30;
