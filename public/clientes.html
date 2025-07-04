@@ -46,7 +46,7 @@
             <th>Nombre</th>
             <th>Estado</th>
             <th>Saldo Actual</th>
-            <th>Por Acreditar</th>
+            <th style="cursor: pointer;" onclick="sortByField('porAcreditar')">Por Acreditar <i class="fas fa-sort"></i></th>
             <th>Pendientes</th>
             <th>Comisión</th>
             <th>Plazo</th>
@@ -126,6 +126,7 @@
     let editingCliente = false;
     let mostrarSaldos = false;
     let clientesCache = [];
+    let currentSort = { field: null, order: 'asc' };
 
     async function loadClientes(page = 1) {
       currentPage = page;
@@ -221,7 +222,6 @@
         tbody.innerHTML += `
           <tr>
             <td>${cliente.nombre}</td>
-            <td>${cliente.apellido || ""}</td>
             <td>${estado}</td>
             <td class="text-end fw-bold ${mostrarSaldos && parseFloat(cliente.saldoTotal || 0) > 0 ? "text-success" : "text-muted"}">${saldoTotal}</td>
             <td class="text-end fw-bold ${mostrarSaldos && parseFloat(cliente.porAcreditar || 0) > 0 ? "text-secondary" : "text-muted"}">${porAcreditar}</td>
@@ -321,6 +321,57 @@
 
     async function viewComprobantes(id) {
       window.location.href = `/cliente.html?id=${id}`;
+    }
+
+    function sortByField(field) {
+      if (currentSort.field === field) {
+        currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSort.field = field;
+        currentSort.order = 'asc';
+      }
+      
+      // Ordenar los clientes en cache
+      clientesCache.sort((a, b) => {
+        let valueA, valueB;
+        
+        switch (field) {
+          case 'porAcreditar':
+            valueA = parseFloat(a.porAcreditar || 0);
+            valueB = parseFloat(b.porAcreditar || 0);
+            break;
+          default:
+            return 0;
+        }
+        
+        if (currentSort.order === 'asc') {
+          return valueA - valueB;
+        } else {
+          return valueB - valueA;
+        }
+      });
+      
+      // Re-renderizar la tabla
+      renderClientes(clientesCache);
+      
+      // Actualizar el ícono de ordenamiento
+      updateSortIcon(field);
+    }
+
+    function updateSortIcon(field) {
+      // Remover todos los íconos de ordenamiento
+      document.querySelectorAll('th i.fas').forEach(icon => {
+        icon.className = 'fas fa-sort';
+      });
+      
+      // Agregar el ícono correcto al campo actual
+      const header = document.querySelector(`th[onclick*="${field}"]`);
+      if (header) {
+        const icon = header.querySelector('i');
+        if (currentSort.field === field) {
+          icon.className = currentSort.order === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+        }
+      }
     }
 
     // Inicializar
