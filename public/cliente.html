@@ -1083,8 +1083,8 @@
         <th>Tipo</th>
         <th>Concepto</th>
         <th class="text-end">Importe</th>
-        <th class="text-end">Comisión</th>
         <th>Estado</th>
+        <th class="text-end">Comisión</th>
         <th class="text-end">Saldo Acumulado</th>
       </tr></thead><tbody>`;
       const now = new Date();
@@ -1191,8 +1191,8 @@
           <td>${tipoBadge}</td>
           <td>${concepto}</td>
           <td class="${importeClass}">${importe}</td>
-          <td class="text-end">${comision}</td>
           <td>${estadoBadge}</td>
+          <td class="text-end">${comision}</td>
           <td class="text-end fw-bold ${saldoClass}">${saldoContent}</td>
         </tr>`;
       });
