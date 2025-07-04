@@ -226,11 +226,12 @@
                                 <th>Comisión</th>
                                 <th>Neto</th>
                                 <th>Detalles</th>
+                                <th class="text-end">Saldo Acumulado</th>
                             </tr>
                         </thead>
                         <tbody id="movimientosUnificadosTableBody">
                             <tr>
-                                <td colspan="7" class="text-center py-4">
+                                <td colspan="8" class="text-center py-4">
                                     <div class="spinner-border text-primary" role="status">
                                         <span class="visually-hidden">Cargando...</span>
                                     </div>
@@ -299,6 +300,7 @@
         let currentPage = 1;
         let movimientosPerPage = 25;
         let currentSort = { field: 'fecha', order: 'desc' }; // Estado del ordenamiento
+        let saldoInicialCliente = 0; // Saldo inicial del cliente
 
         // Inicializar
         document.addEventListener('DOMContentLoaded', function() {
@@ -436,6 +438,9 @@
                     } else {
                         saldoActualElement.className = 'balance-zero';
                     }
+
+                    // Guardar el saldo actual como saldo inicial para los cálculos de saldo acumulado
+                    saldoInicialCliente = saldo_actual;
                     
                     // Saldo pendiente (comprobantes sin acreditar)
                     const saldoPendiente = data.comprobantes_pendientes?.total_importe_comprobantes_pendientes || 0;
@@ -531,7 +536,7 @@
             if (total === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="text-center py-4 text-muted">
+                        <td colspan="8" class="text-center py-4 text-muted">
                             <i class="fas fa-inbox fa-2x mb-2"></i><br>
                             ${movimientosFilter ? `No se encontraron movimientos de tipo "${movimientosFilter}"` : 'No se encontraron movimientos'}
                         </td>
@@ -542,11 +547,57 @@
                 return;
             }
 
+            // Ordenar movimientos por fecha (más antiguos primero para calcular saldo acumulado)
+            const movimientosOrdenados = [...movimientosFiltrados].sort((a, b) => {
+                const fechaA = new Date(a.fecha_original || a.fecha || a.fecha_pago || a.fecha_hora || a.created_at);
+                const fechaB = new Date(b.fecha_original || b.fecha || b.fecha_pago || b.fecha_hora || b.created_at);
+                return fechaA - fechaB;
+            });
+
+            // Calcular saldo acumulado para cada movimiento
+            let saldoAcumulado = saldoInicialCliente;
+            const movimientosConSaldo = movimientosOrdenados.map(mov => {
+                // Determinar si es entrada o salida
+                let esEntrada = false;
+                if (mov.tipo === 'acreditacion' || mov.tipo === 'credito' || 
+                    (mov.tipo === 'comprobante' && mov.id_acreditacion)) {
+                    esEntrada = true;
+                } else if (mov.tipo === 'pago') {
+                    esEntrada = false;
+                }
+
+                // Calcular importe neto (descontando comisiones)
+                const importeBruto = parseFloat(mov.importe || 0);
+                const comision = parseFloat(mov.importe_comision || 0);
+                const importeNeto = importeBruto - comision;
+
+                // Actualizar saldo acumulado
+                if (esEntrada) {
+                    saldoAcumulado += importeNeto;
+                } else {
+                    saldoAcumulado -= importeBruto; // Los pagos no tienen comisión descontada
+                }
+
+                return {
+                    ...mov,
+                    saldoAcumulado: saldoAcumulado,
+                    esEntrada: esEntrada,
+                    importeNeto: importeNeto
+                };
+            });
+
+            // Ordenar nuevamente por fecha (más recientes primero para mostrar)
+            const movimientosParaMostrar = movimientosConSaldo.sort((a, b) => {
+                const fechaA = new Date(a.fecha_original || a.fecha || a.fecha_pago || a.fecha_hora || a.created_at);
+                const fechaB = new Date(b.fecha_original || b.fecha || b.fecha_pago || b.fecha_hora || b.created_at);
+                return fechaB - fechaA;
+            });
+
             // Calcular paginación
             const totalPages = Math.ceil(total / movimientosPerPage);
             const startIndex = (currentPage - 1) * movimientosPerPage;
             const endIndex = Math.min(startIndex + movimientosPerPage, total);
-            const movimientosPagina = movimientosFiltrados.slice(startIndex, endIndex);
+            const movimientosPagina = movimientosParaMostrar.slice(startIndex, endIndex);
 
             // Actualizar información de paginación
             updatePaginationInfo(startIndex + 1, endIndex, total);
@@ -611,6 +662,13 @@
                 let importeComision = parseFloat(mov.importe_comision) || 0;
                 const neto = mov.importe - importeComision;
 
+                // Formatear saldo acumulado
+                const saldoAcumuladoFormatted = new Intl.NumberFormat('es-AR', {
+                    style: 'currency',
+                    currency: 'ARS'
+                }).format(mov.saldoAcumulado || 0);
+                const saldoClass = (mov.saldoAcumulado || 0) >= 0 ? 'text-success' : 'text-danger';
+
                 return `
                     <tr>
                         <td>${mov.tipo === 'comprobante' ? formatDatePreserveTime(mov.fecha) : formatDate(mov.fecha)}</td>
@@ -638,6 +696,7 @@
                             ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `<div class='mt-1'><small class='text-success'><strong>Vinculado a Acreditación:</strong> ${mov.id_acreditacion}</small></div>` : ''}
                             ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `<div class='mt-1'><small class='text-warning'><strong>⚠️ Sin vincular a acreditación</strong></small></div>` : ''}
                         </td>
+                        <td class="text-end fw-bold ${saldoClass}">${saldoAcumuladoFormatted}</td>
                     </tr>
                 `;
             }).join('');

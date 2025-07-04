@@ -507,6 +507,9 @@
 
       updateElement('porAcreditar', formatCurrency(porAcreditar));
       updateElement('saldoCliente', formatCurrency(saldo_actual));
+
+      // Guardar el saldo actual como saldo inicial para los cálculos de saldo acumulado
+      saldoInicialCliente = saldo_actual;
       
       // Primera fila: Contadores de comprobantes (con formato de miles)
       updateElement('totalAcreditaciones', (resumen.comprobantes.total_comprobantes || 0).toLocaleString('es-AR'));
@@ -952,6 +955,9 @@
       }
     });
 
+    // Variable para almacenar el saldo inicial del cliente
+    let saldoInicialCliente = 0;
+
     // Renderizar movimientos unificados en una lista compacta
     function renderMovimientosUnificados(movimientos) {
       const container = document.getElementById('movimientosContainer');
@@ -959,6 +965,53 @@
         container.innerHTML = '<div class="text-center text-muted">No hay movimientos para mostrar.</div>';
         return;
       }
+
+      // Ordenar movimientos por fecha (más antiguos primero para calcular saldo acumulado)
+      const movimientosOrdenados = [...movimientos].sort((a, b) => {
+        const fechaA = new Date(a.fecha_original || a.fecha || a.fecha_pago || a.fecha_hora || a.created_at);
+        const fechaB = new Date(b.fecha_original || b.fecha || b.fecha_pago || b.fecha_hora || b.created_at);
+        return fechaA - fechaB;
+      });
+
+      // Calcular saldo acumulado para cada movimiento
+      let saldoAcumulado = saldoInicialCliente;
+      const movimientosConSaldo = movimientosOrdenados.map(mov => {
+        // Determinar si es entrada o salida
+        let esEntrada = false;
+        if (mov.tipo === 'acreditacion' || mov.tipo === 'credito' || 
+            (mov.tipo === 'comprobante' && mov.id_acreditacion)) {
+          esEntrada = true;
+        } else if (mov.tipo === 'pago') {
+          esEntrada = false;
+        }
+
+        // Calcular importe neto (descontando comisiones)
+        const importeBruto = parseFloat(mov.importe || 0);
+        const comision = parseFloat(mov.importe_comision || 0);
+        const importeNeto = importeBruto - comision;
+
+        // Actualizar saldo acumulado
+        if (esEntrada) {
+          saldoAcumulado += importeNeto;
+        } else {
+          saldoAcumulado -= importeBruto; // Los pagos no tienen comisión descontada
+        }
+
+        return {
+          ...mov,
+          saldoAcumulado: saldoAcumulado,
+          esEntrada: esEntrada,
+          importeNeto: importeNeto
+        };
+      });
+
+      // Ordenar nuevamente por fecha (más recientes primero para mostrar)
+      const movimientosParaMostrar = movimientosConSaldo.sort((a, b) => {
+        const fechaA = new Date(a.fecha_original || a.fecha || a.fecha_pago || a.fecha_hora || a.created_at);
+        const fechaB = new Date(b.fecha_original || b.fecha || b.fecha_pago || b.fecha_hora || b.created_at);
+        return fechaB - fechaA;
+      });
+
       let html = `<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr>
         <th>ID</th>
         <th>Fecha</th>
@@ -967,9 +1020,10 @@
         <th class="text-end">Importe</th>
         <th class="text-end">Comisión</th>
         <th>Estado</th>
+        <th class="text-end">Saldo Acumulado</th>
       </tr></thead><tbody>`;
       const now = new Date();
-      movimientos.forEach(mov => {
+      movimientosParaMostrar.forEach(mov => {
         let fecha = mov.fecha || mov.fecha_pago || mov.fecha_hora || mov.created_at || '';
         if (fecha) {
           // Usar formatDatePreserveTime para comprobantes (que vienen en UTC)
@@ -1056,6 +1110,10 @@
           else if (estado === 'confirmado') estadoBadge = '<span class="badge bg-success">Confirmado</span>';
           else if (estado) estadoBadge = `<span class="badge bg-secondary">${estado}</span>`;
         }
+        // Formatear saldo acumulado
+        const saldoAcumuladoFormatted = mov.saldoAcumulado.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+        const saldoClass = mov.saldoAcumulado >= 0 ? 'text-success' : 'text-danger';
+
         html += `<tr>
           <td><code>${mov.id || '-'}</code></td>
           <td>${fecha}</td>
@@ -1064,6 +1122,7 @@
           <td class="${importeClass}">${importe}</td>
           <td class="text-end">${comision}</td>
           <td>${estadoBadge}</td>
+          <td class="text-end fw-bold ${saldoClass}">${saldoAcumuladoFormatted}</td>
         </tr>`;
       });
       html += '</tbody></table></div>';
