@@ -144,6 +144,14 @@
       return cuit.replace(/[^0-9]/g, '');
     }
 
+    // Función para formatear números con separador de miles
+    function formatNumber(num) {
+      if (!num && num !== 0) return '0';
+      const number = parseFloat(num);
+      if (isNaN(number)) return '0';
+      return number.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     function showAlert(type, message) {
       document.getElementById('alertContainer').innerHTML = 
         `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
@@ -242,7 +250,7 @@
                 <br>
                 <small class="text-info"><strong>Cliente:</strong> ${comprobante.cliente_nombre ? `${comprobante.cliente_nombre} ${comprobante.cliente_apellido || ''}` : 'Sin cliente asignado'}</small>
               </div>
-              <span class="badge bg-primary">$${comprobante.importe?.toLocaleString() || '0'}</span>
+              <span class="badge bg-primary">$${formatNumber(comprobante.importe)}</span>
             </div>
             <div class="mt-1">
               <small class="text-muted"><strong>Fecha Envío:</strong> ${formatDatePreserveTime(comprobante.fecha_envio)}</small>
@@ -251,7 +259,7 @@
               <small class="text-muted"><strong>Fecha Recepción:</strong> ${formatDate(comprobante.fecha_recepcion)}</small>
             </div>
             <div class="mt-1">
-              <small class="text-muted"><strong>Monto:</strong> $${comprobante.importe?.toLocaleString() || '0'}</small>
+              <small class="text-muted"><strong>Monto:</strong> $${formatNumber(comprobante.importe)}</small>
             </div>
           </div>
         `;
@@ -284,7 +292,7 @@
                 <br>
                 <small class="text-muted"><strong>CUIT:</strong> ${cleanCUIT(acreditacion.cuit) || 'Sin CUIT'}</small>
               </div>
-              <span class="badge ${matchesComprobante ? 'bg-warning' : 'bg-success'}">$${acreditacion.importe?.toLocaleString() || '0'}</span>
+              <span class="badge ${matchesComprobante ? 'bg-warning' : 'bg-success'}">$${formatNumber(acreditacion.importe)}</span>
             </div>
             <div class="mt-1">
               <small class="text-muted"><strong>Fecha y Hora:</strong> ${formatDate(acreditacion.fecha_hora)}</small>
@@ -293,7 +301,7 @@
               <small class="text-muted"><strong>Concepto:</strong> ${acreditacion.concepto || 'Sin concepto'}</small>
             </div>
             <div class="mt-1">
-              <small class="text-muted"><strong>Monto:</strong> $${acreditacion.importe?.toLocaleString() || '0'}</small>
+              <small class="text-muted"><strong>Monto:</strong> $${formatNumber(acreditacion.importe)}</small>
             </div>
             ${matchesComprobante ? '<div class="mt-1"><small class="text-success"><i class="fas fa-check-circle"></i> Coincide con comprobante seleccionado</small></div>' : ''}
           </div>
@@ -326,7 +334,7 @@
         
         // Mostrar indicador de filtro automático
         document.getElementById('filterIndicator').style.display = 'inline';
-        showAlert('info', `Filtro automático aplicado: Mostrando acreditaciones con monto $${comprobante.importe.toLocaleString()}`);
+        showAlert('info', `Filtro automático aplicado: Mostrando acreditaciones con monto $${formatNumber(comprobante.importe)}`);
       }
       
       // Verificar si hay acreditación seleccionada
@@ -396,7 +404,7 @@
             <strong>Remitente:</strong> ${currentComprobante.nombre_remitente}<br>
             <strong>Cliente:</strong> ${currentComprobante.cliente_nombre ? `${currentComprobante.cliente_nombre} ${currentComprobante.cliente_apellido || ''}` : 'Sin cliente asignado'}<br>
             <strong>CUIT:</strong> ${cleanCUIT(currentComprobante.cuit) || 'Sin CUIT'}<br>
-            <strong>Monto:</strong> $${currentComprobante.importe?.toLocaleString() || '0'}<br>
+            <strong>Monto:</strong> $${formatNumber(currentComprobante.importe)}<br>
             <strong>Fecha Envío:</strong> ${formatDatePreserveTime(currentComprobante.fecha_envio)}<br>
             <strong>Fecha Recepción:</strong> ${formatDate(currentComprobante.fecha_recepcion)}
           </div>
@@ -404,7 +412,7 @@
             <strong>Acreditación:</strong><br>
             <strong>Titular:</strong> ${currentAcreditacion.titular}<br>
             <strong>CUIT:</strong> ${cleanCUIT(currentAcreditacion.cuit) || 'Sin CUIT'}<br>
-            <strong>Monto:</strong> $${currentAcreditacion.importe?.toLocaleString() || '0'}<br>
+            <strong>Monto:</strong> $${formatNumber(currentAcreditacion.importe)}<br>
             <strong>Fecha y Hora:</strong> ${formatDate(currentAcreditacion.fecha_hora)}<br>
             <strong>Concepto:</strong> ${currentAcreditacion.concepto || 'Sin concepto'}
           </div>
