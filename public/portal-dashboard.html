@@ -554,61 +554,82 @@
                 return fechaA - fechaB;
             });
 
-                  // Calcular saldo acumulado para cada movimiento considerando fechas de liberación
-      let saldoAcumulado = saldoInicialCliente;
-      const movimientosConSaldo = movimientosOrdenados.map(mov => {
-        // Determinar si es entrada o salida Y si está liberado
-        let esEntrada = false;
-        let estaLiberado = true; // Por defecto asumimos que está liberado
-        const fechaActual = new Date();
-        
-        if (mov.tipo === 'acreditacion' || (mov.tipo === 'comprobante' && mov.id_acreditacion)) {
-          esEntrada = true;
-          // Para acreditaciones, verificar si está liberado según la fecha estimada
-          if (mov.fecha_estimada_liberacion) {
-            estaLiberado = fechaActual >= new Date(mov.fecha_estimada_liberacion);
-          } else {
-            estaLiberado = true; // Si no hay fecha estimada, asumimos liberado
-          }
-        } else if (mov.tipo === 'credito') {
-          esEntrada = true;
-          // Los créditos tipo depósito pueden tener plazo de liberación
-          if (mov.metodo_pago && mov.metodo_pago.toLowerCase() === 'deposito') {
-            if (mov.fecha_estimada_liberacion) {
-              estaLiberado = fechaActual >= new Date(mov.fecha_estimada_liberacion);
-            } else {
-              estaLiberado = mov.esta_liberado !== false; // Si no está definido, asumimos liberado
-            }
-          } else {
-            estaLiberado = true; // Otros créditos están inmediatamente disponibles
-          }
-        } else if (mov.tipo === 'pago') {
-          esEntrada = false;
-          estaLiberado = true; // Los pagos siempre restan inmediatamente
-        }
+                              // Calcular saldo acumulado ANTES de cada movimiento (como un extracto bancario)
+            // Empezamos desde el saldo actual y vamos hacia atrás en el tiempo
+            let saldoAcumulado = saldoInicialCliente;
+            
+            // Primero calculamos el saldo después de todos los movimientos (orden cronológico)
+            const movimientosConSaldoCalculado = movimientosOrdenados.map(mov => {
+                // Determinar si es entrada o salida Y si está liberado
+                let esEntrada = false;
+                let estaLiberado = true; // Por defecto asumimos que está liberado
+                const fechaActual = new Date();
+                
+                if (mov.tipo === 'acreditacion' || (mov.tipo === 'comprobante' && mov.id_acreditacion)) {
+                    esEntrada = true;
+                    // Para acreditaciones, verificar si está liberado según la fecha estimada
+                    if (mov.fecha_estimada_liberacion) {
+                        estaLiberado = fechaActual >= new Date(mov.fecha_estimada_liberacion);
+                    } else {
+                        estaLiberado = true; // Si no hay fecha estimada, asumimos liberado
+                    }
+                } else if (mov.tipo === 'credito') {
+                    esEntrada = true;
+                    // Los créditos tipo depósito pueden tener plazo de liberación
+                    if (mov.metodo_pago && mov.metodo_pago.toLowerCase() === 'deposito') {
+                        if (mov.fecha_estimada_liberacion) {
+                            estaLiberado = fechaActual >= new Date(mov.fecha_estimada_liberacion);
+                        } else {
+                            estaLiberado = mov.esta_liberado !== false; // Si no está definido, asumimos liberado
+                        }
+                    } else {
+                        estaLiberado = true; // Otros créditos están inmediatamente disponibles
+                    }
+                } else if (mov.tipo === 'pago') {
+                    esEntrada = false;
+                    estaLiberado = true; // Los pagos siempre restan inmediatamente
+                }
 
-        // Calcular importe neto (descontando comisiones)
-        const importeBruto = parseFloat(mov.importe || 0);
-        const comision = parseFloat(mov.importe_comision || 0);
-        const importeNeto = importeBruto - comision;
+                // Calcular importe neto (descontando comisiones)
+                const importeBruto = parseFloat(mov.importe || 0);
+                const comision = parseFloat(mov.importe_comision || 0);
+                const importeNeto = importeBruto - comision;
 
-        // Solo actualizar saldo acumulado si el movimiento está liberado
-        if (estaLiberado) {
-          if (esEntrada) {
-            saldoAcumulado += importeNeto;
-          } else {
-            saldoAcumulado -= importeBruto; // Los pagos no tienen comisión descontada
-          }
-        }
+                // Solo actualizar saldo acumulado si el movimiento está liberado
+                if (estaLiberado) {
+                    if (esEntrada) {
+                        saldoAcumulado += importeNeto;
+                    } else {
+                        saldoAcumulado -= importeBruto; // Los pagos no tienen comisión descontada
+                    }
+                }
 
-        return {
-          ...mov,
-          saldoAcumulado: saldoAcumulado,
-          esEntrada: esEntrada,
-          importeNeto: importeNeto,
-          estaLiberado: estaLiberado
-        };
-      });
+                return {
+                    ...mov,
+                    saldoAcumulado: saldoAcumulado,
+                    esEntrada: esEntrada,
+                    importeNeto: importeNeto,
+                    estaLiberado: estaLiberado
+                };
+            });
+
+            // Ahora calculamos el saldo ANTES de cada movimiento (para mostrar en la tabla)
+            const movimientosConSaldo = movimientosConSaldoCalculado.map((mov, index) => {
+                // El saldo antes del movimiento es el saldo después del movimiento anterior
+                // Para el primer movimiento (más antiguo), usamos el saldo inicial
+                let saldoAntes = saldoInicialCliente;
+                
+                if (index > 0) {
+                    // Para los demás movimientos, el saldo antes es el saldo después del movimiento anterior
+                    saldoAntes = movimientosConSaldoCalculado[index - 1].saldoAcumulado;
+                }
+
+                return {
+                    ...mov,
+                    saldoAcumulado: saldoAntes, // Saldo ANTES del movimiento
+                    saldoDespues: mov.saldoAcumulado // Saldo DESPUÉS del movimiento (para debug)
+                };
+            });
 
             // Ordenar nuevamente por fecha (más recientes primero para mostrar)
             const movimientosParaMostrar = movimientosConSaldo.sort((a, b) => {

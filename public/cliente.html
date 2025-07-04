@@ -973,9 +973,12 @@
         return fechaA - fechaB;
       });
 
-      // Calcular saldo acumulado para cada movimiento considerando fechas de liberación
+      // Calcular saldo acumulado ANTES de cada movimiento (como un extracto bancario)
+      // Empezamos desde el saldo actual y vamos hacia atrás en el tiempo
       let saldoAcumulado = saldoInicialCliente;
-      const movimientosConSaldo = movimientosOrdenados.map(mov => {
+      
+      // Primero calculamos el saldo después de todos los movimientos (orden cronológico)
+      const movimientosConSaldoCalculado = movimientosOrdenados.map(mov => {
         // Determinar si es entrada o salida Y si está liberado
         let esEntrada = false;
         let estaLiberado = true; // Por defecto asumimos que está liberado
@@ -1026,6 +1029,24 @@
           esEntrada: esEntrada,
           importeNeto: importeNeto,
           estaLiberado: estaLiberado
+        };
+      });
+
+      // Ahora calculamos el saldo ANTES de cada movimiento (para mostrar en la tabla)
+      const movimientosConSaldo = movimientosConSaldoCalculado.map((mov, index) => {
+        // El saldo antes del movimiento es el saldo después del movimiento anterior
+        // Para el primer movimiento (más antiguo), usamos el saldo inicial
+        let saldoAntes = saldoInicialCliente;
+        
+        if (index > 0) {
+          // Para los demás movimientos, el saldo antes es el saldo después del movimiento anterior
+          saldoAntes = movimientosConSaldoCalculado[index - 1].saldoAcumulado;
+        }
+
+        return {
+          ...mov,
+          saldoAcumulado: saldoAntes, // Saldo ANTES del movimiento
+          saldoDespues: mov.saldoAcumulado // Saldo DESPUÉS del movimiento (para debug)
         };
       });
 
