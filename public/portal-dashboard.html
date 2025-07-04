@@ -610,34 +610,68 @@
                 };
             });
 
-            // Ahora calculamos el saldo ANTES de cada movimiento, empezando desde el saldo actual
-            // y yendo hacia atrás en el tiempo (orden cronológico inverso)
-            let saldoActual = saldoInicialCliente;
-            const movimientosConSaldo = [];
-            
-            // Recorrer los movimientos en orden cronológico inverso (más reciente a más antiguo)
-            for (let i = movimientosProcesados.length - 1; i >= 0; i--) {
-                const mov = movimientosProcesados[i];
-                
-                // El saldo antes del movimiento es el saldo actual
-                const saldoAntes = saldoActual;
-                
-                // Actualizar el saldo actual restando el movimiento (en orden inverso)
-                if (mov.estaLiberado) {
-                    if (mov.esEntrada) {
-                        // Si es entrada, para ir hacia atrás RESTAMOS el importe neto
-                        saldoActual -= mov.importeNeto;
-                    } else {
-                        // Si es salida, para ir hacia atrás RESTAMOS el importe bruto
-                        saldoActual -= mov.importeBruto;
-                    }
-                }
-                
-                movimientosConSaldo.unshift({
-                    ...mov,
-                    saldoAcumulado: saldoAntes // Saldo ANTES del movimiento
-                });
+                  // Ahora calculamos el saldo ANTES de cada movimiento con lógica mejorada
+      // Agrupamos por fecha y calculamos hacia adelante dentro de cada grupo
+      let saldoActual = saldoInicialCliente;
+      const movimientosConSaldo = [];
+      
+      // Agrupar movimientos por fecha
+      const movimientosPorFecha = {};
+      movimientosProcesados.forEach(mov => {
+        const fecha = new Date(mov.fecha_original || mov.fecha || mov.fecha_pago || mov.fecha_hora || mov.created_at).toISOString().split('T')[0];
+        if (!movimientosPorFecha[fecha]) {
+          movimientosPorFecha[fecha] = [];
+        }
+        movimientosPorFecha[fecha].push(mov);
+      });
+      
+      // Obtener fechas ordenadas (más reciente a más antiguo)
+      const fechasOrdenadas = Object.keys(movimientosPorFecha).sort().reverse();
+      
+      // Procesar cada fecha
+      fechasOrdenadas.forEach(fecha => {
+        const movimientosFecha = movimientosPorFecha[fecha];
+        
+        // Para movimientos con la misma fecha, calcular hacia adelante
+        let saldoFecha = saldoActual;
+        
+        // Ordenar movimientos de la fecha por ID (más reciente primero)
+        movimientosFecha.sort((a, b) => (b.id || 0) - (a.id || 0));
+        
+        // Calcular saldo hacia adelante para movimientos de la misma fecha
+        movimientosFecha.forEach(mov => {
+          const saldoAntes = saldoFecha;
+          
+          // Actualizar saldo hacia adelante
+          if (mov.estaLiberado) {
+            if (mov.esEntrada) {
+              saldoFecha += mov.importeNeto;
+            } else {
+              saldoFecha -= mov.importeBruto;
             }
+          }
+          
+          movimientosConSaldo.push({
+            ...mov,
+            saldoAcumulado: saldoAntes // Saldo ANTES del movimiento
+          });
+        });
+        
+        // Actualizar saldo actual para la siguiente fecha
+        saldoActual = saldoFecha;
+      });
+      
+      // Ordenar movimientosConSaldo por fecha (más reciente primero) y ID
+      movimientosConSaldo.sort((a, b) => {
+        const fechaA = new Date(a.fecha_original || a.fecha || a.fecha_pago || a.fecha_hora || a.created_at);
+        const fechaB = new Date(b.fecha_original || b.fecha || b.fecha_pago || b.fecha_hora || b.created_at);
+        
+        if (fechaA.getTime() === fechaB.getTime()) {
+          return (b.id || 0) - (a.id || 0);
+        }
+        
+        return fechaB - fechaA;
+      });
 
             // Ordenar nuevamente por fecha (más recientes primero para mostrar)
             const movimientosParaMostrar = movimientosConSaldo.sort((a, b) => {
