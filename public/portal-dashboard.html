@@ -610,52 +610,45 @@
                 };
             });
 
-                  // Ahora calculamos el saldo ANTES de cada movimiento con lógica mejorada
-      // Agrupamos por fecha y calculamos hacia atrás desde el saldo actual
-      let saldoActual = saldoInicialCliente;
-      const movimientosConSaldo = [];
+                  // Lógica de extracto bancario: calcular saldo acumulado desde el más reciente hacia atrás
+      // El primer movimiento (más reciente) muestra el saldo actual
+      // Luego vamos hacia atrás restando/sumando según el tipo de movimiento
       
-      // Agrupar movimientos por fecha
-      const movimientosPorFecha = {};
-      movimientosProcesados.forEach(mov => {
-        const fecha = new Date(mov.fecha_original || mov.fecha || mov.fecha_pago || mov.fecha_hora || mov.created_at).toISOString().split('T')[0];
-        if (!movimientosPorFecha[fecha]) {
-          movimientosPorFecha[fecha] = [];
+      // Ordenar movimientos procesados por fecha (más reciente primero) y por ID (más reciente primero)
+      const movimientosParaCalcular = movimientosProcesados.sort((a, b) => {
+        const fechaA = new Date(a.fecha_original || a.fecha || a.fecha_pago || a.fecha_hora || a.created_at);
+        const fechaB = new Date(b.fecha_original || b.fecha || b.fecha_pago || b.fecha_hora || b.created_at);
+        
+        if (fechaA.getTime() === fechaB.getTime()) {
+          return (b.id || 0) - (a.id || 0);
         }
-        movimientosPorFecha[fecha].push(mov);
+        
+        return fechaB - fechaA;
       });
       
-      // Obtener fechas ordenadas (más reciente a más antiguo)
-      const fechasOrdenadas = Object.keys(movimientosPorFecha).sort().reverse();
+      // Calcular saldo acumulado
+      let saldoAcumulado = saldoInicialCliente;
+      const movimientosConSaldo = [];
       
-      // Procesar cada fecha
-      fechasOrdenadas.forEach(fecha => {
-        const movimientosFecha = movimientosPorFecha[fecha];
+      movimientosParaCalcular.forEach(mov => {
+        // El saldo acumulado es el saldo ANTES del movimiento
+        const saldoAntes = saldoAcumulado;
         
-        // Ordenar movimientos de la fecha por ID (más reciente primero)
-        movimientosFecha.sort((a, b) => (b.id || 0) - (a.id || 0));
-        
-        // Calcular saldo hacia atrás para movimientos de la misma fecha
-        for (let i = 0; i < movimientosFecha.length; i++) {
-          const mov = movimientosFecha[i];
-          const saldoAntes = saldoActual;
-          
-          // Actualizar saldo hacia atrás (restando el movimiento)
-          if (mov.estaLiberado) {
-            if (mov.esEntrada) {
-              // Si es entrada, para ir hacia atrás RESTAMOS el importe neto
-              saldoActual -= mov.importeNeto;
-            } else {
-              // Si es salida, para ir hacia atrás RESTAMOS el importe bruto
-              saldoActual -= mov.importeBruto;
-            }
+        // Solo procesar movimientos liberados (los pendientes no afectan el saldo)
+        if (mov.estaLiberado) {
+          if (mov.esEntrada) {
+            // Es un COBRO (crédito): RESTAR el importe neto del saldo
+            saldoAcumulado -= mov.importeNeto;
+          } else {
+            // Es un PAGO (débito): SUMAR el importe bruto al saldo
+            saldoAcumulado += mov.importeBruto;
           }
-          
-          movimientosConSaldo.push({
-            ...mov,
-            saldoAcumulado: saldoAntes // Saldo ANTES del movimiento
-          });
         }
+        
+        movimientosConSaldo.push({
+          ...mov,
+          saldoAcumulado: saldoAntes // Saldo ANTES del movimiento
+        });
       });
       
       // Ordenar movimientosConSaldo por fecha (más reciente primero) y ID
