@@ -1034,16 +1034,16 @@
         // El saldo antes del movimiento es el saldo actual
         const saldoAntes = saldoActual;
         
-        // Actualizar el saldo actual restando/sumiendo el movimiento (en orden inverso)
-        if (mov.estaLiberado) {
-          if (mov.esEntrada) {
-            // Si es entrada, para ir hacia atrás RESTAMOS el importe neto
-            saldoActual -= mov.importeNeto;
-          } else {
-            // Si es salida, para ir hacia atrás SUMAMOS el importe bruto
-            saldoActual += mov.importeBruto;
-          }
-        }
+                        // Actualizar el saldo actual restando el movimiento (en orden inverso)
+                if (mov.estaLiberado) {
+                  if (mov.esEntrada) {
+                    // Si es entrada, para ir hacia atrás RESTAMOS el importe neto
+                    saldoActual -= mov.importeNeto;
+                  } else {
+                    // Si es salida, para ir hacia atrás RESTAMOS el importe bruto
+                    saldoActual -= mov.importeBruto;
+                  }
+                }
         
         movimientosConSaldo.unshift({
           ...mov,
