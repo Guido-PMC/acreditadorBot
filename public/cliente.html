@@ -1030,7 +1030,7 @@
       });
 
             // Ahora calculamos el saldo ANTES de cada movimiento con lógica mejorada
-      // Agrupamos por fecha y calculamos hacia adelante dentro de cada grupo
+      // Agrupamos por fecha y calculamos hacia atrás desde el saldo actual
       let saldoActual = saldoInicialCliente;
       const movimientosConSaldo = [];
       
@@ -1051,22 +1051,22 @@
       fechasOrdenadas.forEach(fecha => {
         const movimientosFecha = movimientosPorFecha[fecha];
         
-        // Para movimientos con la misma fecha, calcular hacia adelante
-        let saldoFecha = saldoActual;
-        
         // Ordenar movimientos de la fecha por ID (más reciente primero)
         movimientosFecha.sort((a, b) => (b.id || 0) - (a.id || 0));
         
-        // Calcular saldo hacia adelante para movimientos de la misma fecha
-        movimientosFecha.forEach(mov => {
-          const saldoAntes = saldoFecha;
+        // Calcular saldo hacia atrás para movimientos de la misma fecha
+        for (let i = 0; i < movimientosFecha.length; i++) {
+          const mov = movimientosFecha[i];
+          const saldoAntes = saldoActual;
           
-          // Actualizar saldo hacia adelante
+          // Actualizar saldo hacia atrás (restando el movimiento)
           if (mov.estaLiberado) {
             if (mov.esEntrada) {
-              saldoFecha += mov.importeNeto;
+              // Si es entrada, para ir hacia atrás RESTAMOS el importe neto
+              saldoActual -= mov.importeNeto;
             } else {
-              saldoFecha -= mov.importeBruto;
+              // Si es salida, para ir hacia atrás RESTAMOS el importe bruto
+              saldoActual -= mov.importeBruto;
             }
           }
           
@@ -1074,10 +1074,7 @@
             ...mov,
             saldoAcumulado: saldoAntes // Saldo ANTES del movimiento
           });
-        });
-        
-        // Actualizar saldo actual para la siguiente fecha
-        saldoActual = saldoFecha;
+        }
       });
       
       // Ordenar movimientosConSaldo por fecha (más reciente primero) y ID
