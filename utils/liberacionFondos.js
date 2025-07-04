@@ -407,6 +407,177 @@ function calcularComisionesSaldoDisponible(acreditaciones, pagos, plazoHoras) {
   return totalComisiones;
 }
 
+/**
+ * Verifica si un fondo estaba liberado en una fecha específica
+ * @param {Date|string} fechaRecepcion - Fecha de recepción
+ * @param {number} plazoHoras - Plazo en horas
+ * @param {Date|string} fechaCorte - Fecha de corte para evaluar liberación
+ * @returns {boolean} - true si estaba liberado en la fecha de corte
+ */
+function estaLiberadoEnFecha(fechaRecepcion, plazoHoras, fechaCorte) {
+  const fechaLiberacion = calcularFechaLiberacion(fechaRecepcion, plazoHoras);
+  const fechaCorteAjustada = moment.tz(fechaCorte, 'America/Argentina/Buenos_Aires');
+  return fechaCorteAjustada.isSameOrAfter(fechaLiberacion);
+}
+
+/**
+ * Calcula el monto por acreditar NETO (después de comisiones) a una fecha específica
+ * @param {Array} acreditaciones - Array de acreditaciones
+ * @param {Array} pagos - Array de pagos
+ * @param {number} plazoHoras - Plazo en horas del cliente
+ * @param {Date|string} fechaCorte - Fecha de corte para evaluar liberación
+ * @returns {number} - Monto total por acreditar (neto) a la fecha de corte
+ */
+function calcularMontoPorAcreditarNetoFecha(acreditaciones, pagos, plazoHoras, fechaCorte) {
+  let totalBruto = 0;
+  let totalComisiones = 0;
+  
+  // Acreditaciones no liberadas a la fecha de corte
+  acreditaciones.forEach(acreditacion => {
+    if (!estaLiberadoEnFecha(acreditacion.fecha_hora, plazoHoras, fechaCorte)) {
+      totalBruto += parseFloat(acreditacion.importe || 0);
+      totalComisiones += parseFloat(acreditacion.importe_comision || 0);
+    }
+  });
+  
+  // Créditos tipo depósito no liberados a la fecha de corte
+  pagos.forEach(pago => {
+    if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito' && 
+        !estaLiberadoEnFecha(pago.fecha, plazoHoras, fechaCorte)) {
+      totalBruto += parseFloat(pago.importe || 0);
+      totalComisiones += parseFloat(pago.importe_comision || 0);
+    }
+  });
+  
+  return totalBruto - totalComisiones;
+}
+
+/**
+ * Calcula el saldo disponible incluyendo créditos, pagos y acreditaciones a una fecha específica
+ * @param {Array} acreditaciones - Array de acreditaciones
+ * @param {Array} pagos - Array de pagos y créditos
+ * @param {number} plazoHoras - Plazo en horas del cliente
+ * @param {Date|string} fechaCorte - Fecha de corte para evaluar liberación
+ * @returns {number} - Saldo total disponible a la fecha de corte
+ */
+function calcularSaldoDisponibleCompletoFecha(acreditaciones, pagos, plazoHoras, fechaCorte) {
+  let acreditacionesLiberadas = 0;
+  let depositosLiberados = 0;
+  let pagosEgreso = 0;
+  let creditos = 0;
+  
+  // Acreditaciones liberadas a la fecha de corte
+  acreditaciones.forEach(acreditacion => {
+    if (estaLiberadoEnFecha(acreditacion.fecha_hora, plazoHoras, fechaCorte)) {
+      acreditacionesLiberadas += parseFloat(acreditacion.importe || 0);
+    }
+  });
+  
+  // Pagos y créditos
+  pagos.forEach(pago => {
+    if (pago.tipo_pago === 'egreso') {
+      // Los pagos son egresos, restan del saldo
+      pagosEgreso += parseFloat(pago.importe || 0);
+    } else if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito') {
+      // Créditos tipo depósito liberados a la fecha de corte
+      if (estaLiberadoEnFecha(pago.fecha, plazoHoras, fechaCorte)) {
+        depositosLiberados += parseFloat(pago.importe || 0);
+      }
+    } else if (pago.tipo_pago === 'credito') {
+      // Otros créditos siempre están disponibles (son ingresos)
+      creditos += parseFloat(pago.importe || 0);
+    }
+  });
+  
+  // Fórmula correcta: Acreditaciones liberadas + Depósitos liberados - Pagos egreso + Créditos
+  return acreditacionesLiberadas + depositosLiberados - pagosEgreso + creditos;
+}
+
+/**
+ * Debug: Desglosa el cálculo del saldo disponible a una fecha específica
+ * @param {Array} acreditaciones - Array de acreditaciones
+ * @param {Array} pagos - Array de pagos y créditos
+ * @param {number} plazoHoras - Plazo en horas del cliente
+ * @param {Date|string} fechaCorte - Fecha de corte para evaluar liberación
+ * @returns {Object} - Desglose detallado del saldo a la fecha de corte
+ */
+function debugSaldoDisponibleFecha(acreditaciones, pagos, plazoHoras, fechaCorte) {
+  let desglose = {
+    acreditaciones_liberadas: 0,
+    acreditaciones_no_liberadas: 0,
+    creditos: 0,
+    pagos_egreso: 0,
+    depositos_liberados: 0,
+    depositos_no_liberados: 0,
+    comisiones_acreditaciones_liberadas: 0,
+    comisiones_creditos: 0,
+    comisiones_depositos_liberados: 0,
+    saldo_bruto: 0,
+    comisiones_totales: 0,
+    saldo_neto: 0,
+    // Debug detallado
+    debug_depositos: []
+  };
+  
+  // Acreditaciones
+  acreditaciones.forEach(acreditacion => {
+    const importe = parseFloat(acreditacion.importe || 0);
+    const comision = parseFloat(acreditacion.importe_comision || 0);
+    
+    if (estaLiberadoEnFecha(acreditacion.fecha_hora, plazoHoras, fechaCorte)) {
+      desglose.acreditaciones_liberadas += importe;
+      desglose.comisiones_acreditaciones_liberadas += comision;
+    } else {
+      desglose.acreditaciones_no_liberadas += importe;
+    }
+  });
+  
+  // Pagos y créditos
+  pagos.forEach(pago => {
+    const importe = parseFloat(pago.importe || 0);
+    const comision = parseFloat(pago.importe_comision || 0);
+    
+    if (pago.tipo_pago === 'egreso') {
+      // Los pagos son egresos, restan del saldo
+      desglose.pagos_egreso += importe;
+    } else if (pago.tipo_pago === 'credito' && pago.metodo_pago && pago.metodo_pago.toLowerCase() === 'deposito') {
+      // Créditos tipo depósito (tienen plazos de liberación)
+      const estaLib = estaLiberadoEnFecha(pago.fecha, plazoHoras, fechaCorte);
+      const fechaLib = calcularFechaLiberacion(pago.fecha, plazoHoras);
+      
+      // Debug detallado para depósitos
+      desglose.debug_depositos.push({
+        id: pago.id,
+        concepto: pago.concepto,
+        importe: importe,
+        fecha_pago: pago.fecha,
+        fecha_liberacion: fechaLib,
+        esta_liberado: estaLib,
+        fecha_corte: fechaCorte,
+        plazo_horas: plazoHoras
+      });
+      
+      if (estaLib) {
+        desglose.depositos_liberados += importe;
+        desglose.comisiones_depositos_liberados += comision;
+      } else {
+        desglose.depositos_no_liberados += importe;
+      }
+    } else if (pago.tipo_pago === 'credito') {
+      // Otros créditos siempre están disponibles (son ingresos)
+      desglose.creditos += importe;
+      desglose.comisiones_creditos += comision;
+    }
+  });
+  
+  // Calcular totales
+  desglose.saldo_bruto = desglose.acreditaciones_liberadas + desglose.depositos_liberados - desglose.pagos_egreso + desglose.creditos;
+  desglose.comisiones_totales = desglose.comisiones_acreditaciones_liberadas + desglose.comisiones_depositos_liberados;
+  desglose.saldo_neto = desglose.saldo_bruto - desglose.comisiones_totales;
+  
+  return desglose;
+}
+
 module.exports = {
   calcularFechaLiberacion,
   estaLiberado,
@@ -420,5 +591,10 @@ module.exports = {
   calcularComisionesFondosLiberados,
   calcularSaldoDisponibleCompleto,
   calcularComisionesSaldoDisponible,
-  debugSaldoDisponible
+  debugSaldoDisponible,
+  // Funciones con fecha de corte
+  estaLiberadoEnFecha,
+  calcularMontoPorAcreditarNetoFecha,
+  calcularSaldoDisponibleCompletoFecha,
+  debugSaldoDisponibleFecha
 }; 

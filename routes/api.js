@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
-const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoPorAcreditarNeto, calcularMontoDisponibleCompleto, formatearFechaLiberacion, estaLiberado, calcularComisionesFondosLiberados, calcularSaldoDisponibleCompleto, calcularComisionesSaldoDisponible, debugSaldoDisponible } = require('../utils/liberacionFondos');
+const { calcularMontoPorAcreditar, calcularMontoDisponible, calcularMontoPorAcreditarCompleto, calcularMontoPorAcreditarNeto, calcularMontoDisponibleCompleto, formatearFechaLiberacion, estaLiberado, calcularComisionesFondosLiberados, calcularSaldoDisponibleCompleto, calcularComisionesSaldoDisponible, debugSaldoDisponible, estaLiberadoEnFecha, calcularMontoPorAcreditarNetoFecha, calcularSaldoDisponibleCompletoFecha, debugSaldoDisponibleFecha } = require('../utils/liberacionFondos');
 const router = express.Router();
 
 // Funciones de normalización y matching inteligente
@@ -4647,6 +4647,118 @@ router.get('/clientes/saldos', async (req, res) => {
   } catch (error) {
     console.error('Error obteniendo saldos masivos:', error);
     res.status(500).json({ error: 'Error interno del servidor', message: 'No se pudieron obtener los saldos masivos' });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/clientes/saldos-fecha - Saldos masivos para clientes a una fecha específica
+router.get('/clientes/saldos-fecha', async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const {
+      page = 1,
+      limit = 50,
+      search = '',
+      estado = 'activo',
+      fecha_corte
+    } = req.query;
+
+    // Validar que se proporcione fecha_corte
+    if (!fecha_corte) {
+      return res.status(400).json({
+        error: 'Fecha de corte es requerida',
+        message: 'Debe proporcionar el parámetro fecha_corte'
+      });
+    }
+
+    let whereConditions = ['estado = $1'];
+    let params = [estado];
+    let paramIndex = 2;
+    if (search) {
+      whereConditions.push(`(nombre ILIKE $${paramIndex} OR apellido ILIKE $${paramIndex})`);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+    const offset = (page - 1) * limit;
+    
+    // Traer los clientes de la página
+    const clientesQuery = `
+      SELECT id, plazo_acreditacion
+      FROM clientes
+      ${whereClause}
+      ORDER BY nombre ASC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    params.push(parseInt(limit), offset);
+    const clientesResult = await client.query(clientesQuery, params);
+    const clientes = clientesResult.rows;
+    
+    // Si no hay clientes, devolver vacío
+    if (!clientes.length) {
+      return res.json({ success: true, data: [] });
+    }
+    
+    // Calcular saldos para cada cliente a la fecha especificada
+    const saldos = await Promise.all(clientes.map(async (c) => {
+      const cliente_id = c.id;
+      const plazoAcreditacion = c.plazo_acreditacion || 24;
+
+      // Obtener acreditaciones hasta la fecha de corte
+      const acreditacionesResult = await client.query(
+        'SELECT importe, fecha_hora, comision, importe_comision FROM acreditaciones WHERE id_cliente = $1 AND fecha_hora <= $2',
+        [cliente_id, fecha_corte]
+      );
+      const acreditaciones = acreditacionesResult.rows;
+
+      // Obtener pagos hasta la fecha de corte
+      const pagosResult = await client.query(
+        'SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, metodo_pago, fecha_pago as fecha FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = \'confirmado\' AND fecha_pago <= $2',
+        [cliente_id, fecha_corte]
+      );
+      const pagos = pagosResult.rows;
+
+      // Calcular montos por acreditar y disponibles a la fecha de corte
+      const montoPorAcreditar = calcularMontoPorAcreditarNetoFecha(acreditaciones, pagos, plazoAcreditacion, fecha_corte);
+
+      // Calcular saldo actual a la fecha de corte
+      const saldo_actual = calcularSaldoDisponibleCompletoFecha(acreditaciones, pagos, plazoAcreditacion, fecha_corte);
+
+      // Obtener estadísticas de comprobantes pendientes a la fecha de corte
+      const comprobantesStats = await client.query(`
+        SELECT 
+          SUM(importe) as total_importe_comprobantes_pendientes
+        FROM comprobantes_whatsapp 
+        WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL AND fecha_recepcion <= $2
+      `, [cliente_id, fecha_corte]);
+
+      // Debug: Desglose del saldo a la fecha
+      const debugSaldo = debugSaldoDisponibleFecha(acreditaciones, pagos, plazoAcreditacion, fecha_corte);
+
+      // Aplicar el ajuste de comisiones de fondos liberados
+      let saldoTotal = saldo_actual;
+      if (debugSaldo) {
+        const comisiones_acreditaciones_liberadas = debugSaldo.comisiones_acreditaciones_liberadas || 0;
+        const comisiones_depositos_liberados = debugSaldo.comisiones_depositos_liberados || 0;
+        
+        saldoTotal = saldo_actual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados;
+      }
+
+      const comprobantesPendientes = parseFloat(comprobantesStats.rows[0].total_importe_comprobantes_pendientes || 0);
+
+      return {
+        id: cliente_id,
+        saldoTotal,
+        porAcreditar: montoPorAcreditar,
+        comprobantesPendientes
+      };
+    }));
+    
+    res.json({ success: true, data: saldos });
+  } catch (error) {
+    console.error('Error obteniendo saldos masivos con fecha:', error);
+    res.status(500).json({ error: 'Error interno del servidor', message: 'No se pudieron obtener los saldos masivos con fecha' });
   } finally {
     client.release();
   }

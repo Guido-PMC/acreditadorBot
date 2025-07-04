@@ -26,7 +26,17 @@
       </div>
     </div>
     <div class="mb-3">
-      <button class="btn btn-success" id="btnCalcularSaldos" onclick="calcularSaldos()">Calcular saldos</button>
+      <div class="row">
+        <div class="col-md-3">
+          <button class="btn btn-success" id="btnCalcularSaldos" onclick="calcularSaldos()">Calcular saldos</button>
+        </div>
+        <div class="col-md-3">
+          <input type="date" id="fechaCorte" class="form-control" placeholder="Fecha de corte">
+        </div>
+        <div class="col-md-6">
+          <small class="text-muted">Selecciona una fecha para calcular saldos históricos. Deja en blanco para saldos actuales.</small>
+        </div>
+      </div>
     </div>
     <div id="alertContainer"></div>
     <div class="table-responsive">
@@ -139,15 +149,29 @@
 
     async function calcularSaldos() {
       mostrarSaldos = true;
-      document.getElementById('btnCalcularSaldos').disabled = true;
-      document.getElementById('btnCalcularSaldos').innerText = 'Calculando...';
+      const fechaCorte = document.getElementById('fechaCorte').value;
+      const btnCalcular = document.getElementById('btnCalcularSaldos');
+      
+      btnCalcular.disabled = true;
+      btnCalcular.innerText = fechaCorte ? 'Calculando saldos históricos...' : 'Calculando...';
+      
       const limit = document.getElementById("limitSelect").value;
-      let url = `/api/clientes/saldos?page=${currentPage}&limit=${limit}`;
+      
+      // Determinar qué endpoint usar
+      let endpoint = '/api/clientes/saldos';
+      if (fechaCorte) {
+        endpoint = '/api/clientes/saldos-fecha';
+      }
+      
+      let url = `${endpoint}?page=${currentPage}&limit=${limit}`;
       if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
+      if (fechaCorte) url += `&fecha_corte=${fechaCorte}`;
+      
       try {
         const res = await fetch(url);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Error al calcular saldos');
+        
         const saldosPorId = {};
         data.data.forEach(s => { saldosPorId[s.id] = s; });
         const clientesConSaldos = clientesCache.map(cliente => {
@@ -159,12 +183,22 @@
             comprobantesPendientes: saldo.comprobantesPendientes ?? 0
           };
         });
+        
         renderClientes(clientesConSaldos);
+        
+        // Mostrar mensaje con la fecha si se calculó con fecha específica
+        if (fechaCorte) {
+          showAlert('info', `Saldos calculados a la fecha: ${new Date(fechaCorte).toLocaleDateString('es-AR')}`);
+        } else {
+          showAlert('success', 'Saldos actuales calculados exitosamente');
+        }
+        
       } catch (err) {
         showAlert('danger', err.message || 'Error al calcular saldos');
       }
-      document.getElementById('btnCalcularSaldos').disabled = false;
-      document.getElementById('btnCalcularSaldos').innerText = 'Calcular saldos';
+      
+      btnCalcular.disabled = false;
+      btnCalcular.innerText = 'Calcular saldos';
     }
 
     function renderClientes(clientes) {
