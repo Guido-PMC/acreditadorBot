@@ -44,10 +44,10 @@
         <thead>
           <tr>
             <th>Nombre</th>
-            <th>Estado</th>
             <th>Saldo Actual</th>
             <th style="cursor: pointer;" onclick="sortByField('porAcreditar')">Por Acreditar <i class="fas fa-sort"></i></th>
             <th>Pendientes</th>
+            <th>Estado</th>
             <th>Comisión</th>
             <th>Plazo</th>
             <th>Acciones</th>
@@ -222,10 +222,10 @@
         tbody.innerHTML += `
           <tr>
             <td>${cliente.nombre}</td>
-            <td>${estado}</td>
             <td class="text-end fw-bold ${mostrarSaldos && parseFloat(cliente.saldoTotal || 0) > 0 ? "text-success" : "text-muted"}">${saldoTotal}</td>
             <td class="text-end fw-bold ${mostrarSaldos && parseFloat(cliente.porAcreditar || 0) > 0 ? "text-secondary" : "text-muted"}">${porAcreditar}</td>
             <td class="text-end fw-bold ${mostrarSaldos && parseFloat(cliente.comprobantesPendientes || 0) > 0 ? "text-warning" : "text-muted"}">${comprobantesPendientes}</td>
+            <td>${estado}</td>
             <td>${comision}</td>
             <td>${plazo}</td>
             <td>
@@ -324,6 +324,12 @@
     }
 
     function sortByField(field) {
+      // Solo permitir ordenamiento si los saldos están calculados
+      if (field === 'porAcreditar' && !mostrarSaldos) {
+        showAlert('warning', 'Primero debes calcular los saldos para poder ordenar por "Por Acreditar"');
+        return;
+      }
+      
       if (currentSort.field === field) {
         currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc';
       } else {

@@ -1249,8 +1249,14 @@
         } else {
           if (estado === 'Acreditado') estadoBadge = '<span class="badge bg-success">Acreditado</span>';
           else if (estado === 'Pendiente') estadoBadge = '<span class="badge bg-warning text-dark">Pendiente</span>';
-          else if (estado === 'confirmado') estadoBadge = '<span class="badge bg-success">Confirmado</span>';
-          else if (estado) estadoBadge = `<span class="badge bg-secondary">${estado}</span>`;
+          else if (estado === 'confirmado') {
+            // Para movimientos confirmados, verificar si están pendientes de liberación
+            if (pendienteLiberacion) {
+              estadoBadge = `<span class="badge bg-warning text-dark" ${tooltip}>Pendiente</span>`;
+            } else {
+              estadoBadge = '<span class="badge bg-success">Confirmado</span>';
+            }
+          } else if (estado) estadoBadge = `<span class="badge bg-secondary">${estado}</span>`;
         }
         // Formatear saldo acumulado
         const saldoAcumuladoFormatted = mov.saldoAcumulado.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
