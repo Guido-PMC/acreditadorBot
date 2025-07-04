@@ -629,7 +629,7 @@
                     saldoAcumulado: saldoAntes, // Saldo ANTES del movimiento
                     saldoDespues: mov.saldoAcumulado // Saldo DESPUÉS del movimiento (para debug)
                 };
-            });
+            }).reverse(); // INVERTIR para que el orden sea correcto en la tabla
 
             // Ordenar nuevamente por fecha (más recientes primero para mostrar)
             const movimientosParaMostrar = movimientosConSaldo.sort((a, b) => {

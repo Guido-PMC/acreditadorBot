@@ -1032,23 +1032,23 @@
         };
       });
 
-      // Ahora calculamos el saldo ANTES de cada movimiento (para mostrar en la tabla)
-      const movimientosConSaldo = movimientosConSaldoCalculado.map((mov, index) => {
-        // El saldo antes del movimiento es el saldo después del movimiento anterior
-        // Para el primer movimiento (más antiguo), usamos el saldo inicial
-        let saldoAntes = saldoInicialCliente;
-        
-        if (index > 0) {
-          // Para los demás movimientos, el saldo antes es el saldo después del movimiento anterior
-          saldoAntes = movimientosConSaldoCalculado[index - 1].saldoAcumulado;
-        }
+                  // Ahora calculamos el saldo ANTES de cada movimiento (para mostrar en la tabla)
+            const movimientosConSaldo = movimientosConSaldoCalculado.map((mov, index) => {
+                // El saldo antes del movimiento es el saldo después del movimiento anterior
+                // Para el primer movimiento (más antiguo), usamos el saldo inicial
+                let saldoAntes = saldoInicialCliente;
+                
+                if (index > 0) {
+                    // Para los demás movimientos, el saldo antes es el saldo después del movimiento anterior
+                    saldoAntes = movimientosConSaldoCalculado[index - 1].saldoAcumulado;
+                }
 
-        return {
-          ...mov,
-          saldoAcumulado: saldoAntes, // Saldo ANTES del movimiento
-          saldoDespues: mov.saldoAcumulado // Saldo DESPUÉS del movimiento (para debug)
-        };
-      });
+                return {
+                    ...mov,
+                    saldoAcumulado: saldoAntes, // Saldo ANTES del movimiento
+                    saldoDespues: mov.saldoAcumulado // Saldo DESPUÉS del movimiento (para debug)
+                };
+            }).reverse(); // INVERTIR para que el orden sea correcto en la tabla
 
       // Ordenar nuevamente por fecha (más recientes primero para mostrar)
       const movimientosParaMostrar = movimientosConSaldo.sort((a, b) => {
