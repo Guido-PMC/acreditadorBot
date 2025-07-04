@@ -2909,12 +2909,8 @@ router.post('/comprobantes/whatsapp', [
     console.log('🔍 Buscando acreditación coincidente con matching inteligente...');
 
     // Buscar acreditaciones por importe y fecha primero
-    // Convertir fecha_hora a UTC para evitar problemas de zona horaria
     const acreditacionesCandidatas = await client.query(`
-      SELECT id, titular, cuit, importe, 
-             fecha_hora AT TIME ZONE 'UTC' as fecha_hora_utc,
-             fecha_hora as fecha_hora_original,
-             cotejado
+      SELECT id, titular, cuit, importe, fecha_hora, cotejado
       FROM acreditaciones 
       WHERE importe = $1 
         AND fecha_hora BETWEEN $2 AND $3
@@ -2953,8 +2949,7 @@ router.post('/comprobantes/whatsapp', [
       console.log(`   Titular: "${acreditacion.titular}"`);
       console.log(`   CUIT: "${acreditacion.cuit}"`);
       console.log(`   Importe: $${acreditacion.importe}`);
-      console.log(`   Fecha original: ${acreditacion.fecha_hora_original}`);
-      console.log(`   Fecha UTC: ${acreditacion.fecha_hora_utc}`);
+      console.log(`   Fecha: ${acreditacion.fecha_hora}`);
       
       let score = 0;
       let coincidencias = [];
@@ -2969,19 +2964,20 @@ router.post('/comprobantes/whatsapp', [
       
       // Debug detallado de la fecha de acreditación
       console.log(`   🕐 Debug detallado de fechas:`);
-      console.log(`      Acreditación original: ${acreditacion.fecha_hora_original}`);
-      console.log(`      Acreditación UTC: ${acreditacion.fecha_hora_utc}`);
-      console.log(`      Tipo original: ${typeof acreditacion.fecha_hora_original}`);
-      console.log(`      Tipo UTC: ${typeof acreditacion.fecha_hora_utc}`);
+      console.log(`      Acreditación original: ${acreditacion.fecha_hora}`);
+      console.log(`      Tipo: ${typeof acreditacion.fecha_hora}`);
       
-      // Usar la fecha UTC para evitar problemas de zona horaria
-      const acreditacionDate = new Date(acreditacion.fecha_hora_utc);
-      console.log(`      Acreditación Date UTC creado: ${acreditacionDate}`);
-      console.log(`      Acreditación getHours(): ${acreditacionDate.getHours()}`);
-      console.log(`      Acreditación getUTCHours(): ${acreditacionDate.getUTCHours()}`);
-      console.log(`      Acreditación toISOString(): ${acreditacionDate.toISOString()}`);
+      // HARDCODED FIX: Restar 3 horas a la fecha de acreditación para cotejo
+      // Esto es necesario porque las acreditaciones se importaron con zona horaria incorrecta
+      const acreditacionDate = new Date(acreditacion.fecha_hora);
+      const acreditacionCorregida = new Date(acreditacionDate.getTime() - (3 * 60 * 60 * 1000)); // Restar 3 horas
       
-      const acreditacionFechaUTC = acreditacionDate.getTime();
+      console.log(`      Acreditación sin corregir: ${acreditacionDate}`);
+      console.log(`      Acreditación corregida (-3h): ${acreditacionCorregida}`);
+      console.log(`      Acreditación corregida getHours(): ${acreditacionCorregida.getHours()}`);
+      console.log(`      Acreditación corregida toISOString(): ${acreditacionCorregida.toISOString()}`);
+      
+      const acreditacionFechaUTC = acreditacionCorregida.getTime();
       const comprobanteFechaUTC = fecha_envio_obj.getTime();
       const diffHoras = Math.abs(acreditacionFechaUTC - comprobanteFechaUTC) / (1000 * 60 * 60);
       
