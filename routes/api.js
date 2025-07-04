@@ -2909,8 +2909,12 @@ router.post('/comprobantes/whatsapp', [
     console.log('🔍 Buscando acreditación coincidente con matching inteligente...');
 
     // Buscar acreditaciones por importe y fecha primero
+    // Convertir fecha_hora a UTC para evitar problemas de zona horaria
     const acreditacionesCandidatas = await client.query(`
-      SELECT id, titular, cuit, importe, fecha_hora, cotejado
+      SELECT id, titular, cuit, importe, 
+             fecha_hora AT TIME ZONE 'UTC' as fecha_hora_utc,
+             fecha_hora as fecha_hora_original,
+             cotejado
       FROM acreditaciones 
       WHERE importe = $1 
         AND fecha_hora BETWEEN $2 AND $3
@@ -2949,7 +2953,8 @@ router.post('/comprobantes/whatsapp', [
       console.log(`   Titular: "${acreditacion.titular}"`);
       console.log(`   CUIT: "${acreditacion.cuit}"`);
       console.log(`   Importe: $${acreditacion.importe}`);
-      console.log(`   Fecha: ${acreditacion.fecha_hora}`);
+      console.log(`   Fecha original: ${acreditacion.fecha_hora_original}`);
+      console.log(`   Fecha UTC: ${acreditacion.fecha_hora_utc}`);
       
       let score = 0;
       let coincidencias = [];
@@ -2964,13 +2969,14 @@ router.post('/comprobantes/whatsapp', [
       
       // Debug detallado de la fecha de acreditación
       console.log(`   🕐 Debug detallado de fechas:`);
-      console.log(`      Acreditación raw: ${acreditacion.fecha_hora}`);
-      console.log(`      Acreditación tipo: ${typeof acreditacion.fecha_hora}`);
-      console.log(`      Acreditación instanceof Date: ${acreditacion.fecha_hora instanceof Date}`);
+      console.log(`      Acreditación original: ${acreditacion.fecha_hora_original}`);
+      console.log(`      Acreditación UTC: ${acreditacion.fecha_hora_utc}`);
+      console.log(`      Tipo original: ${typeof acreditacion.fecha_hora_original}`);
+      console.log(`      Tipo UTC: ${typeof acreditacion.fecha_hora_utc}`);
       
-      // Crear objeto Date desde la fecha de acreditación
-      const acreditacionDate = new Date(acreditacion.fecha_hora);
-      console.log(`      Acreditación Date creado: ${acreditacionDate}`);
+      // Usar la fecha UTC para evitar problemas de zona horaria
+      const acreditacionDate = new Date(acreditacion.fecha_hora_utc);
+      console.log(`      Acreditación Date UTC creado: ${acreditacionDate}`);
       console.log(`      Acreditación getHours(): ${acreditacionDate.getHours()}`);
       console.log(`      Acreditación getUTCHours(): ${acreditacionDate.getUTCHours()}`);
       console.log(`      Acreditación toISOString(): ${acreditacionDate.toISOString()}`);
