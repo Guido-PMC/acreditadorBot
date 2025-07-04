@@ -2969,7 +2969,11 @@ router.post('/comprobantes/whatsapp', [
       console.log(`      Acreditación: ${acreditacion.fecha_hora} (UTC: ${new Date(acreditacionFechaUTC).toISOString()})`);
       console.log(`      Comprobante: ${fecha_envio_obj.toISOString()} (UTC: ${new Date(comprobanteFechaUTC).toISOString()})`);
       console.log(`      Diferencia: ${diffHoras.toFixed(2)} horas`);
-      if (diffHoras <= 1) {
+      if (diffHoras <= 0.1) { // ≤ 6 minutos
+        score += 30;
+        coincidencias.push('fecha_perfecta');
+        console.log(`   ✅ Fecha perfecta (${diffHoras.toFixed(2)}h): +30 puntos`);
+      } else if (diffHoras <= 1) {
         score += 25;
         coincidencias.push('fecha_exacta');
         console.log(`   ✅ Fecha exacta (${diffHoras.toFixed(2)}h): +25 puntos`);
