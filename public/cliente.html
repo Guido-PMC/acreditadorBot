@@ -753,6 +753,43 @@
       }
     }
 
+    // Confirmar borrado de movimiento individual
+    function confirmarBorrarMovimiento(id, tipo, concepto) {
+      const tipoTexto = tipo === 'credito' ? 'crédito' : 'pago';
+      const mensaje = `¿Estás seguro de que deseas borrar este ${tipoTexto}?\n\n` +
+                     `ID: ${id}\n` +
+                     `Concepto: ${concepto}\n\n` +
+                     `Esta acción es irreversible y afectará el saldo del cliente.`;
+      
+      if (confirm(mensaje)) {
+        borrarMovimiento(id, tipo);
+      }
+    }
+
+    // Borrar movimiento individual
+    async function borrarMovimiento(id, tipo) {
+      try {
+        showAlert('info', `Borrando ${tipo === 'credito' ? 'crédito' : 'pago'}...`);
+        
+        const res = await fetch(`/api/pagos/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          showAlert('success', data.message || `${tipo === 'credito' ? 'Crédito' : 'Pago'} borrado exitosamente`);
+          loadClienteData(); // Recargar todo para actualizar saldo
+        } else {
+          showAlert('danger', data.error || data.message || `Error al borrar ${tipo === 'credito' ? 'crédito' : 'pago'}`);
+        }
+      } catch (error) {
+        console.error(`Error al borrar ${tipo}:`, error);
+        showAlert('danger', `Error al borrar ${tipo === 'credito' ? 'crédito' : 'pago'}`);
+      }
+    }
+
     // Desasignar comprobante
     async function desasignarComprobante(id) {
       if (!confirm('¿Seguro que deseas desasignar este comprobante?')) return;
@@ -1128,6 +1165,7 @@
         <th>Estado</th>
         <th class="text-end">Comisión</th>
         <th class="text-end">Saldo Acumulado</th>
+        <th class="text-center">Acciones</th>
       </tr></thead><tbody>`;
       const now = new Date();
       movimientosParaMostrar.forEach(mov => {
@@ -1227,6 +1265,18 @@
           saldoContent += ` <small class="text-muted" title="Pendiente de liberación">⏳</small>`;
         }
 
+        // Botón de borrar solo para créditos y pagos
+        let botonBorrar = '';
+        if (mov.tipo === 'credito' || mov.tipo === 'pago') {
+          botonBorrar = `
+            <button class="btn btn-sm btn-outline-danger" 
+                    onclick="confirmarBorrarMovimiento(${mov.id}, '${mov.tipo}', '${concepto.replace(/'/g, "\\'")}')" 
+                    title="Borrar ${mov.tipo === 'credito' ? 'crédito' : 'pago'}">
+              <i class="fas fa-trash"></i>
+            </button>
+          `;
+        }
+
         html += `<tr>
           <td><code>${mov.id || '-'}</code></td>
           <td>${fecha}</td>
@@ -1236,6 +1286,7 @@
           <td>${estadoBadge}</td>
           <td class="text-end">${comision}</td>
           <td class="text-end fw-bold ${saldoClass}">${saldoContent}</td>
+          <td class="text-center">${botonBorrar}</td>
         </tr>`;
       });
       html += '</tbody></table></div>';

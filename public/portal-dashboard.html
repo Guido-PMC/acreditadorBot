@@ -227,6 +227,7 @@
                                 <th>Neto</th>
                                 <th>Detalles</th>
                                 <th class="text-end">Saldo Acumulado</th>
+                                <th class="text-center acciones-header">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="movimientosUnificadosTableBody">
@@ -695,6 +696,7 @@
                 let badgeText = '';
                 let tipoText = '';
                 let importeClass = '';
+                let botonBorrar = '';
 
                 if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
                     icon = 'fas fa-university';
@@ -752,6 +754,14 @@
                     saldoContent += ` <small class="text-muted" title="Pendiente de liberación">⏳</small>`;
                 }
 
+                if (mov.tipo === 'credito' || mov.tipo === 'pago') {
+                    botonBorrar = `
+                        <button class="btn btn-sm btn-outline-danger" onclick="confirmarBorrarMovimientoDashboard(${mov.id}, '${mov.tipo}', '${(mov.concepto || '').replace(/'/g, "\\'")}')" title="Borrar ${(mov.tipo === 'credito') ? 'crédito' : 'pago'}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    `;
+                }
+
                 return `
                     <tr>
                         <td>${mov.tipo === 'comprobante' ? formatDatePreserveTime(mov.fecha) : formatDate(mov.fecha)}</td>
@@ -780,6 +790,7 @@
                             ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `<div class='mt-1'><small class='text-warning'><strong>⚠️ Sin vincular a acreditación</strong></small></div>` : ''}
                         </td>
                         <td class="text-end fw-bold ${saldoClass}">${saldoContent}</td>
+                        <td class="text-center">${botonBorrar}</td>
                     </tr>
                 `;
             }).join('');
@@ -1133,34 +1144,6 @@
                 });
             });
             
-            console.log('\n�� === FILTROS ===');
-            console.log('Filtro actual:', movimientosFilter);
-            console.log('Movimientos filtrados por tipo:');
-            console.log('- Acreditaciones:', allMovimientos.filter(m => m.tipo === 'acreditacion').length);
-            console.log('- Comprobantes:', allMovimientos.filter(m => m.tipo === 'comprobante').length);
-            console.log('- Créditos:', allMovimientos.filter(m => m.tipo === 'movimiento' && m.tipo_pago === 'credito').length);
-            console.log('- Pagos:', allMovimientos.filter(m => m.tipo === 'movimiento' && m.tipo_pago === 'egreso').length);
-            
-            console.log('\n💰 === CÁLCULO DE SALDO ===');
-            const acreditaciones = allMovimientos.filter(m => m.tipo === 'acreditacion');
-            const creditos = allMovimientos.filter(m => m.tipo === 'movimiento' && m.tipo_pago === 'credito');
-            const pagos = allMovimientos.filter(m => m.tipo === 'movimiento' && m.tipo_pago === 'egreso');
-            
-            const totalAcreditaciones = acreditaciones.reduce((sum, m) => sum + parseFloat(m.importe || 0), 0);
-            const totalComisionesAcreditaciones = acreditaciones.reduce((sum, m) => sum + parseFloat(m.importe_comision || 0), 0);
-            const totalCreditos = creditos.reduce((sum, m) => sum + parseFloat(m.importe || 0), 0);
-            const totalComisionesCreditos = creditos.reduce((sum, m) => sum + parseFloat(m.importe_comision || 0), 0);
-            const totalPagos = pagos.reduce((sum, m) => sum + parseFloat(m.importe || 0), 0);
-            
-            console.log('Total acreditaciones:', totalAcreditaciones);
-            console.log('Total comisiones acreditaciones:', totalComisionesAcreditaciones);
-            console.log('Total créditos:', totalCreditos);
-            console.log('Total comisiones créditos:', totalComisionesCreditos);
-            console.log('Total pagos:', totalPagos);
-            
-            const saldoCalculado = totalAcreditaciones - totalComisionesAcreditaciones + (totalCreditos - totalComisionesCreditos) - totalPagos;
-            console.log('Saldo calculado:', saldoCalculado);
-            
             console.log('\n🎨 === BADGES ===');
             allMovimientos.forEach((mov, index) => {
                 let badgeClass = '';
@@ -1183,6 +1166,35 @@
                 console.log(`Movimiento ${index} (${mov.tipo}): badgeClass="${badgeClass}", tipoText="${tipoText}"`);
             });
         };
+
+        // Agregar función para confirmar y borrar
+        if (typeof window.confirmarBorrarMovimientoDashboard !== 'function') {
+            window.confirmarBorrarMovimientoDashboard = function(id, tipo, concepto) {
+                const tipoTexto = tipo === 'credito' ? 'crédito' : 'pago';
+                const mensaje = `¿Estás seguro de que deseas borrar este ${tipoTexto}?\n\nID: ${id}\nConcepto: ${concepto}\n\nEsta acción es irreversible.`;
+                if (confirm(mensaje)) {
+                    borrarMovimientoDashboard(id, tipo);
+                }
+            };
+        }
+        if (typeof window.borrarMovimientoDashboard !== 'function') {
+            window.borrarMovimientoDashboard = async function(id, tipo) {
+                try {
+                    const res = await fetch(`/api/pagos/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert(`${tipo === 'credito' ? 'Crédito' : 'Pago'} borrado exitosamente`);
+                        // Recargar movimientos
+                        if (typeof loadMovimientos === 'function') loadMovimientos();
+                        else location.reload();
+                    } else {
+                        alert(data.error || data.message || `Error al borrar ${tipo === 'credito' ? 'crédito' : 'pago'}`);
+                    }
+                } catch (error) {
+                    alert(`Error al borrar ${tipo === 'credito' ? 'crédito' : 'pago'}`);
+                }
+            };
+        }
     </script>
 </body>
 </html> 
