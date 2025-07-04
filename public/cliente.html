@@ -973,16 +973,37 @@
         return fechaA - fechaB;
       });
 
-      // Calcular saldo acumulado para cada movimiento
+      // Calcular saldo acumulado para cada movimiento considerando fechas de liberación
       let saldoAcumulado = saldoInicialCliente;
       const movimientosConSaldo = movimientosOrdenados.map(mov => {
-        // Determinar si es entrada o salida
+        // Determinar si es entrada o salida Y si está liberado
         let esEntrada = false;
-        if (mov.tipo === 'acreditacion' || mov.tipo === 'credito' || 
-            (mov.tipo === 'comprobante' && mov.id_acreditacion)) {
+        let estaLiberado = true; // Por defecto asumimos que está liberado
+        const fechaActual = new Date();
+        
+        if (mov.tipo === 'acreditacion' || (mov.tipo === 'comprobante' && mov.id_acreditacion)) {
           esEntrada = true;
+          // Para acreditaciones, verificar si está liberado según la fecha estimada
+          if (mov.fecha_estimada_liberacion) {
+            estaLiberado = fechaActual >= new Date(mov.fecha_estimada_liberacion);
+          } else {
+            estaLiberado = true; // Si no hay fecha estimada, asumimos liberado
+          }
+        } else if (mov.tipo === 'credito') {
+          esEntrada = true;
+          // Los créditos tipo depósito pueden tener plazo de liberación
+          if (mov.metodo_pago && mov.metodo_pago.toLowerCase() === 'deposito') {
+            if (mov.fecha_estimada_liberacion) {
+              estaLiberado = fechaActual >= new Date(mov.fecha_estimada_liberacion);
+            } else {
+              estaLiberado = mov.esta_liberado !== false; // Si no está definido, asumimos liberado
+            }
+          } else {
+            estaLiberado = true; // Otros créditos están inmediatamente disponibles
+          }
         } else if (mov.tipo === 'pago') {
           esEntrada = false;
+          estaLiberado = true; // Los pagos siempre restan inmediatamente
         }
 
         // Calcular importe neto (descontando comisiones)
@@ -990,18 +1011,21 @@
         const comision = parseFloat(mov.importe_comision || 0);
         const importeNeto = importeBruto - comision;
 
-        // Actualizar saldo acumulado
-        if (esEntrada) {
-          saldoAcumulado += importeNeto;
-        } else {
-          saldoAcumulado -= importeBruto; // Los pagos no tienen comisión descontada
+        // Solo actualizar saldo acumulado si el movimiento está liberado
+        if (estaLiberado) {
+          if (esEntrada) {
+            saldoAcumulado += importeNeto;
+          } else {
+            saldoAcumulado -= importeBruto; // Los pagos no tienen comisión descontada
+          }
         }
 
         return {
           ...mov,
           saldoAcumulado: saldoAcumulado,
           esEntrada: esEntrada,
-          importeNeto: importeNeto
+          importeNeto: importeNeto,
+          estaLiberado: estaLiberado
         };
       });
 
@@ -1113,6 +1137,12 @@
         // Formatear saldo acumulado
         const saldoAcumuladoFormatted = mov.saldoAcumulado.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
         const saldoClass = mov.saldoAcumulado >= 0 ? 'text-success' : 'text-danger';
+        
+        // Agregar indicador si el movimiento no está liberado
+        let saldoContent = saldoAcumuladoFormatted;
+        if (!mov.estaLiberado && mov.esEntrada) {
+          saldoContent += ` <small class="text-muted" title="Pendiente de liberación">⏳</small>`;
+        }
 
         html += `<tr>
           <td><code>${mov.id || '-'}</code></td>
@@ -1122,7 +1152,7 @@
           <td class="${importeClass}">${importe}</td>
           <td class="text-end">${comision}</td>
           <td>${estadoBadge}</td>
-          <td class="text-end fw-bold ${saldoClass}">${saldoAcumuladoFormatted}</td>
+          <td class="text-end fw-bold ${saldoClass}">${saldoContent}</td>
         </tr>`;
       });
       html += '</tbody></table></div>';
