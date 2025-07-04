@@ -2960,7 +2960,15 @@ router.post('/comprobantes/whatsapp', [
       console.log(`   ✅ Importe coincidente: +30 puntos`);
 
       // Coincidencia de fecha (más cercana = mejor score)
-      const diffHoras = Math.abs(acreditacion.fecha_hora - fecha_envio_obj) / (1000 * 60 * 60);
+      // Convertir ambas fechas a UTC para comparación justa
+      const acreditacionFechaUTC = new Date(acreditacion.fecha_hora).getTime();
+      const comprobanteFechaUTC = fecha_envio_obj.getTime();
+      const diffHoras = Math.abs(acreditacionFechaUTC - comprobanteFechaUTC) / (1000 * 60 * 60);
+      
+      console.log(`   🕐 Debug fechas:`);
+      console.log(`      Acreditación: ${acreditacion.fecha_hora} (UTC: ${new Date(acreditacionFechaUTC).toISOString()})`);
+      console.log(`      Comprobante: ${fecha_envio_obj.toISOString()} (UTC: ${new Date(comprobanteFechaUTC).toISOString()})`);
+      console.log(`      Diferencia: ${diffHoras.toFixed(2)} horas`);
       if (diffHoras <= 1) {
         score += 25;
         coincidencias.push('fecha_exacta');
