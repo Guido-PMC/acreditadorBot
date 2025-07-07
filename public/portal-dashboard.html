@@ -213,6 +213,26 @@
                         <span class="badge bg-info ms-2" id="movimientosCount">0</span>
                     </div>
                 </div>
+                <div class="row align-items-center mt-2">
+                    <div class="col">
+                        <small class="text-muted" id="movimientosUnificadosPaginationInfo">
+                            Mostrando 0 de 0 movimientos
+                        </small>
+                    </div>
+                    <div class="col-auto d-flex align-items-center gap-2">
+                        <small class="text-muted">Mostrar:</small>
+                        <select class="form-select form-select-sm" id="movimientosPerPage" onchange="changeMovimientosPerPage()" style="width: auto;">
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="500">500</option>
+                        </select>
+                        <nav aria-label="Paginación de movimientos">
+                            <ul class="pagination pagination-sm mb-0" id="movimientosUnificadosPagination">
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -241,28 +261,7 @@
                     </table>
                 </div>
             </div>
-            <div class="card-footer">
-                <div class="row align-items-center">
-                    <div class="col">
-                        <small class="text-muted" id="movimientosUnificadosPaginationInfo">
-                            Mostrando 0 de 0 movimientos
-                        </small>
-                    </div>
-                    <div class="col-auto d-flex align-items-center gap-2">
-                        <small class="text-muted">Mostrar:</small>
-                        <select class="form-select form-select-sm" id="movimientosPerPage" onchange="changeMovimientosPerPage()" style="width: auto;">
-                            <option value="25" selected>25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                            <option value="500">500</option>
-                        </select>
-                        <nav aria-label="Paginación de movimientos">
-                            <ul class="pagination pagination-sm mb-0" id="movimientosUnificadosPagination">
-                            </ul>
-                        </nav>
-                    </div>
-                </div>
-            </div>
+
         </div>
     </div>
 
