@@ -165,6 +165,29 @@ class Database {
         )
       `);
 
+      // Tabla LEDGER - Libro mayor con saldos pre-calculados
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS ledger (
+          id SERIAL PRIMARY KEY,
+          id_cliente INTEGER REFERENCES clientes(id) NOT NULL,
+          fecha_movimiento TIMESTAMP NOT NULL,
+          tipo_movimiento VARCHAR(50) NOT NULL,
+          id_movimiento INTEGER NOT NULL,
+          tabla_origen VARCHAR(50) NOT NULL,
+          concepto VARCHAR(200),
+          importe_bruto DECIMAL(15,2) NOT NULL,
+          importe_neto DECIMAL(15,2) NOT NULL,
+          comision DECIMAL(5,2) DEFAULT 0.00,
+          importe_comision DECIMAL(15,2) DEFAULT 0.00,
+          saldo_anterior DECIMAL(15,2) NOT NULL,
+          saldo_posterior DECIMAL(15,2) NOT NULL,
+          esta_liberado BOOLEAN DEFAULT FALSE,
+          fecha_liberacion TIMESTAMP,
+          metadata JSONB,
+          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       // Tabla de usuarios del portal de clientes
       await client.query(`
         CREATE TABLE IF NOT EXISTS portal_users (
@@ -200,6 +223,12 @@ class Database {
         CREATE INDEX IF NOT EXISTS idx_pagos_cliente ON pagos(id_cliente);
         CREATE INDEX IF NOT EXISTS idx_pagos_fecha ON pagos(fecha_pago);
         CREATE INDEX IF NOT EXISTS idx_pagos_fuente ON pagos(fuente);
+        -- Índices para LEDGER
+        CREATE INDEX IF NOT EXISTS idx_ledger_cliente ON ledger(id_cliente);
+        CREATE INDEX IF NOT EXISTS idx_ledger_fecha ON ledger(fecha_movimiento);
+        CREATE INDEX IF NOT EXISTS idx_ledger_tipo ON ledger(tipo_movimiento);
+        CREATE INDEX IF NOT EXISTS idx_ledger_movimiento ON ledger(id_movimiento, tabla_origen);
+        CREATE INDEX IF NOT EXISTS idx_ledger_cliente_fecha ON ledger(id_cliente, fecha_movimiento);
       `);
 
       console.log('Tablas creadas/verificadas exitosamente');

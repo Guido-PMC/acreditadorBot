@@ -12,6 +12,7 @@ const webRoutes = require('./routes/web');
 const uploadRoutes = require('./routes/upload');
 const portalRoutes = require('./routes/portal');
 const exportRoutes = require('./routes/export');
+const ledgerRoutes = require('./routes/ledger');
 const { authMiddleware } = require('./auth');
 
 const app = express();
@@ -157,6 +158,8 @@ app.use(authMiddleware);
 console.log('Configurando rutas...');
 app.use('/api', apiRoutes);
 console.log('Rutas API configuradas');
+app.use('/api/ledger', ledgerRoutes);
+console.log('Rutas LEDGER configuradas');
 app.use('/portal', portalRoutes);
 console.log('Rutas del portal configuradas');
 app.use('/export', exportRoutes);
