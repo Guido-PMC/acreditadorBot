@@ -4582,7 +4582,9 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
     });
 
     let saldoAcumulado = saldoActual;
-    const movimientosConSaldo = movimientosOrdenados.map(mov => {
+    console.log('🔍 Debug - Saldo inicial para cálculo:', saldoAcumulado);
+    
+    const movimientosConSaldo = movimientosOrdenados.map((mov, index) => {
       // El saldo acumulado es ANTES del movimiento
       const saldoAntes = saldoAcumulado;
       
@@ -4595,6 +4597,21 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
           // Es un PAGO (débito): SUMAR el importe bruto al saldo
           saldoAcumulado += mov.importeBruto;
         }
+      }
+      
+      // Debug para los primeros 5 movimientos
+      if (index < 5) {
+        console.log(`🔍 Debug - Movimiento ${index + 1}:`, {
+          id: mov.id,
+          tipo: mov.tipo,
+          concepto: mov.concepto,
+          importe: mov.importe,
+          importeNeto: mov.importeNeto,
+          esEntrada: mov.esEntrada,
+          esta_liberado: mov.esta_liberado,
+          saldo_antes: saldoAntes,
+          saldo_despues: saldoAcumulado
+        });
       }
       
       return {
