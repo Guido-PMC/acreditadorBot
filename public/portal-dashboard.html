@@ -226,7 +226,7 @@
                                 <th>Comisión</th>
                                 <th>Neto</th>
                                 <th>Detalles</th>
-                                <th class="text-end">Saldo Acumulado</th>
+                                <th class="text-end saldo-acumulado-header" id="saldoAcumuladoHeader">Saldo Acumulado</th>
                                 <th class="text-center acciones-header">Acciones</th>
                             </tr>
                         </thead>
@@ -531,13 +531,25 @@
                 }
             }
 
+            // Mostrar/ocultar columna de saldo acumulado según el filtro
+            const saldoAcumuladoHeader = document.getElementById('saldoAcumuladoHeader');
+            
+            if (movimientosFilter === '') {
+                // Vista "Todos" - mostrar columna de saldo acumulado
+                if (saldoAcumuladoHeader) saldoAcumuladoHeader.style.display = '';
+            } else {
+                // Otras vistas - ocultar columna de saldo acumulado
+                if (saldoAcumuladoHeader) saldoAcumuladoHeader.style.display = 'none';
+            }
+
             const tbody = document.getElementById('movimientosUnificadosTableBody');
             const total = movimientosFiltrados.length;
             
             if (total === 0) {
+                const colspan = movimientosFilter === '' ? 9 : 8; // 9 columnas si está "Todos", 8 si es filtrado
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="8" class="text-center py-4 text-muted">
+                        <td colspan="${colspan}" class="text-center py-4 text-muted">
                             <i class="fas fa-inbox fa-2x mb-2"></i><br>
                             ${movimientosFilter ? `No se encontraron movimientos de tipo "${movimientosFilter}"` : 'No se encontraron movimientos'}
                         </td>
@@ -754,15 +766,11 @@
                     saldoContent += ` <small class="text-muted" title="Pendiente de liberación">⏳</small>`;
                 }
 
-                if (mov.tipo === 'credito' || mov.tipo === 'pago') {
-                    botonBorrar = `
-                        <button class="btn btn-sm btn-outline-danger" onclick="confirmarBorrarMovimientoDashboard(${mov.id}, '${mov.tipo}', '${(mov.concepto || '').replace(/'/g, "\\'")}')" title="Borrar ${(mov.tipo === 'credito') ? 'crédito' : 'pago'}">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    `;
-                }
+                // En el portal de clientes no se permite borrar movimientos
+                // botonBorrar = ''; // Ya está inicializado como string vacío
 
-                return `
+                // Construir fila base
+                let rowHTML = `
                     <tr>
                         <td>${mov.tipo === 'comprobante' ? formatDatePreserveTime(mov.fecha) : formatDate(mov.fecha)}</td>
                         <td>
@@ -788,11 +796,17 @@
                             ${mov.referencia ? `<small><strong>Ref:</strong> ${mov.referencia}</small><br>` : ''}
                             ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `<div class='mt-1'><small class='text-success'><strong>Vinculado a Acreditación:</strong> ${mov.id_acreditacion}</small></div>` : ''}
                             ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `<div class='mt-1'><small class='text-warning'><strong>⚠️ Sin vincular a acreditación</strong></small></div>` : ''}
-                        </td>
-                        <td class="text-end fw-bold ${saldoClass}">${saldoContent}</td>
-                        <td class="text-center">${botonBorrar}</td>
-                    </tr>
-                `;
+                        </td>`;
+
+                // Agregar columna de saldo acumulado solo si estamos en la vista "Todos"
+                if (movimientosFilter === '') {
+                    rowHTML += `<td class="text-end fw-bold ${saldoClass}">${saldoContent}</td>`;
+                }
+
+                // Agregar columna de acciones
+                rowHTML += `<td class="text-center">${botonBorrar}</td></tr>`;
+
+                return rowHTML;
             }).join('');
 
             // Actualizar contador de movimientos
@@ -1167,34 +1181,8 @@
             });
         };
 
-        // Agregar función para confirmar y borrar
-        if (typeof window.confirmarBorrarMovimientoDashboard !== 'function') {
-            window.confirmarBorrarMovimientoDashboard = function(id, tipo, concepto) {
-                const tipoTexto = tipo === 'credito' ? 'crédito' : 'pago';
-                const mensaje = `¿Estás seguro de que deseas borrar este ${tipoTexto}?\n\nID: ${id}\nConcepto: ${concepto}\n\nEsta acción es irreversible.`;
-                if (confirm(mensaje)) {
-                    borrarMovimientoDashboard(id, tipo);
-                }
-            };
-        }
-        if (typeof window.borrarMovimientoDashboard !== 'function') {
-            window.borrarMovimientoDashboard = async function(id, tipo) {
-                try {
-                    const res = await fetch(`/api/pagos/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
-                    const data = await res.json();
-                    if (data.success) {
-                        alert(`${tipo === 'credito' ? 'Crédito' : 'Pago'} borrado exitosamente`);
-                        // Recargar movimientos
-                        if (typeof loadMovimientos === 'function') loadMovimientos();
-                        else location.reload();
-                    } else {
-                        alert(data.error || data.message || `Error al borrar ${tipo === 'credito' ? 'crédito' : 'pago'}`);
-                    }
-                } catch (error) {
-                    alert(`Error al borrar ${tipo === 'credito' ? 'crédito' : 'pago'}`);
-                }
-            };
-        }
+        // En el portal de clientes no se permite borrar movimientos
+        // Las funciones de borrado han sido removidas por seguridad
     </script>
 </body>
 </html> 
