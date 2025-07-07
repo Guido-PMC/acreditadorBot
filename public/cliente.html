@@ -818,11 +818,8 @@
           return;
         }
         allMovimientos = result.data;
-        movimientosTotal = result.pagination?.total || allMovimientos.length;
-        movimientosPages = result.pagination?.pages || 1;
-        renderMovimientosUnificados(allMovimientos);
-        renderMovimientosPaginacion();
-        document.getElementById('movimientosCount').textContent = movimientosTotal;
+        // Aplicar el filtro actual para calcular el conteo correcto
+        applyCurrentFilter();
       } catch (error) {
         console.error('Error cargando movimientos:', error);
         showAlert('danger', 'Error al cargar movimientos');
