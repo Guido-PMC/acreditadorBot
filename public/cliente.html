@@ -1181,7 +1181,6 @@
     // Nueva función para cargar movimientos desde el LEDGER
 async function loadMovimientosLedger(page = 1, limit = 25) {
   try {
-    const clienteId = window.clienteId;
     if (!clienteId) return;
     
     console.log('🔍 Cargando movimientos del LEDGER para cliente:', clienteId, 'página:', page, 'límite:', limit);
