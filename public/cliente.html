@@ -969,7 +969,14 @@
           break;
         case 'todos':
         default:
-          movimientosFiltrados = allMovimientos;
+          // Mostrar acreditaciones, pagos, créditos y comprobantes sin acreditar
+          // Excluir comprobantes que ya están acreditados (se muestran como acreditaciones)
+          movimientosFiltrados = allMovimientos.filter(mov => 
+            mov.tipo === 'acreditacion' || 
+            mov.tipo === 'pago' || 
+            mov.tipo === 'credito' || 
+            (mov.tipo === 'comprobante' && !mov.id_acreditacion)
+          );
           break;
       }
       // Actualizar conteo y paginación en base a los movimientos filtrados
