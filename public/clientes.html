@@ -221,7 +221,7 @@
         }
         tbody.innerHTML += `
           <tr>
-            <td>${cliente.nombre}</td>
+            <td><button class="btn btn-link p-0 text-decoration-none" onclick="viewComprobantes(${cliente.id})">${cliente.nombre}</button></td>
             <td class="text-end fw-bold ${mostrarSaldos && parseFloat(cliente.saldoTotal || 0) > 0 ? "text-success" : "text-muted"}">${saldoTotal}</td>
             <td class="text-end fw-bold ${mostrarSaldos && parseFloat(cliente.porAcreditar || 0) > 0 ? "text-secondary" : "text-muted"}">${porAcreditar}</td>
             <td class="text-end fw-bold ${mostrarSaldos && parseFloat(cliente.comprobantesPendientes || 0) > 0 ? "text-warning" : "text-muted"}">${comprobantesPendientes}</td>
@@ -229,7 +229,6 @@
             <td>${comision}</td>
             <td>${plazo}</td>
             <td>
-              <button class="btn btn-sm btn-info me-1" onclick="viewComprobantes(${cliente.id})">Comprobantes</button>
               <button class="btn btn-sm btn-warning me-1" onclick="editCliente(${cliente.id})">Editar</button>
               <button class="btn btn-sm btn-danger" onclick="deleteCliente(${cliente.id})">Eliminar</button>
             </td>
