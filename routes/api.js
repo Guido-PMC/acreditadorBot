@@ -4412,7 +4412,7 @@ router.post('/fix-comisiones-cotejadas', async (req, res) => {
   }
 });
 
-// GET /api/clientes/:id/movimientos-unificados - Obtener movimientos unificados de un cliente (sin autenticación)
+// GET /api/clientes/:id/movimientos-unificados - Obtener movimientos unificados con saldo acumulado calculado en servidor
 router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
   const client = await db.getClient();
   
@@ -4426,31 +4426,20 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
     } = req.query;
 
     const cliente_id = parseInt(req.params.id);
-    const offset = (page - 1) * limit;
 
-    // Obtener plazo de acreditación del cliente
+    // 1. Obtener saldo actual del cliente
+    const saldoResult = await client.query(
+      'SELECT saldo_actual FROM clientes WHERE id = $1', 
+      [cliente_id]
+    );
+    const saldoActual = parseFloat(saldoResult.rows[0]?.saldo_actual || 0);
+
+    // 2. Obtener plazo de acreditación del cliente
     const clienteResult = await client.query('SELECT plazo_acreditacion FROM clientes WHERE id = $1', [cliente_id]);
     const plazoAcreditacion = clienteResult.rows[0]?.plazo_acreditacion || 24;
 
-    // Construir condiciones de filtro
-    let whereConditions = ['CAST(id_cliente AS INTEGER) = $1'];
-    let params = [cliente_id];
-    let paramIndex = 2;
-
-    if (tipo === 'acreditacion') {
-      whereConditions.push('tipo = \'acreditacion\'');
-    } else if (tipo === 'comprobante') {
-      whereConditions.push('tipo = \'comprobante\'');
-    } else if (tipo === 'pago') {
-      whereConditions.push('tipo = \'pago\'');
-    } else if (tipo === 'credito') {
-      whereConditions.push('tipo = \'credito\'');
-    }
-
-    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
-
-    // Query para obtener todos los movimientos unificados
-    const dataQuery = `
+    // 3. Obtener TODOS los movimientos (sin paginación) para calcular saldo acumulado
+    const allMovimientosQuery = `
       (
         -- Acreditaciones
         SELECT 
@@ -4532,47 +4521,123 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
         WHERE CAST(id_cliente AS INTEGER) = $1
       )
       ORDER BY fecha_original ${orden === 'ASC' ? 'ASC' : 'DESC'}
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     
-    params.push(parseInt(limit), offset);
-    const dataResult = await client.query(dataQuery, params);
+    const allMovimientosResult = await client.query(allMovimientosQuery, [cliente_id]);
 
-    // Calcular fechas estimadas de liberación para acreditaciones, comprobantes y pagos tipo depósito
-    const movimientosConFechas = dataResult.rows.map(mov => {
+    // 4. Calcular fechas estimadas de liberación y procesar movimientos
+    const movimientosProcesados = allMovimientosResult.rows.map(mov => {
+      // Calcular fechas de liberación
       if (mov.tipo === 'acreditacion' || mov.tipo === 'comprobante') {
         const fechaRecepcion = mov.fecha_recepcion || mov.fecha;
         mov.fecha_estimada_liberacion = formatearFechaLiberacion(fechaRecepcion, plazoAcreditacion);
         mov.esta_liberado = estaLiberado(fechaRecepcion, plazoAcreditacion);
       } else if (mov.tipo === 'credito' && mov.metodo_pago && mov.metodo_pago.toLowerCase() === 'deposito') {
-        // Solo los créditos tipo depósito tienen plazo de acreditación
         mov.fecha_estimada_liberacion = formatearFechaLiberacion(mov.fecha, plazoAcreditacion);
         mov.esta_liberado = estaLiberado(mov.fecha, plazoAcreditacion);
+      } else {
+        mov.esta_liberado = true; // Pagos y otros créditos siempre están liberados
       }
-      return mov;
+
+      // Determinar si es entrada o salida
+      const esEntrada = mov.tipo === 'acreditacion' || mov.tipo === 'credito';
+      const importeBruto = parseFloat(mov.importe || 0);
+      const comision = parseFloat(mov.importe_comision || 0);
+      const importeNeto = importeBruto - comision;
+
+      return {
+        ...mov,
+        esEntrada,
+        importeBruto,
+        importeNeto
+      };
     });
 
-    // Query para contar total usando UNION (corregido para evitar duplicación)
-    const countQuery = `
-      SELECT COUNT(*) as total FROM (
-        SELECT 1 FROM acreditaciones WHERE CAST(id_cliente AS INTEGER) = $1
-        UNION ALL
-        SELECT 1 FROM comprobantes_whatsapp WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
-        UNION ALL
-        SELECT 1 FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1
-      ) as combined_movements
-    `;
-    const countResult = await client.query(countQuery, [cliente_id]);
-    const total = parseInt(countResult.rows[0].total || 0);
+    // 5. Calcular saldo acumulado (lógica de extracto bancario)
+    // Ordenar por fecha (más reciente primero) para calcular desde el saldo actual hacia atrás
+    const movimientosOrdenados = [...movimientosProcesados].sort((a, b) => {
+      const fechaA = new Date(a.fecha_original);
+      const fechaB = new Date(b.fecha_original);
+      
+      if (fechaA.getTime() === fechaB.getTime()) {
+        return (b.id || 0) - (a.id || 0); // Más reciente primero por ID
+      }
+      
+      return fechaB - fechaA; // Más reciente primero
+    });
+
+    let saldoAcumulado = saldoActual;
+    const movimientosConSaldo = movimientosOrdenados.map(mov => {
+      // El saldo acumulado es ANTES del movimiento
+      const saldoAntes = saldoAcumulado;
+      
+      // Solo procesar movimientos liberados para el cálculo de saldo
+      if (mov.esta_liberado) {
+        if (mov.esEntrada) {
+          // Es un COBRO (crédito): RESTAR el importe neto del saldo
+          saldoAcumulado -= mov.importeNeto;
+        } else {
+          // Es un PAGO (débito): SUMAR el importe bruto al saldo
+          saldoAcumulado += mov.importeBruto;
+        }
+      }
+      
+      return {
+        ...mov,
+        saldo_acumulado: saldoAntes
+      };
+    });
+
+    // 6. Aplicar filtros si es necesario
+    let movimientosFiltrados = movimientosConSaldo;
+    if (tipo) {
+      switch (tipo) {
+        case 'acreditacion':
+          movimientosFiltrados = movimientosConSaldo.filter(mov => mov.tipo === 'acreditacion');
+          break;
+        case 'comprobante':
+          movimientosFiltrados = movimientosConSaldo.filter(mov => mov.tipo === 'comprobante');
+          break;
+        case 'pago':
+          movimientosFiltrados = movimientosConSaldo.filter(mov => mov.tipo === 'pago');
+          break;
+        case 'credito':
+          movimientosFiltrados = movimientosConSaldo.filter(mov => mov.tipo === 'credito');
+          break;
+      }
+    }
+
+    // 7. Aplicar paginación al resultado final
+    const total = movimientosFiltrados.length;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const movimientosPagina = movimientosFiltrados.slice(startIndex, endIndex);
+
+    // 8. Ordenar para mostrar (más recientes primero)
+    const movimientosParaMostrar = movimientosPagina.sort((a, b) => {
+      const fechaA = new Date(a.fecha_original);
+      const fechaB = new Date(b.fecha_original);
+      
+      if (fechaA.getTime() === fechaB.getTime()) {
+        return (b.id || 0) - (a.id || 0); // Más reciente primero por ID
+      }
+      
+      return fechaB - fechaA; // Más reciente primero
+    });
 
     res.json({
       success: true,
-      data: movimientosConFechas,
+      data: movimientosParaMostrar,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / limit)
+      },
+      debug: {
+        saldo_actual_cliente: saldoActual,
+        total_movimientos: total,
+        movimientos_en_pagina: movimientosParaMostrar.length
       }
     });
 

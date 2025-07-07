@@ -809,10 +809,15 @@
     // Cargar todos los movimientos del cliente usando la nueva ruta unificada
     async function loadMovimientosUnificados() {
       try {
-        console.log('🔍 Cargando movimientos del cliente:', clienteId, 'página:', movimientosPage, 'límite:', movimientosLimit);
+        console.log('🔍 Cargando movimientos del cliente:', clienteId, 'página:', movimientosPage, 'límite:', movimientosLimit, 'filtro:', currentFilter);
         
-        // Construir URL con filtros si es necesario
+        // Construir URL con filtros
         let url = `/api/clientes/${clienteId}/movimientos-unificados?page=${movimientosPage}&limit=${movimientosLimit}`;
+        
+        // Agregar filtro de tipo si no es 'todos'
+        if (currentFilter && currentFilter !== 'todos') {
+          url += `&tipo=${currentFilter}`;
+        }
         
         const response = await fetch(url);
         const result = await response.json();
@@ -831,7 +836,8 @@
           total: movimientosTotal,
           pages: movimientosPages,
           currentPage: movimientosPage,
-          movimientosCount: allMovimientos.length
+          movimientosCount: allMovimientos.length,
+          saldo_actual_cliente: result.debug?.saldo_actual_cliente
         });
         
         // Renderizar movimientos y paginación
@@ -931,7 +937,7 @@
       `;
     }
 
-    // Función para filtrar movimientos
+    // Función para filtrar movimientos (ahora se hace en el servidor)
     function filterMovimientos(tipo) {
       currentFilter = tipo;
       
@@ -944,6 +950,7 @@
       document.getElementById('filter-todos').className = 'btn btn-outline-primary btn-sm';
       document.getElementById('filter-pendientes').className = 'btn btn-outline-warning btn-sm';
       document.getElementById('filter-cobros').className = 'btn btn-outline-success btn-sm';
+      document.getElementById('filter-acreditaciones').className = 'btn btn-outline-info btn-sm';
       document.getElementById('filter-pagos').className = 'btn btn-outline-secondary btn-sm';
       
       // Activar el botón seleccionado
@@ -956,65 +963,22 @@
           activeButton.className = 'btn btn-warning btn-sm';
         } else if (tipo === 'cobros') {
           activeButton.className = 'btn btn-success btn-sm';
+        } else if (tipo === 'acreditaciones') {
+          activeButton.className = 'btn btn-info btn-sm';
         } else if (tipo === 'pagos') {
           activeButton.className = 'btn btn-secondary btn-sm';
         }
       }
       
-      applyCurrentFilter();
+      // Recargar movimientos con el filtro aplicado
+      movimientosPage = 1; // Resetear a la primera página
+      loadMovimientosUnificados();
     }
 
-    // Aplicar filtro actual
+    // Aplicar filtro actual (ahora se hace en el servidor)
     function applyCurrentFilter() {
-      let movimientosFiltrados = allMovimientos;
-      switch (currentFilter) {
-        case 'pendientes':
-          // Comprobantes sin acreditación
-          movimientosFiltrados = allMovimientos.filter(mov => 
-            mov.tipo === 'comprobante' && !mov.id_acreditacion
-          );
-          break;
-        case 'cobros':
-          // Comprobantes acreditados y créditos
-          movimientosFiltrados = allMovimientos.filter(mov => 
-            (mov.tipo === 'comprobante' && mov.id_acreditacion) || mov.tipo === 'credito'
-          );
-          break;
-        case 'acreditaciones':
-          // Solo acreditaciones
-          movimientosFiltrados = allMovimientos.filter(mov => 
-            mov.tipo === 'acreditacion'
-          );
-          break;
-        case 'pagos':
-          // Solo pagos
-          movimientosFiltrados = allMovimientos.filter(mov => 
-            mov.tipo === 'pago'
-          );
-          break;
-        case 'todos':
-        default:
-          // Mostrar acreditaciones, pagos, créditos y comprobantes sin acreditar
-          // Excluir comprobantes que ya están acreditados (se muestran como acreditaciones)
-          movimientosFiltrados = allMovimientos.filter(mov => 
-            mov.tipo === 'acreditacion' || 
-            mov.tipo === 'pago' || 
-            mov.tipo === 'credito' || 
-            (mov.tipo === 'comprobante' && !mov.id_acreditacion)
-          );
-          break;
-      }
-      // Actualizar conteo y paginación en base a los movimientos filtrados
-      movimientosTotal = movimientosFiltrados.length;
-      movimientosPages = Math.max(1, Math.ceil(movimientosTotal / movimientosLimit));
-      // Si la página actual se pasa del máximo, ajustarla
-      if (movimientosPage > movimientosPages) movimientosPage = movimientosPages;
-      // Calcular el slice para la página actual
-      const startIdx = (movimientosPage - 1) * movimientosLimit;
-      const endIdx = startIdx + movimientosLimit;
-      const movimientosPagina = movimientosFiltrados.slice(startIdx, endIdx);
-      renderMovimientosUnificados(movimientosPagina);
-      renderMovimientosPaginacion();
+      // Los filtros ahora se aplican en el servidor
+      // Solo actualizar la interfaz
       document.getElementById('movimientosCount').textContent = movimientosTotal;
     }
 
@@ -1074,7 +1038,7 @@
     // Variable para almacenar el saldo inicial del cliente
     let saldoInicialCliente = 0;
 
-    // Renderizar movimientos unificados en una lista compacta
+    // Renderizar movimientos unificados usando saldo acumulado del servidor
     function renderMovimientosUnificados(movimientos) {
       const container = document.getElementById('movimientosContainer');
       if (!movimientos || movimientos.length === 0) {
@@ -1082,116 +1046,9 @@
         return;
       }
 
-      // Ordenar movimientos por fecha (más antiguos primero para calcular saldo acumulado)
-      // Usar ID como criterio secundario para movimientos con la misma fecha
-      const movimientosOrdenados = [...movimientos].sort((a, b) => {
-        const fechaA = new Date(a.fecha_original || a.fecha || a.fecha_pago || a.fecha_hora || a.created_at);
-        const fechaB = new Date(b.fecha_original || b.fecha || b.fecha_pago || b.fecha_hora || b.created_at);
-        
-        // Si las fechas son iguales, ordenar por ID (más reciente primero)
-        if (fechaA.getTime() === fechaB.getTime()) {
-          return (b.id || 0) - (a.id || 0);
-        }
-        
-        return fechaA - fechaB;
-      });
-
-            // Calcular saldo acumulado ANTES de cada movimiento (como un extracto bancario)
-      // Empezamos desde el saldo actual y vamos hacia atrás en el tiempo
-      
-      // Primero procesamos los movimientos para determinar cuáles están liberados
-      const movimientosProcesados = movimientosOrdenados.map(mov => {
-        // Determinar si es entrada o salida Y si está liberado
-        let esEntrada = false;
-        let estaLiberado = true; // Por defecto asumimos que está liberado
-        const fechaActual = new Date();
-        
-        if (mov.tipo === 'acreditacion' || (mov.tipo === 'comprobante' && mov.id_acreditacion)) {
-          esEntrada = true;
-          // Para acreditaciones, verificar si está liberado según la fecha estimada
-          if (mov.fecha_estimada_liberacion) {
-            estaLiberado = fechaActual >= new Date(mov.fecha_estimada_liberacion);
-          } else {
-            estaLiberado = true; // Si no hay fecha estimada, asumimos liberado
-          }
-        } else if (mov.tipo === 'credito') {
-          esEntrada = true;
-          // Los créditos tipo depósito pueden tener plazo de liberación
-          if (mov.metodo_pago && mov.metodo_pago.toLowerCase() === 'deposito') {
-            if (mov.fecha_estimada_liberacion) {
-              estaLiberado = fechaActual >= new Date(mov.fecha_estimada_liberacion);
-            } else {
-              estaLiberado = mov.esta_liberado !== false; // Si no está definido, asumimos liberado
-            }
-          } else {
-            estaLiberado = true; // Otros créditos están inmediatamente disponibles
-          }
-        } else if (mov.tipo === 'pago') {
-          esEntrada = false;
-          estaLiberado = true; // Los pagos siempre restan inmediatamente
-        }
-
-        // Calcular importe neto (descontando comisiones)
-        const importeBruto = parseFloat(mov.importe || 0);
-        const comision = parseFloat(mov.importe_comision || 0);
-        const importeNeto = importeBruto - comision;
-
-        return {
-          ...mov,
-          esEntrada: esEntrada,
-          importeNeto: importeNeto,
-          estaLiberado: estaLiberado,
-          importeBruto: importeBruto
-        };
-      });
-
-            // Lógica de extracto bancario: calcular saldo acumulado desde el más reciente hacia atrás
-      // El primer movimiento (más reciente) muestra el saldo actual
-      // Luego vamos hacia atrás restando/sumando según el tipo de movimiento
-      
-      // Ordenar movimientos procesados por fecha (más reciente primero) y por ID (más reciente primero)
-      const movimientosParaCalcular = movimientosProcesados.sort((a, b) => {
-        const fechaA = new Date(a.fecha_original || a.fecha || a.fecha_pago || a.fecha_hora || a.created_at);
-        const fechaB = new Date(b.fecha_original || b.fecha || b.fecha_pago || b.fecha_hora || b.created_at);
-        
-        if (fechaA.getTime() === fechaB.getTime()) {
-          return (b.id || 0) - (a.id || 0);
-        }
-        
-        return fechaB - fechaA;
-      });
-      
-      // Calcular saldo acumulado
-      let saldoAcumulado = saldoInicialCliente;
-      const movimientosConSaldo = [];
-      
-      movimientosParaCalcular.forEach(mov => {
-        // El saldo acumulado es el saldo ANTES del movimiento
-        const saldoAntes = saldoAcumulado;
-        
-        // Solo procesar movimientos liberados (los pendientes no afectan el saldo)
-        if (mov.estaLiberado) {
-          if (mov.esEntrada) {
-            // Es un COBRO (crédito): RESTAR el importe neto del saldo
-            saldoAcumulado -= mov.importeNeto;
-          } else {
-            // Es un PAGO (débito): SUMAR el importe bruto al saldo
-            saldoAcumulado += mov.importeBruto;
-          }
-        }
-        
-        movimientosConSaldo.push({
-          ...mov,
-          saldoAcumulado: saldoAntes // Saldo ANTES del movimiento
-        });
-      });
-
-      // Ordenar nuevamente por fecha (más recientes primero para mostrar)
-      const movimientosParaMostrar = movimientosConSaldo.sort((a, b) => {
-        const fechaA = new Date(a.fecha_original || a.fecha || a.fecha_pago || a.fecha_hora || a.created_at);
-        const fechaB = new Date(b.fecha_original || b.fecha || b.fecha_pago || b.fecha_hora || b.created_at);
-        return fechaB - fechaA;
-      });
+      // Los movimientos ya vienen con saldo_acumulado calculado por el servidor
+      // Solo necesitamos renderizarlos
+      const movimientosParaMostrar = movimientos;
 
       let html = `<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr>
         <th>ID</th>
@@ -1298,13 +1155,14 @@
             }
           } else if (estado) estadoBadge = `<span class="badge bg-secondary">${estado}</span>`;
         }
-        // Formatear saldo acumulado
-        const saldoAcumuladoFormatted = mov.saldoAcumulado.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
-        const saldoClass = mov.saldoAcumulado >= 0 ? 'text-success' : 'text-danger';
+        // Formatear saldo acumulado (viene del servidor)
+        const saldoAcumulado = parseFloat(mov.saldo_acumulado || 0);
+        const saldoAcumuladoFormatted = saldoAcumulado.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+        const saldoClass = saldoAcumulado >= 0 ? 'text-success' : 'text-danger';
         
         // Agregar indicador si el movimiento no está liberado
         let saldoContent = saldoAcumuladoFormatted;
-        if (!mov.estaLiberado && mov.esEntrada) {
+        if (!mov.esta_liberado && (mov.tipo === 'acreditacion' || mov.tipo === 'credito')) {
           saldoContent += ` <small class="text-muted" title="Pendiente de liberación">⏳</small>`;
         }
 
