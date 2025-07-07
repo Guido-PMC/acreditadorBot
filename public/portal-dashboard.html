@@ -301,6 +301,12 @@
         let movimientosPerPage = 25;
         let currentSort = { field: 'fecha', order: 'desc' }; // Estado del ordenamiento
         let saldoInicialCliente = 0; // Saldo inicial del cliente
+        
+        // Variables de paginación del servidor
+        let movimientosPage = 1;
+        let movimientosLimit = 100;
+        let movimientosTotal = 0;
+        let movimientosPages = 1;
 
         // Inicializar
         document.addEventListener('DOMContentLoaded', function() {
@@ -481,10 +487,10 @@
             return null;
         }
 
-        // Cargar movimientos unificados usando la nueva ruta
+        // Cargar movimientos unificados usando paginación del servidor
         async function loadMovimientosUnificados() {
             try {
-                const response = await authenticatedRequest('/portal/movimientos-unificados?limit=100');
+                const response = await authenticatedRequest(`/portal/movimientos-unificados?page=${movimientosPage}&limit=${movimientosLimit}`);
                 if (!response) return;
 
                 const result = await response.json();
@@ -493,14 +499,16 @@
                     return;
                 }
 
-                // Guardar todos los movimientos y resetear paginación
+                // Guardar movimientos y datos de paginación
                 allMovimientos = result.data;
-                currentPage = 1;
+                movimientosTotal = result.pagination?.total || allMovimientos.length;
+                movimientosPages = result.pagination?.pages || 1;
                 
                 // Inicializar indicadores de ordenamiento
                 updateSortIndicators(currentSort.field);
                 
                 displayMovimientosUnificados();
+                updateMovimientosPagination();
             } catch (error) {
                 console.error('Error cargando movimientos unificados:', error);
                 showAlert('Error al cargar movimientos unificados', 'danger');
@@ -682,15 +690,12 @@
                 return fechaB - fechaA;
             });
 
-            // Calcular paginación
-            const totalPages = Math.ceil(total / movimientosPerPage);
-            const startIndex = (currentPage - 1) * movimientosPerPage;
-            const endIndex = Math.min(startIndex + movimientosPerPage, total);
-            const movimientosPagina = movimientosParaMostrar.slice(startIndex, endIndex);
+            // Con paginación del servidor, ya tenemos los movimientos de la página actual
+            const movimientosPagina = movimientosParaMostrar;
 
-            // Actualizar información de paginación
-            updatePaginationInfo(startIndex + 1, endIndex, total);
-            updatePaginationControls(totalPages);
+            // Actualizar información de paginación del servidor
+            updateMovimientosPagination();
+            updatePaginationControls(movimientosPages);
 
             // Transformar comprobantes con acreditación vinculada a tipo 'acreditacion'
             const movimientosTransformados = movimientosPagina.map(mov => {
@@ -813,7 +818,7 @@
             // Actualizar contador de movimientos
             const movimientosCountElement = document.getElementById('movimientosCount');
             if (movimientosCountElement) {
-                movimientosCountElement.textContent = total;
+                movimientosCountElement.textContent = movimientosTotal;
             }
 
             // Inicializar tooltips después de poblar la tabla
@@ -829,6 +834,12 @@
             infoElement.textContent = `Mostrando ${start} a ${end} de ${total} movimientos`;
         }
 
+        // Actualizar paginación de movimientos del servidor
+        function updateMovimientosPagination() {
+            const infoElement = document.getElementById('movimientosUnificadosPaginationInfo');
+            infoElement.textContent = `Página ${movimientosPage} de ${movimientosPages} • Total: ${movimientosTotal} movimientos`;
+        }
+
         // Actualizar controles de paginación
         function updatePaginationControls(totalPages) {
             const paginationElement = document.getElementById('movimientosUnificadosPagination');
@@ -842,16 +853,16 @@
             
             // Botón anterior
             paginationHTML += `
-                <li class="page-item ${currentPage <= 1 ? 'disabled' : ''}">
-                    <a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;">
+                <li class="page-item ${movimientosPage <= 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="goToPage(${movimientosPage - 1}); return false;">
                         <i class="fas fa-chevron-left"></i>
                     </a>
                 </li>
             `;
             
             // Páginas
-            const startPage = Math.max(1, currentPage - 2);
-            const endPage = Math.min(totalPages, currentPage + 2);
+            const startPage = Math.max(1, movimientosPage - 2);
+            const endPage = Math.min(totalPages, movimientosPage + 2);
             
             // Primera página si no está visible
             if (startPage > 1) {
@@ -868,7 +879,7 @@
             // Páginas visibles
             for (let i = startPage; i <= endPage; i++) {
                 paginationHTML += `
-                    <li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <li class="page-item ${i === movimientosPage ? 'active' : ''}">
                         <a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a>
                     </li>
                 `;
@@ -888,8 +899,8 @@
             
             // Botón siguiente
             paginationHTML += `
-                <li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
-                    <a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;">
+                <li class="page-item ${movimientosPage >= totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="goToPage(${movimientosPage + 1}); return false;">
                         <i class="fas fa-chevron-right"></i>
                     </a>
                 </li>
@@ -900,16 +911,17 @@
 
         // Ir a página específica
         function goToPage(page) {
-            currentPage = page;
-            displayMovimientosUnificados();
+            if (page < 1 || page > movimientosPages) return;
+            movimientosPage = page;
+            loadMovimientosUnificados();
         }
 
         // Cambiar cantidad de movimientos por página
         function changeMovimientosPerPage() {
             const select = document.getElementById('movimientosPerPage');
-            movimientosPerPage = parseInt(select.value);
-            currentPage = 1; // Resetear a primera página
-            displayMovimientosUnificados();
+            movimientosLimit = parseInt(select.value);
+            movimientosPage = 1; // Resetear a primera página
+            loadMovimientosUnificados();
         }
 
         // Actualizar paginación de movimientos
@@ -963,7 +975,7 @@
         // Filtrar movimientos
         function filterMovimientos(tipo) {
             movimientosFilter = tipo;
-            currentPage = 1; // Resetear paginación al filtrar
+            movimientosPage = 1; // Resetear paginación del servidor al filtrar
             
             // Actualizar estado visual de los botones
             const buttons = document.querySelectorAll('.btn-group .btn');
@@ -979,7 +991,7 @@
                 activeButton.classList.add('active');
             }
             
-            displayMovimientosUnificados(); // Usar display en lugar de loadMovimientosUnificados
+            loadMovimientosUnificados(); // Recargar desde el servidor con el filtro
         }
 
         // Ordenar movimientos
