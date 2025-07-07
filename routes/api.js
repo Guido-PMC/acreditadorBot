@@ -4652,7 +4652,17 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
       debug: {
         saldo_actual_cliente: saldoActual,
         total_movimientos: total,
-        movimientos_en_pagina: movimientosParaMostrar.length
+        movimientos_en_pagina: movimientosParaMostrar.length,
+        primer_movimiento: movimientosParaMostrar[0] ? {
+          id: movimientosParaMostrar[0].id,
+          tipo: movimientosParaMostrar[0].tipo,
+          concepto: movimientosParaMostrar[0].concepto,
+          importe: movimientosParaMostrar[0].importe,
+          saldo_acumulado: movimientosParaMostrar[0].saldo_acumulado,
+          esta_liberado: movimientosParaMostrar[0].esta_liberado,
+          esEntrada: movimientosParaMostrar[0].esEntrada,
+          importeNeto: movimientosParaMostrar[0].importeNeto
+        } : null
       }
     });
 
