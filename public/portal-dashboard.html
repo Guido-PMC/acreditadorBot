@@ -227,7 +227,6 @@
                                 <th>Neto</th>
                                 <th>Detalles</th>
                                 <th class="text-end saldo-acumulado-header" id="saldoAcumuladoHeader">Saldo Acumulado</th>
-                                <th class="text-center acciones-header">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="movimientosUnificadosTableBody">
@@ -546,7 +545,7 @@
             const total = movimientosFiltrados.length;
             
             if (total === 0) {
-                const colspan = movimientosFilter === '' ? 9 : 8; // 9 columnas si está "Todos", 8 si es filtrado
+                const colspan = movimientosFilter === '' ? 8 : 7; // 8 columnas si está "Todos", 7 si es filtrado
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="${colspan}" class="text-center py-4 text-muted">
@@ -708,7 +707,7 @@
                 let badgeText = '';
                 let tipoText = '';
                 let importeClass = '';
-                let botonBorrar = '';
+                // Variable botonBorrar removida ya que no se usa
 
                 if (mov.tipo === 'comprobante' && mov.id_acreditacion) {
                     icon = 'fas fa-university';
@@ -767,7 +766,7 @@
                 }
 
                 // En el portal de clientes no se permite borrar movimientos
-                // botonBorrar = ''; // Ya está inicializado como string vacío
+                // La columna de acciones ha sido removida
 
                 // Construir fila base
                 let rowHTML = `
@@ -776,10 +775,13 @@
                         <td>
                             <span class="badge ${badgeClass} ms-1">${tipoText}</span>
                         </td>
-                        <td><strong>${(mov.concepto || '').replace(/^\s*[^\w\s]*\s*/, '')}</strong></td>
+                        <td>
+                            <strong>${(mov.concepto || '').replace(/^\s*[^\w\s]*\s*/, '')}</strong>
+                            ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `<span class="text-warning ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Sin vincular a acreditación">⚠️</span>` : ''}
+                        </td>
                         <td>
                             <div class="h5 mb-0 ${importeClass}" 
-                                 ${mov.fecha_estimada_liberacion ? `data-bs-toggle="tooltip" data-bs-placement="top" title="Fecha estimada de liberación: ${mov.fecha_estimada_liberacion}"` : ''}>
+                                 ${mov.fecha_estimada_liberacion ? `data-bs-toggle="tooltip" data-bs-placement="top" title="Fecha estimada de liberación: ${formatFechaLiberacion(mov.fecha_estimada_liberacion)}"` : ''}>
                                 ${mov.tipo === 'pago' ? '-' : ''}$${parseFloat(mov.importe || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                                 ${mov.fecha_estimada_liberacion ? (mov.esta_liberado ? '<i class="fas fa-check-circle text-success ms-1" style="font-size: 0.8em;" title="Fondo liberado"></i>' : '<i class="fas fa-clock text-muted ms-1" style="font-size: 0.8em;" title="Pendiente de liberación"></i>') : ''}
                             </div>
@@ -795,7 +797,6 @@
                             ${mov.metodo_pago ? `<small><strong>Método:</strong> ${mov.metodo_pago}</small><br>` : ''}
                             ${mov.referencia ? `<small><strong>Ref:</strong> ${mov.referencia}</small><br>` : ''}
                             ${mov.tipo === 'comprobante' && mov.id_acreditacion ? `<div class='mt-1'><small class='text-success'><strong>Vinculado a Acreditación:</strong> ${mov.id_acreditacion}</small></div>` : ''}
-                            ${mov.tipo === 'comprobante' && !mov.id_acreditacion ? `<div class='mt-1'><small class='text-warning'><strong>⚠️ Sin vincular a acreditación</strong></small></div>` : ''}
                         </td>`;
 
                 // Agregar columna de saldo acumulado solo si estamos en la vista "Todos"
@@ -803,8 +804,8 @@
                     rowHTML += `<td class="text-end fw-bold ${saldoClass}">${saldoContent}</td>`;
                 }
 
-                // Agregar columna de acciones
-                rowHTML += `<td class="text-center">${botonBorrar}</td></tr>`;
+                // Cerrar la fila
+                rowHTML += `</tr>`;
 
                 return rowHTML;
             }).join('');
@@ -1183,6 +1184,24 @@
 
         // En el portal de clientes no se permite borrar movimientos
         // Las funciones de borrado han sido removidas por seguridad
+
+        // Función para formatear fecha de liberación en formato DD/MM - HH:MM
+        function formatFechaLiberacion(fechaISO) {
+            if (!fechaISO) return '';
+            
+            try {
+                const fecha = new Date(fechaISO);
+                const dia = fecha.getDate().toString().padStart(2, '0');
+                const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
+                const hora = fecha.getHours().toString().padStart(2, '0');
+                const minutos = fecha.getMinutes().toString().padStart(2, '0');
+                
+                return `${dia}/${mes} - ${hora}:${minutos}`;
+            } catch (error) {
+                console.error('Error formateando fecha de liberación:', error);
+                return fechaISO; // Fallback al formato original
+            }
+        }
     </script>
 </body>
 </html> 
