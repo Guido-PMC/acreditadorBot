@@ -924,53 +924,7 @@
             loadMovimientosUnificados();
         }
 
-        // Actualizar paginación de movimientos
-        function updateMovimientosPagination(pagination) {
-            const paginationElement = document.getElementById('movimientosUnificadosPagination');
-            const infoElement = document.getElementById('movimientosUnificadosPaginationInfo');
-            
-            infoElement.textContent = `Mostrando ${pagination.page} de ${pagination.pages} páginas (${pagination.total} movimientos total)`;
-            
-            let paginationHTML = '';
-            
-            // Botón anterior
-            paginationHTML += `
-                <li class="page-item ${pagination.page <= 1 ? 'disabled' : ''}">
-                    <a class="page-link" href="#" onclick="changeMovimientosPage(${pagination.page - 1})">
-                        <i class="fas fa-chevron-left"></i>
-                    </a>
-                </li>
-            `;
-            
-            // Páginas
-            const startPage = Math.max(1, pagination.page - 2);
-            const endPage = Math.min(pagination.pages, pagination.page + 2);
-            
-            for (let i = startPage; i <= endPage; i++) {
-                paginationHTML += `
-                    <li class="page-item ${i === pagination.page ? 'active' : ''}">
-                        <a class="page-link" href="#" onclick="changeMovimientosPage(${i})">${i}</a>
-                    </li>
-                `;
-            }
-            
-            // Botón siguiente
-            paginationHTML += `
-                <li class="page-item ${pagination.page >= pagination.pages ? 'disabled' : ''}">
-                    <a class="page-link" href="#" onclick="changeMovimientosPage(${pagination.page + 1})">
-                        <i class="fas fa-chevron-right"></i>
-                    </a>
-                </li>
-            `;
-            
-            paginationElement.innerHTML = paginationHTML;
-        }
 
-        // Cambiar página de movimientos
-        function changeMovimientosPage(page) {
-            movimientosPage = page;
-            loadMovimientos();
-        }
 
         // Filtrar movimientos
         function filterMovimientos(tipo) {
@@ -1045,8 +999,8 @@
             updateSortIndicators(field);
             
             // Resetear a primera página y mostrar
-            currentPage = 1;
-            displayMovimientosUnificados();
+            movimientosPage = 1;
+            loadMovimientosUnificados();
         }
         
         // Actualizar indicadores visuales de ordenamiento
