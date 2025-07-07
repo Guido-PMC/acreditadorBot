@@ -4604,6 +4604,21 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
       };
     });
 
+    // Verificar que el cálculo sea correcto
+    // El último movimiento (más antiguo) debería tener un saldo acumulado razonable
+    const ultimoMovimiento = movimientosConSaldo[movimientosConSaldo.length - 1];
+    if (ultimoMovimiento && ultimoMovimiento.concepto === 'SALDO ANTERIOR') {
+      // Si el último movimiento es "SALDO ANTERIOR", su saldo acumulado debería ser cercano al importe
+      const diferencia = Math.abs(ultimoMovimiento.saldo_acumulado - ultimoMovimiento.importe);
+      if (diferencia > 1000) { // Si hay una diferencia significativa
+        console.warn('⚠️ Posible error en cálculo de saldo acumulado:', {
+          saldo_calculado: ultimoMovimiento.saldo_acumulado,
+          importe_movimiento: ultimoMovimiento.importe,
+          diferencia: diferencia
+        });
+      }
+    }
+
     // 6. Aplicar filtros si es necesario
     let movimientosFiltrados = movimientosConSaldo;
     if (tipo) {
