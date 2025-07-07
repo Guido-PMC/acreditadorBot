@@ -850,10 +850,10 @@
             
             let paginationHTML = '';
             
-            // Botón anterior
+            // Botón anterior - siempre visible pero deshabilitado en primera página
             paginationHTML += `
                 <li class="page-item ${movimientosPage <= 1 ? 'disabled' : ''}">
-                    <a class="page-link" href="#" onclick="goToPage(${movimientosPage - 1}); return false;">
+                    <a class="page-link" href="#" onclick="${movimientosPage > 1 ? `goToPage(${movimientosPage - 1}); return false;` : 'return false;'}">
                         <i class="fas fa-chevron-left"></i>
                     </a>
                 </li>
@@ -896,10 +896,10 @@
                 `;
             }
             
-            // Botón siguiente
+            // Botón siguiente - siempre visible pero deshabilitado en última página
             paginationHTML += `
                 <li class="page-item ${movimientosPage >= totalPages ? 'disabled' : ''}">
-                    <a class="page-link" href="#" onclick="goToPage(${movimientosPage + 1}); return false;">
+                    <a class="page-link" href="#" onclick="${movimientosPage < totalPages ? `goToPage(${movimientosPage + 1}); return false;` : 'return false;'}">
                         <i class="fas fa-chevron-right"></i>
                     </a>
                 </li>
