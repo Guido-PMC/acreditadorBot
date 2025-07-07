@@ -4582,9 +4582,8 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
     });
 
     let saldoAcumulado = saldoActual;
-    console.log('🔍 Debug - Saldo inicial para cálculo:', saldoAcumulado);
     
-    const movimientosConSaldo = movimientosOrdenados.map((mov, index) => {
+    const movimientosConSaldo = movimientosOrdenados.map(mov => {
       // El saldo acumulado es ANTES del movimiento
       const saldoAntes = saldoAcumulado;
       
@@ -4597,21 +4596,6 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
           // Es un PAGO (débito): SUMAR el importe bruto al saldo
           saldoAcumulado += mov.importeBruto;
         }
-      }
-      
-      // Debug para los primeros 5 movimientos
-      if (index < 5) {
-        console.log(`🔍 Debug - Movimiento ${index + 1}:`, {
-          id: mov.id,
-          tipo: mov.tipo,
-          concepto: mov.concepto,
-          importe: mov.importe,
-          importeNeto: mov.importeNeto,
-          esEntrada: mov.esEntrada,
-          esta_liberado: mov.esta_liberado,
-          saldo_antes: saldoAntes,
-          saldo_despues: saldoAcumulado
-        });
       }
       
       return {
@@ -4669,17 +4653,7 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
       debug: {
         saldo_actual_cliente: saldoActual,
         total_movimientos: total,
-        movimientos_en_pagina: movimientosParaMostrar.length,
-        primer_movimiento: movimientosParaMostrar[0] ? {
-          id: movimientosParaMostrar[0].id,
-          tipo: movimientosParaMostrar[0].tipo,
-          concepto: movimientosParaMostrar[0].concepto,
-          importe: movimientosParaMostrar[0].importe,
-          saldo_acumulado: movimientosParaMostrar[0].saldo_acumulado,
-          esta_liberado: movimientosParaMostrar[0].esta_liberado,
-          esEntrada: movimientosParaMostrar[0].esEntrada,
-          importeNeto: movimientosParaMostrar[0].importeNeto
-        } : null
+        movimientos_en_pagina: movimientosParaMostrar.length
       }
     });
 
