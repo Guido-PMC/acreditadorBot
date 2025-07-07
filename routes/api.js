@@ -4427,16 +4427,21 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
 
     const cliente_id = parseInt(req.params.id);
 
-    // 1. Obtener saldo actual del cliente
-    const saldoResult = await client.query(
-      'SELECT saldo_actual FROM clientes WHERE id = $1', 
-      [cliente_id]
-    );
-    const saldoActual = parseFloat(saldoResult.rows[0]?.saldo_actual || 0);
-
     // 2. Obtener plazo de acreditación del cliente
     const clienteResult = await client.query('SELECT plazo_acreditacion FROM clientes WHERE id = $1', [cliente_id]);
     const plazoAcreditacion = clienteResult.rows[0]?.plazo_acreditacion || 24;
+
+    // 1. Obtener saldo actual del cliente (calculado dinámicamente)
+    // Obtener todas las acreditaciones del cliente para cálculo de liberación
+    const acreditacionesResult = await client.query('SELECT importe, fecha_hora, comision, importe_comision FROM acreditaciones WHERE id_cliente = $1', [cliente_id]);
+    const acreditaciones = acreditacionesResult.rows;
+
+    // Obtener todos los pagos del cliente (para incluir depósitos, créditos y pagos)
+    const pagosResult = await client.query('SELECT importe, fecha_pago, concepto, tipo_pago, importe_comision, metodo_pago, fecha_pago as fecha FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1 AND estado = \'confirmado\'', [cliente_id]);
+    const pagos = pagosResult.rows;
+
+    // Calcular saldo actual con la fórmula correcta
+    const saldoActual = calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
 
     // 3. Obtener TODOS los movimientos (sin paginación) para calcular saldo acumulado
     const allMovimientosQuery = `
