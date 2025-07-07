@@ -399,7 +399,7 @@
         }
         renderClienteInfo(data.data);
         movimientosPage = 1; // Resetear a la primera página
-        loadMovimientosUnificados();
+        loadMovimientosLedger();
         loadClientesDropdown();
       } catch (error) {
         showAlert('danger', 'Error al cargar datos del cliente');
@@ -884,14 +884,14 @@
     function cambiarMovimientosPage(page) {
       if (page < 1 || page > movimientosPages) return;
       movimientosPage = page;
-      loadMovimientosUnificados();
+      loadMovimientosLedger(page, movimientosLimit);
     }
 
     function cambiarMovimientosPerPage() {
       const select = document.getElementById('movimientosPerPage');
       movimientosLimit = parseInt(select.value);
       movimientosPage = 1;
-      loadMovimientosUnificados();
+      loadMovimientosLedger(movimientosPage, movimientosLimit);
     }
 
     // Función de debug para verificar estado de la base de datos
@@ -971,7 +971,7 @@
       
       // Recargar movimientos con el filtro aplicado
       movimientosPage = 1; // Resetear a la primera página
-      loadMovimientosUnificados();
+      loadMovimientosLedger(movimientosPage, movimientosLimit);
     }
 
     // Aplicar filtro actual (ahora se hace en el servidor)
@@ -1176,6 +1176,120 @@
       tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
       });
+    }
+
+    // Nueva función para cargar movimientos desde el LEDGER
+async function loadMovimientosLedger(page = 1, limit = 25) {
+  try {
+    const clienteId = window.clienteId;
+    if (!clienteId) return;
+    
+    console.log('🔍 Cargando movimientos del LEDGER para cliente:', clienteId, 'página:', page, 'límite:', limit);
+    
+    const res = await fetch(`/api/ledger/${clienteId}/movimientos?page=${page}&limit=${limit}`);
+    const data = await res.json();
+    
+    if (data.success) {
+      // Actualizar variables globales de paginación
+      movimientosTotal = data.pagination?.total || 0;
+      movimientosPages = data.pagination?.pages || 1;
+      movimientosPage = data.pagination?.page || 1;
+      
+      // Renderizar movimientos
+      renderMovimientosLedger(data.data);
+      
+      // Actualizar paginación
+      renderMovimientosPaginacion({
+        total: movimientosTotal,
+        pages: movimientosPages,
+        currentPage: movimientosPage,
+        limit: limit
+      });
+      
+      // Actualizar contador
+      const countElement = document.getElementById('movimientosCount');
+      if (countElement) {
+        countElement.textContent = movimientosTotal;
+      }
+      
+      console.log('✅ Movimientos del LEDGER cargados:', {
+        total: movimientosTotal,
+        pages: movimientosPages,
+        currentPage: movimientosPage,
+        movimientos: data.data.length
+      });
+      
+    } else {
+      document.getElementById('movimientosContainer').innerHTML = '<div class="text-danger">Error al cargar movimientos</div>';
+    }
+  } catch (err) {
+    console.error('❌ Error cargando movimientos del LEDGER:', err);
+    document.getElementById('movimientosContainer').innerHTML = '<div class="text-danger">Error al cargar movimientos</div>';
+  }
+}
+
+    // Renderizar movimientos del LEDGER con las columnas solicitadas
+    function renderMovimientosLedger(movimientos) {
+      const container = document.getElementById('movimientosContainer');
+      if (!movimientos || movimientos.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted">No hay movimientos para mostrar.</div>';
+        return;
+      }
+      let html = `<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr>
+        <th>ID</th>
+        <th>Fecha</th>
+        <th>Tipo</th>
+        <th>Concepto</th>
+        <th class="text-end">Importe</th>
+        <th>Estado</th>
+        <th class="text-end">Comisión</th>
+        <th class="text-end">Saldo Anterior</th>
+        <th class="text-end">Saldo Actual</th>
+        <th class="text-center">Acciones</th>
+      </tr></thead><tbody>`;
+      movimientos.forEach(mov => {
+        const fecha = mov.fecha_movimiento ? formatDate(mov.fecha_movimiento) : '-';
+        let tipoBadge = '';
+        if (mov.tipo_movimiento === 'pago') tipoBadge = '<span class="badge bg-danger">Pago</span>';
+        else if (mov.tipo_movimiento === 'credito') tipoBadge = '<span class="badge bg-success">Crédito</span>';
+        else if (mov.tipo_movimiento === 'comprobante') tipoBadge = '<span class="badge bg-warning text-dark">Comprobante</span>';
+        else if (mov.tipo_movimiento === 'acreditacion') tipoBadge = '<span class="badge bg-info">Cobro</span>';
+        else tipoBadge = `<span class="badge bg-secondary">${mov.tipo_movimiento || 'Otro'}</span>`;
+        const concepto = mov.concepto || '-';
+        const importe = mov.importe_bruto !== undefined ? parseFloat(mov.importe_bruto).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '-';
+        const comision = mov.importe_comision !== undefined ? parseFloat(mov.importe_comision).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '-';
+        const saldoAnterior = mov.saldo_anterior !== undefined ? parseFloat(mov.saldo_anterior).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '-';
+        const saldoActual = mov.saldo_posterior !== undefined ? parseFloat(mov.saldo_posterior).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '-';
+        let estadoBadge = '';
+        if (mov.esta_liberado) estadoBadge = '<span class="badge bg-success">Liberado</span>';
+        else if (mov.tipo_movimiento === 'comprobante') estadoBadge = '<span class="badge bg-secondary">Por acreditar</span>';
+        else estadoBadge = '<span class="badge bg-warning text-dark">Pendiente</span>';
+        // Botón de borrar solo para créditos y pagos
+        let botonBorrar = '';
+        if (mov.tipo_movimiento === 'credito' || mov.tipo_movimiento === 'pago') {
+          botonBorrar = `
+            <button class="btn btn-sm btn-outline-danger" 
+                    onclick="confirmarBorrarMovimiento(${mov.id_movimiento}, '${mov.tipo_movimiento}', '${concepto.replace(/'/g, "\\'")}')" 
+                    title="Borrar ${mov.tipo_movimiento === 'credito' ? 'crédito' : 'pago'}">
+              <i class="fas fa-trash"></i>
+            </button>
+          `;
+        }
+        html += `<tr>
+          <td><code>${mov.id_movimiento || '-'}</code></td>
+          <td>${fecha}</td>
+          <td>${tipoBadge}</td>
+          <td>${concepto}</td>
+          <td class="text-end">${importe}</td>
+          <td>${estadoBadge}</td>
+          <td class="text-end">${comision}</td>
+          <td class="text-end">${saldoAnterior}</td>
+          <td class="text-end fw-bold">${saldoActual}</td>
+          <td class="text-center">${botonBorrar}</td>
+        </tr>`;
+      });
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
     }
   </script>
 </body>
