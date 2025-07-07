@@ -942,7 +942,6 @@
     // Aplicar filtro actual
     function applyCurrentFilter() {
       let movimientosFiltrados = allMovimientos;
-      
       switch (currentFilter) {
         case 'pendientes':
           // Comprobantes sin acreditación
@@ -973,9 +972,18 @@
           movimientosFiltrados = allMovimientos;
           break;
       }
-      
-      renderMovimientosUnificados(movimientosFiltrados);
-      document.getElementById('movimientosCount').textContent = movimientosFiltrados.length;
+      // Actualizar conteo y paginación en base a los movimientos filtrados
+      movimientosTotal = movimientosFiltrados.length;
+      movimientosPages = Math.max(1, Math.ceil(movimientosTotal / movimientosLimit));
+      // Si la página actual se pasa del máximo, ajustarla
+      if (movimientosPage > movimientosPages) movimientosPage = movimientosPages;
+      // Calcular el slice para la página actual
+      const startIdx = (movimientosPage - 1) * movimientosLimit;
+      const endIdx = startIdx + movimientosLimit;
+      const movimientosPagina = movimientosFiltrados.slice(startIdx, endIdx);
+      renderMovimientosUnificados(movimientosPagina);
+      renderMovimientosPaginacion();
+      document.getElementById('movimientosCount').textContent = movimientosTotal;
     }
 
     // Función para calcular comisión en tiempo real
