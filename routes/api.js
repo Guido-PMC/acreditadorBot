@@ -4441,7 +4441,17 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
     const pagos = pagosResult.rows;
 
     // Calcular saldo actual con la fórmula correcta
-    const saldoActual = calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
+    let saldoActual = calcularSaldoDisponibleCompleto(acreditaciones, pagos, plazoAcreditacion);
+
+    // Aplicar el mismo ajuste de comisiones que se hace en cliente.html
+    const debugSaldo = debugSaldoDisponible(acreditaciones, pagos, plazoAcreditacion);
+    if (debugSaldo) {
+      const comisiones_acreditaciones_liberadas = debugSaldo.comisiones_acreditaciones_liberadas || 0;
+      const comisiones_depositos_liberados = debugSaldo.comisiones_depositos_liberados || 0;
+      
+      // Aplicar la fórmula: saldo_actual = saldo_actual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados
+      saldoActual = saldoActual - comisiones_acreditaciones_liberadas - comisiones_depositos_liberados;
+    }
 
     // 3. Obtener TODOS los movimientos (sin paginación) para calcular saldo acumulado
     const allMovimientosQuery = `
