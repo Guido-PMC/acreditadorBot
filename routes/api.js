@@ -4552,12 +4552,12 @@ router.get('/clientes/:id/movimientos-unificados', async (req, res) => {
       return mov;
     });
 
-    // Query para contar total usando UNION
+    // Query para contar total usando UNION (corregido para evitar duplicación)
     const countQuery = `
       SELECT COUNT(*) as total FROM (
         SELECT 1 FROM acreditaciones WHERE CAST(id_cliente AS INTEGER) = $1
         UNION ALL
-        SELECT 1 FROM comprobantes_whatsapp WHERE CAST(id_cliente AS INTEGER) = $1
+        SELECT 1 FROM comprobantes_whatsapp WHERE CAST(id_cliente AS INTEGER) = $1 AND id_acreditacion IS NULL
         UNION ALL
         SELECT 1 FROM pagos WHERE CAST(id_cliente AS INTEGER) = $1
       ) as combined_movements
