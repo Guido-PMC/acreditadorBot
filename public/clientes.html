@@ -12,12 +12,15 @@
       <h1>Gestión de Clientes</h1>
       <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#clienteModal" onclick="openClienteModal()">Nuevo Cliente</button>
     </div>
+    <div id="infoContainer" class="mb-3">
+      <small class="text-muted">Cargando información...</small>
+    </div>
     <div class="row mb-3">
       <div class="col-md-9">
-      <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nombre, apellido, CUIT o email..." oninput="loadClientes()">
+      <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nombre, apellido, CUIT o email..." oninput="debounceSearch()">
       </div>
       <div class="col-md-3">
-        <select id="limitSelect" class="form-select" onchange="loadClientes(1)">
+        <select id="limitSelect" class="form-select" onchange="changeLimit()">
           <option value="10">10 por página</option>
           <option value="20" selected>20 por página</option>
           <option value="50">50 por página</option>
@@ -127,50 +130,110 @@
     let mostrarSaldos = false;
     let clientesCache = [];
     let currentSort = { field: null, order: 'asc' };
+    let searchTimeout = null;
 
     async function loadClientes(page = 1) {
-      currentPage = page;
-      currentSearch = document.getElementById("searchInput").value;
-      const limit = document.getElementById("limitSelect").value;
-      let url = `/api/clientes/nombres?page=${page}&limit=${limit}`;
-      if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (!data.success) {
-        showAlert("danger", data.error || "Error al cargar clientes");
-        return;
+      try {
+        currentPage = page;
+        currentSearch = document.getElementById("searchInput").value;
+        const limit = document.getElementById("limitSelect").value;
+        let url = `/api/clientes/nombres?page=${page}&limit=${limit}`;
+        if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
+        
+        console.log('🔍 Cargando clientes:', url);
+        
+        // Mostrar indicador de carga
+        const tbody = document.getElementById("clientesTableBody");
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="text-center py-4">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+              </div>
+              <div class="mt-2">Cargando clientes...</div>
+            </td>
+          </tr>
+        `;
+        
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        if (!data.success) {
+          showAlert("danger", data.error || "Error al cargar clientes");
+          return;
+        }
+        
+        console.log('📊 Datos recibidos:', {
+          total: data.pagination?.total,
+          pages: data.pagination?.pages,
+          currentPage: data.pagination?.page,
+          clientesCount: data.data?.length
+        });
+        
+        // Ya no sobrescribimos comision, plazo_acreditacion ni estado
+        clientesCache = data.data;
+        mostrarSaldos = false;
+        renderClientes(clientesCache);
+        renderPagination(data.pagination);
+        updatePageInfo(data.pagination);
+        
+      } catch (error) {
+        console.error('❌ Error cargando clientes:', error);
+        showAlert("danger", `Error al cargar clientes: ${error.message}`);
+        
+        // Mostrar mensaje de error en la tabla
+        const tbody = document.getElementById("clientesTableBody");
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="text-center py-4 text-danger">
+              <i class="fas fa-exclamation-triangle me-2"></i>
+              Error al cargar clientes: ${error.message}
+            </td>
+          </tr>
+        `;
       }
-      // Ya no sobrescribimos comision, plazo_acreditacion ni estado
-      clientesCache = data.data;
-      mostrarSaldos = false;
-      renderClientes(clientesCache);
-      renderPagination(data.pagination);
     }
 
     async function calcularSaldos() {
-      mostrarSaldos = true;
-      const fechaCorte = document.getElementById('fechaCorte').value;
-      const btnCalcular = document.getElementById('btnCalcularSaldos');
-      
-      btnCalcular.disabled = true;
-      btnCalcular.innerText = fechaCorte ? 'Calculando saldos históricos...' : 'Calculando...';
-      
-      const limit = document.getElementById("limitSelect").value;
-      
-      // Determinar qué endpoint usar
-      let endpoint = '/api/clientes/saldos';
-      if (fechaCorte) {
-        endpoint = '/api/clientes/saldos-fecha';
-      }
-      
-      let url = `${endpoint}?page=${currentPage}&limit=${limit}`;
-      if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
-      if (fechaCorte) url += `&fecha_corte=${fechaCorte}`;
-      
       try {
+        mostrarSaldos = true;
+        const fechaCorte = document.getElementById('fechaCorte').value;
+        const btnCalcular = document.getElementById('btnCalcularSaldos');
+        
+        btnCalcular.disabled = true;
+        btnCalcular.innerText = fechaCorte ? 'Calculando saldos históricos...' : 'Calculando...';
+        
+        const limit = document.getElementById("limitSelect").value;
+        
+        // Determinar qué endpoint usar
+        let endpoint = '/api/clientes/saldos';
+        if (fechaCorte) {
+          endpoint = '/api/clientes/saldos-fecha';
+        }
+        
+        let url = `${endpoint}?page=${currentPage}&limit=${limit}`;
+        if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
+        if (fechaCorte) url += `&fecha_corte=${fechaCorte}`;
+        
+        console.log('🔍 Calculando saldos:', url);
+        
         const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
         const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'Error al calcular saldos');
+        if (!data.success) {
+          throw new Error(data.error || 'Error al calcular saldos');
+        }
+        
+        console.log('📊 Saldos calculados:', {
+          clientesConSaldos: data.data?.length,
+          pagina: currentPage
+        });
         
         const saldosPorId = {};
         data.data.forEach(s => { saldosPorId[s.id] = s; });
@@ -194,11 +257,14 @@
         }
         
       } catch (err) {
+        console.error('❌ Error calculando saldos:', err);
         showAlert('danger', err.message || 'Error al calcular saldos');
+        mostrarSaldos = false; // Resetear estado en caso de error
+      } finally {
+        const btnCalcular = document.getElementById('btnCalcularSaldos');
+        btnCalcular.disabled = false;
+        btnCalcular.innerText = 'Calcular saldos';
       }
-      
-      btnCalcular.disabled = false;
-      btnCalcular.innerText = 'Calcular saldos';
     }
 
     function renderClientes(clientes) {
@@ -237,12 +303,77 @@
       });
     }
     function renderPagination(pagination) {
+      if (!pagination || !pagination.pages) {
+        console.warn('⚠️ Paginación inválida:', pagination);
+        return;
+      }
+      
       totalPages = pagination.pages;
       const ul = document.getElementById('pagination');
       ul.innerHTML = '';
-      for (let i = 1; i <= totalPages; i++) {
-        ul.innerHTML += `<li class="page-item${i === currentPage ? ' active' : ''}"><a class="page-link" href="#" onclick="loadClientes(${i})">${i}</a></li>`;
+      
+      console.log('📄 Renderizando paginación:', {
+        totalPages,
+        currentPage,
+        total: pagination.total
+      });
+      
+      // Si solo hay una página, no mostrar paginación
+      if (totalPages <= 1) {
+        return;
       }
+      
+      // Agregar botón "Anterior"
+      const prevDisabled = currentPage <= 1 ? 'disabled' : '';
+      ul.innerHTML += `
+        <li class="page-item ${prevDisabled}">
+          <a class="page-link" href="#" onclick="loadClientes(${currentPage - 1})" ${prevDisabled ? 'tabindex="-1"' : ''}>
+            <i class="fas fa-chevron-left"></i>
+          </a>
+        </li>
+      `;
+      
+      // Calcular rango de páginas a mostrar
+      const maxVisiblePages = 7;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      // Ajustar si estamos cerca del final
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      // Mostrar primera página si no está en el rango
+      if (startPage > 1) {
+        ul.innerHTML += `<li class="page-item"><a class="page-link" href="#" onclick="loadClientes(1)">1</a></li>`;
+        if (startPage > 2) {
+          ul.innerHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+      }
+      
+      // Mostrar páginas en el rango
+      for (let i = startPage; i <= endPage; i++) {
+        const activeClass = i === currentPage ? 'active' : '';
+        ul.innerHTML += `<li class="page-item ${activeClass}"><a class="page-link" href="#" onclick="loadClientes(${i})">${i}</a></li>`;
+      }
+      
+      // Mostrar última página si no está en el rango
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          ul.innerHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+        ul.innerHTML += `<li class="page-item"><a class="page-link" href="#" onclick="loadClientes(${totalPages})">${totalPages}</a></li>`;
+      }
+      
+      // Agregar botón "Siguiente"
+      const nextDisabled = currentPage >= totalPages ? 'disabled' : '';
+      ul.innerHTML += `
+        <li class="page-item ${nextDisabled}">
+          <a class="page-link" href="#" onclick="loadClientes(${currentPage + 1})" ${nextDisabled ? 'tabindex="-1"' : ''}>
+            <i class="fas fa-chevron-right"></i>
+          </a>
+        </li>
+      `;
     }
 
     function showAlert(type, message) {
@@ -361,6 +492,40 @@
       
       // Actualizar el ícono de ordenamiento
       updateSortIcon(field);
+    }
+
+    async function changeLimit() {
+      // Resetear a la primera página cuando se cambia el límite
+      await loadClientes(1);
+    }
+
+    function debounceSearch() {
+      // Cancelar el timeout anterior si existe
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+      
+      // Crear un nuevo timeout para ejecutar la búsqueda después de 500ms
+      searchTimeout = setTimeout(() => {
+        loadClientes(1); // Resetear a la primera página al buscar
+      }, 500);
+    }
+
+    function updatePageInfo(pagination) {
+      if (!pagination) return;
+      
+      const infoContainer = document.getElementById('infoContainer');
+      const startItem = (pagination.page - 1) * pagination.limit + 1;
+      const endItem = Math.min(pagination.page * pagination.limit, pagination.total);
+      
+      let infoText = `Mostrando ${startItem} a ${endItem} de ${pagination.total} clientes`;
+      if (pagination.total === 0) {
+        infoText = 'No hay clientes que mostrar';
+      } else if (pagination.pages > 1) {
+        infoText += ` (Página ${pagination.page} de ${pagination.pages})`;
+      }
+      
+      infoContainer.innerHTML = `<small class="text-muted">${infoText}</small>`;
     }
 
     function updateSortIcon(field) {
