@@ -5,8 +5,24 @@
  * Migra todos los datos existentes a la nueva tabla LEDGER
  */
 
-const db = require('./config/database');
+const { Pool } = require('pg');
 const ledgerUtils = require('./utils/ledger');
+
+// Configuración de Railway
+const pool = new Pool({
+  host: 'nozomi.proxy.rlwy.net',
+  port: 39888,
+  database: 'railway',
+  user: 'postgres',
+  password: 'qxxDSdtjcfdBpkVonqkYHFIsjVvzFDNz' || '',
+  ssl: { rejectUnauthorized: false }
+});
+
+// Wrapper para compatibilidad con el código existente
+const db = {
+  getClient: () => pool.connect(),
+  disconnect: () => pool.end()
+};
 
 async function migrarALedger() {
   console.log('🚀 Iniciando migración a LEDGER...');
